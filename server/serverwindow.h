@@ -42,6 +42,7 @@ private:
     void loadSettings();
     void saveSettings();
     void refreshDevices();
+    void refreshLocalAddresses();
     void updateRateLabel();
     void setRunning(bool running);
 
@@ -80,6 +81,7 @@ private:
     QSpinBox  *m_udpPort = nullptr;
     QLineEdit *m_password = nullptr;
     QCheckBox *m_forceEnc = nullptr;
+    QLabel    *m_addrLabel = nullptr;
 
     // etat
     QPushButton *m_startBtn = nullptr;

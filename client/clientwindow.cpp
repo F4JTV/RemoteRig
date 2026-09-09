@@ -22,6 +22,7 @@
 #include <QSpinBox>
 #include <QTabWidget>
 #include <QVBoxLayout>
+#include <utility>
 
 namespace rr {
 
@@ -186,6 +187,8 @@ QWidget *ClientWindow::buildStationPage()
     ctl->addWidget(down); ctl->addWidget(m_step); ctl->addWidget(up);
     v->addLayout(ctl);
 
+    m_catWidgets << m_vfoA << m_vfoB << m_mode << down << m_step << up;
+
     // Bandes
     auto *bands = new QGridLayout;
     struct { const char *name; quint64 hz; } table[] = {
@@ -203,6 +206,7 @@ QWidget *ClientWindow::buildStationPage()
             QMetaObject::invokeMethod(m_core, "setFrequency", Qt::QueuedConnection,
                                       Q_ARG(quint64, hz)); });
         bands->addWidget(btn, row, col);
+        m_catWidgets << btn;
         if (++col == 7) { col = 0; ++row; }
     }
     v->addLayout(bands);
@@ -217,6 +221,8 @@ QWidget *ClientWindow::buildStationPage()
     m_statsLabel = new QLabel(tr("Offline"));
     m_statsLabel->setStyleSheet("color:#888;");
     v->addWidget(m_statsLabel);
+
+    setCatEnabled(false);
 
     v->addStretch(1);
     return w;
@@ -392,7 +398,12 @@ void ClientWindow::setConnectedUi(bool up)
         m_statsLabel->setText(tr("Offline"));
         m_txLed->setText("RX");
         m_txLed->setStyleSheet(kRxStyle);
+        m_freqLabel->setText(QStringLiteral("—.——— ———"));
+        m_modeLabel->setText(QStringLiteral("—"));
+        m_sMeter->setValue(-54);
+        m_sLabel->setText(QStringLiteral("S0"));
     }
+    setCatEnabled(up && m_state.hasCat);
 }
 
 void ClientWindow::onConnectionChanged(bool up, const QString &msg)
@@ -405,6 +416,7 @@ void ClientWindow::onStateChanged(const RigState &st)
 {
     m_state = st;
     m_rigctld->updateState(st);
+    setCatEnabled(m_connected && st.hasCat);
 
     const quint64 hz = (st.vfo == "B") ? st.freqB : st.freqA;
     if (st.hasCat && hz > 0) {
@@ -456,6 +468,18 @@ void ClientWindow::setPtt(bool on)
     QMetaObject::invokeMethod(m_core, "setPtt", Qt::QueuedConnection, Q_ARG(bool, on));
     m_txLed->setText(on ? "TX" : "RX");
     m_txLed->setStyleSheet(on ? kTxStyle : kRxStyle);
+}
+
+// Sans CAT sur la station, rien de tout cela n'aboutirait : mieux vaut
+// griser les commandes que laisser l'opérateur cliquer dans le vide.
+void ClientWindow::setCatEnabled(bool on)
+{
+    for (QWidget *w : std::as_const(m_catWidgets))
+        w->setEnabled(on);
+    m_sMeter->setEnabled(on);
+    m_sLabel->setEnabled(on);
+    m_freqLabel->setStyleSheet(on ? "color:#f0c674;padding:8px;"
+                                  : "color:#5a5a5a;padding:8px;");
 }
 
 void ClientWindow::onPttPressed()  { setPtt(true); }

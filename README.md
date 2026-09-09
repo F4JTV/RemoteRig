@@ -119,8 +119,9 @@ the server tick "reject clients that do not encrypt".
 ## Radios without CAT
 
 Pick "Serial port — PTT only": the program opens the port solely to toggle RTS
-or DTR. The client then shows "no CAT" instead of the frequency, but audio and
-PTT work normally. The "keep DTR asserted" option powers interfaces that draw
+or DTR. The client then greys out everything CAT would be needed for — bands,
+modes, VFO, tuning steps, S-meter — and shows "no CAT" instead of the frequency.
+Audio and PTT work normally. The "keep DTR asserted" option powers interfaces that draw
 current from the line, such as Digirig.
 
 ## Data modes
@@ -222,10 +223,26 @@ Two things to know before starting:
 
 ### 1. Build tools
 
-Install **Visual Studio 2022** (Community edition is fine) or, lighter, the
-**Build Tools for Visual Studio 2022**, ticking the *Desktop development with
+Install **Visual Studio 2026** or **2022** (Community edition is fine) or,
+lighter, the matching **Build Tools**, ticking the *Desktop development with
 C++* workload. That brings in the MSVC compiler, the Windows SDK, CMake and
 `lib.exe`.
+
+Both work. Two things to know if you go with the 2026 Build Tools:
+
+- The `Visual Studio 18 2026` CMake generator **requires CMake 4.2 or later**.
+  The CMake bundled with VS 2026 is recent enough; a separately installed older
+  CMake is not. If `cmake -B build` complains about the generator, either use
+  the bundled CMake, or add `-G Ninja` from the Developer Command Prompt, which
+  works with any CMake version because it picks `cl.exe` up from the
+  environment.
+- **Use a recent vcpkg checkout.** Older clones detect Visual Studio through
+  `vswhere` and do not know about version 18. `git pull` then
+  `bootstrap-vcpkg.bat` is enough.
+
+Qt does not need to match: MSVC 14.51, the default toolset of VS 2026, keeps
+binary compatibility with everything built since Visual Studio 2015, so the
+`msvc2022_64` Qt packages link fine under VS 2026.
 
 Also install **Git for Windows** (<https://git-scm.com/download/win>), needed by
 vcpkg.
@@ -277,7 +294,48 @@ lib /def:libhamlib-4.def /machine:x64 /out:hamlib.lib
 That produces `C:\hamlib\lib\msvc\hamlib.lib`. The code has been checked against
 the headers of both Hamlib 4.5.5 and 4.7.2.
 
-### 5. Configure and build
+Nothing else to install. `hamlib/rig.h` includes `<pthread.h>` unconditionally,
+which MSVC does not ship — Hamlib's own comment suggests fetching the NuGet
+pthreads package. That is not needed here: `compat/msvc/pthread.h` supplies the
+only two types the headers refer to, `pthread_t` and `pthread_mutex_t`, with the
+exact widths winpthreads uses. Both are members of `struct rig_state`, so the
+widths matter: they were verified by compiling the Hamlib headers twice under
+MinGW, once against real winpthreads and once against the shim. Both give
+`struct rig_state` at 31,424 bytes and `struct s_rig` at 47,752 bytes, so the
+layout matches the official DLL exactly. CMake adds that directory only when
+building with MSVC.
+
+### 5. Everything at once
+
+Once steps 1 to 4 are done, `build_all.bat` at the project root chains the whole
+thing: configure, compile, deploy the runtime libraries, and build the
+installer. Open the three paths at the top of the file and set them to match
+your machine:
+
+```bat
+set "QT_DIR=C:\Qt\6.11.2\msvc2022_64"
+set "VCPKG_ROOT=C:\vcpkg"
+set "HAMLIB_DIR=C:\hamlib"
+```
+
+Then, from a **x64 Native Tools Command Prompt**, in the project root:
+
+```bat
+build_all.bat
+```
+
+Options: `/clean` wipes the build directory first, `/nobuild` only redeploys and
+repackages, `/noinstaller` stops after staging.
+
+The script checks its prerequisites before doing anything and says which one is
+missing. Hamlib is treated as optional: without it, it builds the client alone
+and tells you so, and if only the import library is missing it prints the `lib
+/def:` command to run.
+
+The steps below describe the same thing by hand, should you need to intervene at
+one particular point.
+
+### 6. Configure and build
 
 Still in the **x64 Native Tools Command Prompt**, from the project directory:
 
@@ -304,7 +362,7 @@ cmake -B build ^
 cmake --build build --config Release --target remoterig-client
 ```
 
-### 6. Collect the DLLs
+### 7. Collect the DLLs
 
 The executables land in `build\Release\`. They need the Qt, vcpkg and Hamlib
 runtime libraries next to them:
@@ -329,6 +387,31 @@ proceed" dialog on startup.
 
 That folder is then self-contained and can be copied to another machine.
 
+### 8. Building the installer by hand
+
+`installer\RemoteRig.iss` produces a bilingual English/French installer that
+lets the user pick both programs, the server only, or the client only.
+
+Install **Inno Setup 6** (<https://jrsoftware.org/isdl.php>). `build_all.bat`
+finds it on its own in the usual locations; to invoke it directly, gather the
+files into `installer\dist` first — that is exactly what `build_all.bat
+/nobuild /noinstaller` does — then:
+
+```bat
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\RemoteRig.iss
+```
+
+The installer lands in `installer\output\RemoteRig-1.0.0-setup.exe`. It offers:
+
+- a language dialog at startup, then English or French throughout;
+- four install types — both programs, server only, client only, custom;
+- optional desktop shortcuts, one per program;
+- an optional firewall rule opening TCP 7300 and UDP 7301, offered only when the
+  server is selected, and removed on uninstall.
+
+Unticking both programs is refused rather than silently installing runtime
+libraries and nothing else.
+
 ### Virtual audio cable
 
 For data modes, install **VB-Audio Virtual Cable**
@@ -347,6 +430,10 @@ the transmit path.
 | 7301 | UDP | audio and PTT |
 | 4532 | TCP | rigctld, **local only** by default |
 
+The server's Network tab lists this machine's IPv4 addresses with the control
+port already appended, so you can read off what the remote operator should type
+instead of digging through `ipconfig`.
+
 The client learns the return address from the first datagram received: a single
 NAT to traverse, on the server side. Keepalives go out once a second.
 
@@ -361,16 +448,21 @@ the radio's ALC barely moves — the final control is still the radio's mic gain
 ```
 RemoteRig/
 ├── CMakeLists.txt
+├── build_all.bat     one-shot Windows build: compile, deploy, package
+├── LICENSE.txt
 ├── common/           protocol, crypto, codec, audio engine, resampler, i18n
-├── server/           Hamlib control, network core, window
-├── client/           network core, rigctld interface, window
-└── i18n/             remoterig_fr.ts, remoterig_fr.qm, translations.qrc
+├── compat/msvc/      pthread.h shim, MSVC only
+├── server/           Hamlib control, network core, window, appicon.rc
+├── client/           network core, rigctld interface, window, appicon.rc
+├── icons/            application icons (.png and .ico)
+├── i18n/             remoterig_fr.ts, remoterig_fr.qm, translations.qrc
+└── installer/        Inno Setup script
 ```
 
 ## State of the code
 
-Builds and links without a warning on Ubuntu 24.04 with Qt 6.4.2, Hamlib 4.5.5,
-PortAudio 19 and Opus. Both executables start and hold their event loop under
+Builds and links without a warning, `-Wall -Wextra` included, on Ubuntu 24.04
+with Qt 6.4.2, Hamlib 4.5.5, PortAudio 19 and Opus. Both executables start and hold their event loop under
 French and English locales. `server/rigcontroller.cpp` also compiles cleanly
 against the Hamlib 4.7.2 headers, and the 21 Hamlib symbols it uses are all
 exported by the MSVC `.def` file of the official Windows package.
@@ -379,8 +471,13 @@ The resampler is verified in isolation: exact sample counts, unity gain, and a
 10 kHz tone decimated to 16 kHz comes out at -53 dB. All 147 translatable
 strings are translated and checked at runtime.
 
-Nothing has run against real radio hardware yet. Two things to check on the
-first try:
+Nothing has been compiled on Windows yet, nor run against real radio hardware.
+Three things to check on the first try:
+
+- The Windows build has been carried through by a user on Visual Studio Build
+  Tools 2022 (MSVC 14.44) with Qt 6.11.2. Two problems came up and are fixed:
+  `M_PI`, which MSVC does not define unless `_USE_MATH_DEFINES` comes first, and
+  the missing `<pthread.h>` pulled in by the Hamlib headers.
 
 - The `\dump_state` reply of the rigctld interface is deliberately generic. It
   covers 30 kHz – 470 MHz and every mode; some Hamlib versions may want extra

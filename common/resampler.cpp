@@ -6,6 +6,9 @@
 
 namespace rr {
 
+// MSVC ne definit pas M_PI sans _USE_MATH_DEFINES.
+static constexpr double kPi = 3.14159265358979323846;
+
 static int gcdInt(int a, int b) { while (b) { const int t = a % b; a = b; b = t; } return a; }
 
 void Resampler::init(int inRate, int outRate, int tapsPerPhase)
@@ -46,11 +49,11 @@ void Resampler::init(int inRate, int outRate, int tapsPerPhase)
         if (std::fabs(x) < 1e-9) {
             sinc = 2.0 * fc;
         } else {
-            const double a = 2.0 * M_PI * fc * x;
+            const double a = 2.0 * kPi * fc * x;
             sinc = 2.0 * fc * std::sin(a) / a;
         }
         const double t = double(i) / double(n - 1);
-        const double win = 0.42 - 0.5 * std::cos(2.0 * M_PI * t) + 0.08 * std::cos(4.0 * M_PI * t);
+        const double win = 0.42 - 0.5 * std::cos(2.0 * kPi * t) + 0.08 * std::cos(4.0 * kPi * t);
         m_h[size_t(i)] = float(sinc * win);
     }
 

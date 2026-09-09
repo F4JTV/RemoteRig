@@ -626,5 +626,17 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
         <source>clear</source>
         <translation>clair</translation>
     </message>
+    <message>
+        <source>This machine</source>
+        <translation>Cette machine</translation>
+    </message>
+    <message>
+        <source>Refresh addresses</source>
+        <translation>Actualiser les adresses</translation>
+    </message>
+    <message>
+        <source>No network interface found</source>
+        <translation>Aucune interface réseau trouvée</translation>
+    </message>
 </context>
 </TS>

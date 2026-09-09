@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>remoterig-server.png</file>
+        <file>remoterig-client.png</file>
+    </qresource>
+</RCC>

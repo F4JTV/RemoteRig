@@ -43,6 +43,7 @@ private:
     QWidget *buildAudioPage();
     QWidget *buildDataPage();
     void setPtt(bool on);
+    void setCatEnabled(bool on);
     void tuneBy(qint64 delta);
     void loadSettings();
     void saveSettings();
@@ -56,6 +57,7 @@ private:
     bool m_connected = false;
     bool m_ptt = false;
     RigState m_state;
+    QList<QWidget *> m_catWidgets;   // désactivés quand la station n'a pas de CAT
 
     // connexion
     QLineEdit *m_host = nullptr;

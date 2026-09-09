@@ -13,6 +13,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
+#include <QNetworkInterface>
 #include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPushButton>
@@ -93,6 +94,8 @@ ServerWindow::ServerWindow(QWidget *parent) : QMainWindow(parent)
     refreshDevices();
     loadSettings();
     onBackendChanged();
+    refreshLocalAddresses();
+    connect(m_tcpPort, &QSpinBox::valueChanged, this, &ServerWindow::refreshLocalAddresses);
 }
 
 ServerWindow::~ServerWindow()
@@ -273,6 +276,18 @@ QWidget *ServerWindow::buildNetworkPage()
     m_forceEnc = new QCheckBox(tr("Reject clients that do not encrypt"));
     f->addRow("", m_forceEnc);
 
+    // L'opérateur distant a besoin de cette adresse : autant la lui donner
+    // ici plutôt que de le renvoyer vers ipconfig.
+    m_addrLabel = new QLabel;
+    m_addrLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_addrLabel->setWordWrap(true);
+    m_addrLabel->setStyleSheet("font-family:monospace;");
+    f->addRow(tr("This machine"), m_addrLabel);
+
+    auto *refresh = new QPushButton(tr("Refresh addresses"));
+    connect(refresh, &QPushButton::clicked, this, &ServerWindow::refreshLocalAddresses);
+    f->addRow("", refresh);
+
     auto *hint = new QLabel(tr(
         "On a local network or a VPN tunnel you can leave encryption off: it saves a "
         "few tens of microseconds per frame.\n"
@@ -284,6 +299,32 @@ QWidget *ServerWindow::buildNetworkPage()
 }
 
 // -------------------------------------------------------------------- logique
+// Adresses IPv4 utilisables par un client, l'adresse de bouclage exclue.
+void ServerWindow::refreshLocalAddresses()
+{
+    if (!m_addrLabel) return;
+
+    QStringList lines;
+    const auto interfaces = QNetworkInterface::allInterfaces();
+    for (const QNetworkInterface &iface : interfaces) {
+        if (!(iface.flags() & QNetworkInterface::IsUp)) continue;
+        if (iface.flags() & QNetworkInterface::IsLoopBack) continue;
+        const auto entries = iface.addressEntries();
+        for (const QNetworkAddressEntry &e : entries) {
+            const QHostAddress a = e.ip();
+            if (a.protocol() != QAbstractSocket::IPv4Protocol) continue;
+            lines << QString("%1:%2   (%3)")
+                         .arg(a.toString())
+                         .arg(m_tcpPort->value())
+                         .arg(iface.humanReadableName());
+        }
+    }
+
+    m_addrLabel->setText(lines.isEmpty()
+        ? tr("No network interface found")
+        : lines.join('\n'));
+}
+
 void ServerWindow::refreshDevices()
 {
     const int api = m_hostApi ? m_hostApi->currentData().toInt() : -1;

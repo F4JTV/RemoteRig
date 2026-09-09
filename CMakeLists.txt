@@ -17,6 +17,16 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network SerialPort)
 set(RR_TS ${CMAKE_CURRENT_SOURCE_DIR}/i18n/remoterig_fr.ts)
 set(RR_QM ${CMAKE_CURRENT_SOURCE_DIR}/i18n/remoterig_fr.qm)
 set(RR_QRC ${CMAKE_CURRENT_SOURCE_DIR}/i18n/translations.qrc)
+set(RR_ICONS_QRC ${CMAKE_CURRENT_SOURCE_DIR}/icons/icons.qrc)
+
+# Executable icon and version metadata, Windows only.
+if(WIN32)
+    set(RR_SERVER_RC ${CMAKE_CURRENT_SOURCE_DIR}/server/appicon.rc)
+    set(RR_CLIENT_RC ${CMAKE_CURRENT_SOURCE_DIR}/client/appicon.rc)
+else()
+    set(RR_SERVER_RC "")
+    set(RR_CLIENT_RC "")
+endif()
 
 find_package(Qt6 QUIET COMPONENTS LinguistTools)
 if(Qt6LinguistTools_FOUND)
@@ -85,6 +95,8 @@ add_executable(remoterig-server WIN32
     server/rigcontroller.cpp
     common/i18n.cpp
     ${RR_QRC}
+    ${RR_ICONS_QRC}
+    ${RR_SERVER_RC}
 )
 add_dependencies(remoterig-server rr_translations)
 target_link_libraries(remoterig-server PRIVATE rr_common Qt6::Widgets Qt6::SerialPort)
@@ -92,6 +104,15 @@ if(HAVE_HAMLIB)
     target_include_directories(remoterig-server PRIVATE ${HAMLIB_INCLUDE_DIR})
     target_link_libraries(remoterig-server PRIVATE ${HAMLIB_LIBRARY})
     target_compile_definitions(remoterig-server PRIVATE RR_HAVE_HAMLIB)
+
+    # hamlib/rig.h includes <pthread.h> unconditionally and MSVC ships none.
+    # compat/msvc supplies the two types the headers need, with the exact
+    # widths winpthreads uses, so the structure layout matches the official
+    # MinGW-built DLL. See compat/msvc/pthread.h.
+    if(MSVC)
+        target_include_directories(remoterig-server BEFORE PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/compat/msvc)
+    endif()
 endif()
 
 # -------------------------------------------------------------------- client
@@ -102,6 +123,8 @@ add_executable(remoterig-client WIN32
     client/rigctldserver.cpp
     common/i18n.cpp
     ${RR_QRC}
+    ${RR_ICONS_QRC}
+    ${RR_CLIENT_RC}
 )
 add_dependencies(remoterig-client rr_translations)
 target_link_libraries(remoterig-client PRIVATE rr_common Qt6::Widgets)

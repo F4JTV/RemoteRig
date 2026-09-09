@@ -123,8 +123,9 @@ deux côtés, et cochez côté serveur « refuser les clients qui ne chiffrent p
 ## Postes sans CAT
 
 Choisissez « Port série — PTT seul » : le programme n'ouvre le port que pour
-basculer RTS ou DTR. Le client affiche alors « pas de CAT » à la place de la
-fréquence, mais l'audio et le PTT fonctionnent normalement. L'option
+basculer RTS ou DTR. Le client grise alors tout ce qui exigerait le CAT —
+bandes, modes, VFO, pas d'accord, S-mètre — et affiche « pas de CAT » à la place
+de la fréquence. L'audio et le PTT fonctionnent normalement. L'option
 « maintenir DTR actif » alimente les interfaces qui tirent leur courant de la
 ligne, comme les Digirig.
 
@@ -228,10 +229,28 @@ Deux points à connaître avant de commencer :
 
 ### 1. Outils de compilation
 
-Installez **Visual Studio 2022** (l'édition Community suffit) ou, plus léger,
-les **Build Tools for Visual Studio 2022**, en cochant la charge de travail
+Installez **Visual Studio 2026** ou **2022** (l'édition Community suffit) ou,
+plus léger, les **Build Tools** correspondants, en cochant la charge de travail
 *Développement Desktop en C++*. Cela apporte le compilateur MSVC, le SDK
 Windows, CMake et `lib.exe`.
+
+Les deux conviennent. Deux points à connaître si vous partez sur les Build
+Tools 2026 :
+
+- Le générateur CMake `Visual Studio 18 2026` **exige CMake 4.2 ou plus
+  récent**. Le CMake livré avec VS 2026 l'est ; un CMake installé séparément et
+  plus ancien ne l'est pas. Si `cmake -B build` proteste sur le générateur,
+  utilisez celui fourni, ou ajoutez `-G Ninja` depuis la Developer Command
+  Prompt : Ninja fonctionne avec n'importe quelle version de CMake puisqu'il
+  reprend `cl.exe` dans l'environnement.
+- **Prenez un vcpkg récent.** Les clones anciens détectent Visual Studio via
+  `vswhere` et ignorent la version 18. Un `git pull` suivi de
+  `bootstrap-vcpkg.bat` suffit.
+
+Qt n'a pas besoin de correspondre : MSVC 14.51, le toolset par défaut de
+VS 2026, conserve la compatibilité binaire avec tout ce qui est compilé depuis
+Visual Studio 2015. Les paquets Qt `msvc2022_64` se lient donc sans problème
+sous VS 2026.
 
 Installez aussi **Git pour Windows** (<https://git-scm.com/download/win>),
 nécessaire à vcpkg.
@@ -285,7 +304,50 @@ lib /def:libhamlib-4.def /machine:x64 /out:hamlib.lib
 Vous obtenez `C:\hamlib\lib\msvc\hamlib.lib`. Le code a été vérifié contre les
 en-têtes de Hamlib 4.5.5 et 4.7.2.
 
-### 5. Configuration et compilation
+Rien d'autre à installer. `hamlib/rig.h` inclut `<pthread.h>` sans condition, ce
+que MSVC ne fournit pas — le commentaire de Hamlib lui-même suggère d'aller
+chercher le paquet NuGet pthreads. Ce n'est pas nécessaire ici :
+`compat/msvc/pthread.h` fournit les deux seuls types auxquels les en-têtes font
+référence, `pthread_t` et `pthread_mutex_t`, aux largeurs exactes de
+winpthreads. Ces deux types sont membres de `struct rig_state`, donc les
+largeurs comptent : elles ont été vérifiées en compilant deux fois les en-têtes
+Hamlib sous MinGW, une fois contre le vrai winpthreads et une fois contre le
+shim. Les deux donnent `struct rig_state` à 31 424 octets et `struct s_rig` à
+47 752 octets : la disposition est identique à celle de la DLL officielle. CMake
+n'ajoute ce dossier que lors d'une compilation MSVC.
+
+### 5. Tout d'un coup
+
+Une fois les étapes 1 à 4 faites, `build_all.bat` à la racine du projet enchaîne
+l'ensemble : configuration, compilation, déploiement des bibliothèques
+d'exécution et fabrication de l'installateur. Ouvrez-le et ajustez les trois
+chemins en tête du fichier :
+
+```bat
+set "QT_DIR=C:\Qt\6.11.2\msvc2022_64"
+set "VCPKG_ROOT=C:\vcpkg"
+set "HAMLIB_DIR=C:\hamlib"
+```
+
+Puis, depuis une **x64 Native Tools Command Prompt**, à la racine du projet :
+
+```bat
+build_all.bat
+```
+
+Options : `/clean` efface d'abord le dossier de compilation, `/nobuild` se
+contente de redéployer et réempaqueter, `/noinstaller` s'arrête après la
+préparation.
+
+Le script vérifie ses prérequis avant d'agir et indique celui qui manque. Hamlib
+est traité comme facultatif : sans lui, il compile le client seul et le signale,
+et si seule la bibliothèque d'import manque, il affiche la commande `lib /def:`
+à lancer.
+
+Les étapes ci-dessous décrivent la même chose à la main, si vous avez besoin
+d'intervenir à un endroit précis.
+
+### 6. Configuration et compilation
 
 Toujours dans la **x64 Native Tools Command Prompt**, depuis le dossier du
 projet :
@@ -313,7 +375,7 @@ cmake -B build ^
 cmake --build build --config Release --target remoterig-client
 ```
 
-### 6. Rassembler les DLL
+### 7. Rassembler les DLL
 
 Les exécutables sortent dans `build\Release\`. Il leur faut les bibliothèques
 d'exécution de Qt, de vcpkg et de Hamlib à côté d'eux :
@@ -338,6 +400,34 @@ par `libhamlib-4.dll`. Les oublier produit au démarrage une boîte de dialogue
 
 Le dossier est alors autonome et peut être copié sur une autre machine.
 
+### 8. Fabriquer l'installateur à la main
+
+`installer\RemoteRig.iss` produit un installateur bilingue anglais/français qui
+laisse choisir les deux programmes, le serveur seul, ou le client seul.
+
+Installez **Inno Setup 6** (<https://jrsoftware.org/isdl.php>). `build_all.bat`
+le trouve tout seul aux emplacements habituels ; pour l'appeler directement, il
+faut d'abord rassembler les fichiers dans `installer\dist` — c'est exactement ce
+que fait `build_all.bat /nobuild /noinstaller` — puis :
+
+```bat
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\RemoteRig.iss
+```
+
+L'installateur sort dans `installer\output\RemoteRig-1.0.0-setup.exe`. Il
+propose :
+
+- une boîte de dialogue de langue au démarrage, puis tout en anglais ou en
+  français ;
+- quatre types d'installation — les deux programmes, serveur seul, client seul,
+  personnalisé ;
+- des raccourcis Bureau facultatifs, un par programme ;
+- une règle de pare-feu facultative ouvrant TCP 7300 et UDP 7301, proposée
+  seulement si le serveur est retenu, et supprimée à la désinstallation.
+
+Décocher les deux programmes est refusé, plutôt que d'installer silencieusement
+des bibliothèques et rien d'autre.
+
 ### Câble audio virtuel
 
 Pour les modes numériques, installez **VB-Audio Virtual Cable**
@@ -356,6 +446,10 @@ choisissez « CABLE Input » comme sortie d'écoute ; dans WSJT-X, choisissez
 | 7301 | UDP | audio et PTT |
 | 4532 | TCP | rigctld, **local uniquement** par défaut |
 
+L'onglet Réseau du serveur liste les adresses IPv4 de la machine, port de
+contrôle déjà accolé : vous lisez directement ce que l'opérateur distant doit
+saisir, sans passer par `ipconfig`.
+
 Le client apprend l'adresse de retour du premier datagramme reçu : un seul NAT
 à traverser, côté serveur. Le maintien de session part toutes les secondes.
 
@@ -371,16 +465,21 @@ gain micro du poste.
 ```
 RemoteRig/
 ├── CMakeLists.txt
+├── build_all.bat     compilation Windows d'un bloc : build, déploiement, paquet
+├── LICENSE.txt
 ├── common/           protocole, crypto, codec, moteur audio, rééchantillonneur, i18n
-├── server/           pilotage Hamlib, cœur réseau, fenêtre
-├── client/           cœur réseau, interface rigctld, fenêtre
-└── i18n/             remoterig_fr.ts, remoterig_fr.qm, translations.qrc
+├── compat/msvc/      shim pthread.h, MSVC uniquement
+├── server/           pilotage Hamlib, cœur réseau, fenêtre, appicon.rc
+├── client/           cœur réseau, interface rigctld, fenêtre, appicon.rc
+├── icons/            icônes des applications (.png et .ico)
+├── i18n/             remoterig_fr.ts, remoterig_fr.qm, translations.qrc
+└── installer/        script Inno Setup
 ```
 
 ## État du code
 
-Compile et se lie sans avertissement sous Ubuntu 24.04 avec Qt 6.4.2,
-Hamlib 4.5.5, PortAudio 19 et Opus. Les deux exécutables démarrent et tiennent
+Compile et se lie sans le moindre avertissement, `-Wall -Wextra` compris, sous
+Ubuntu 24.04 avec Qt 6.4.2, Hamlib 4.5.5, PortAudio 19 et Opus. Les deux exécutables démarrent et tiennent
 leur boucle événementielle en locale française comme anglaise.
 `server/rigcontroller.cpp` compile également sans erreur contre les en-têtes de
 Hamlib 4.7.2, et les 21 symboles Hamlib utilisés sont tous exportés par le
@@ -390,8 +489,13 @@ Le rééchantillonneur est vérifié isolément : comptes d'échantillons exacts
 unité, et un ton à 10 kHz décimé vers 16 kHz ressort à -53 dB. Les 147 chaînes
 traduisibles sont toutes traduites et vérifiées à l'exécution.
 
-Rien n'a encore tourné sur du matériel radio réel. Deux points à vérifier lors
-du premier essai :
+Rien n'a encore été compilé sous Windows, ni testé sur du matériel radio réel.
+Trois points à vérifier lors du premier essai :
+
+- La compilation Windows a été menée par un utilisateur sous Visual Studio Build
+  Tools 2022 (MSVC 14.44) avec Qt 6.11.2. Deux problèmes sont apparus et sont
+  corrigés : `M_PI`, que MSVC ne définit pas sans `_USE_MATH_DEFINES` préalable,
+  et le `<pthread.h>` manquant qu'entraînent les en-têtes de Hamlib.
 
 - La réponse `\dump_state` de l'interface rigctld est volontairement générique.
   Elle couvre 30 kHz – 470 MHz et tous les modes ; certaines versions de Hamlib
