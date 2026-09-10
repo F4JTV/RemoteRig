@@ -61,13 +61,35 @@ void ClientCore::connectToStation(const ClientConfig &cfg)
 void ClientCore::disconnectFromStation()
 {
     if (m_ptt) setPtt(false);
+
+    // QAbstractSocket::abort() émet disconnected() immédiatement, dans la
+    // foulée de l'appel. Sans précaution, ce signal rappelle cette même
+    // fonction, met m_sock à nullptr, et l'appel extérieur reprend ensuite sur
+    // un pointeur mort. On coupe donc la boucle avant de toucher au socket :
+    // m_authenticated à false neutralise le gestionnaire, et le pointeur est
+    // détaché de l'objet avant abort().
+    m_authenticated = false;
+
     for (QTimer **t : {&m_audioTimer, &m_keepTimer, &m_statsTimer}) {
         if (*t) { (*t)->stop(); delete *t; *t = nullptr; }
     }
-    if (m_sock) { m_sock->abort(); m_sock->deleteLater(); m_sock = nullptr; }
-    if (m_udp)  { m_udp->close();  m_udp->deleteLater();  m_udp  = nullptr; }
+
+    if (m_sock) {
+        QTcpSocket *s = m_sock;
+        m_sock = nullptr;
+        s->disconnect(this);
+        s->abort();
+        s->deleteLater();
+    }
+    if (m_udp) {
+        QUdpSocket *u = m_udp;
+        m_udp = nullptr;
+        u->disconnect(this);
+        u->close();
+        u->deleteLater();
+    }
+
     m_audio.stopAll();
-    m_authenticated = false;
     m_encrypted = false;
     m_serverUdpPort = 0;
 }

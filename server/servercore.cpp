@@ -88,12 +88,33 @@ void ServerCore::stop()
 
     if (m_tx) { m_tx = false; emit requestPtt(false); }
 
-    if (m_sock) { m_sock->abort(); m_sock->deleteLater(); m_sock = nullptr; }
-    if (m_tcp)  { m_tcp->close();  m_tcp->deleteLater();  m_tcp  = nullptr; }
-    if (m_udp)  { m_udp->close();  m_udp->deleteLater();  m_udp  = nullptr; }
+    // Même précaution que côté client : abort() émet disconnected() sur-le-champ,
+    // ce qui rappellerait onTcpDisconnected() en pleine destruction.
+    m_authenticated = false;
+
+    if (m_sock) {
+        QTcpSocket *s = m_sock;
+        m_sock = nullptr;
+        s->disconnect(this);
+        s->abort();
+        s->deleteLater();
+    }
+    if (m_tcp) {
+        QTcpServer *t = m_tcp;
+        m_tcp = nullptr;
+        t->disconnect(this);
+        t->close();
+        t->deleteLater();
+    }
+    if (m_udp) {
+        QUdpSocket *u = m_udp;
+        m_udp = nullptr;
+        u->disconnect(this);
+        u->close();
+        u->deleteLater();
+    }
 
     m_audio.stopAll();
-    m_authenticated = false;
     m_encrypted = false;
     m_clientUdpPort = 0;
     emit stopped();
