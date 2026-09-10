@@ -30,11 +30,17 @@ void ClientCore::connectToStation(const ClientConfig &cfg)
         emit connectionChanged(false, tr("Audio output: %1").arg(m_audio.lastError()));
         return;
     }
-    if (!m_audio.startCapture(cfg.inputDevice, cfg.framesPerBuffer)) {
-        m_audio.stopPlayback();
-        emit connectionChanged(false, tr("Audio input: %1").arg(m_audio.lastError()));
-        return;
+
+    // Sans micro, la liaison reste utile en écoute : on se connecte quand même
+    // et on interdit simplement l'émission. Un Raspberry Pi n'a par exemple
+    // aucune entrée analogique, sa prise jack étant une sortie.
+    m_rxOnly = (cfg.inputDevice < 0);
+    if (!m_rxOnly && !m_audio.startCapture(cfg.inputDevice, cfg.framesPerBuffer)) {
+        emit logMessage(tr("Microphone unavailable: %1").arg(m_audio.lastError()));
+        m_rxOnly = true;
     }
+    if (m_rxOnly)
+        emit logMessage(tr("Receive only: no microphone, transmit is disabled"));
     m_audio.setCaptureMuted(true);   // le micro ne part qu'en émission
 
     m_encoder.setCodec(CODEC_PCM16);
@@ -91,6 +97,7 @@ void ClientCore::disconnectFromStation()
 
     m_audio.stopAll();
     m_encrypted = false;
+    m_rxOnly = false;
     m_serverUdpPort = 0;
 }
 
@@ -281,6 +288,7 @@ void ClientCore::sendPttPacket(bool on)
 
 void ClientCore::setPtt(bool on)
 {
+    if (m_rxOnly) return;
     if (!m_authenticated || m_ptt == on) return;
     m_ptt = on;
 

@@ -34,6 +34,7 @@ private slots:
     void onClientChanged(const QString &peer, bool connected, bool encrypted, const QString &codec);
     void onStats(int rttMs, int lost, float rxLevel, float txLevel);
     void appendLog(const QString &msg);
+    void onRescanDevices();
 
 private:
     QWidget *buildRigPage();

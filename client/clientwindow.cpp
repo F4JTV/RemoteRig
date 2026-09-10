@@ -26,6 +26,15 @@
 
 namespace rr {
 
+// Sur une liste vide, currentData() est invalide et toInt() renvoie 0 :
+// on ouvrirait alors le périphérique numéro 0, qui n'est pas celui voulu.
+static int deviceIndexOf(const QComboBox *box)
+{
+    if (!box) return -1;
+    const QVariant v = box->currentData();
+    return v.isValid() ? v.toInt() : -1;
+}
+
 static const char *kTxStyle = "background:#8c1c1c;color:#ffdede;font-size:20px;"
                               "font-weight:bold;padding:10px 18px;border-radius:6px;";
 static const char *kRxStyle = "background:#1c4a1c;color:#d8ffd8;font-size:20px;"
@@ -47,6 +56,7 @@ ClientWindow::ClientWindow(QWidget *parent) : QMainWindow(parent)
     connect(m_core, &ClientCore::stateChanged,      this, &ClientWindow::onStateChanged);
     connect(m_core, &ClientCore::statsUpdated,      this, &ClientWindow::onStats);
     connect(m_core, &ClientCore::logMessage,        this, &ClientWindow::appendLog);
+    connect(m_core, &ClientCore::receiveOnly,       this, &ClientWindow::onReceiveOnly);
 
     // Les applications numériques locales pilotent la station distante.
     connect(m_rigctld, &RigctldServer::requestFrequency, m_core, &ClientCore::setFrequency);
@@ -254,6 +264,12 @@ QWidget *ClientWindow::buildAudioPage()
     m_rateLabel = new QLabel("—");
     m_rateLabel->setWordWrap(true);
     f->addRow(tr("Negotiated rate"), m_rateLabel);
+
+    auto *rescan = new QPushButton(tr("Look for devices again"));
+    rescan->setToolTip(tr("Needed after plugging in a USB sound card: "
+                          "the device list is read once at startup."));
+    connect(rescan, &QPushButton::clicked, this, &ClientWindow::onRescanDevices);
+    f->addRow("", rescan);
     connect(m_inDev,  &QComboBox::currentIndexChanged, this, &ClientWindow::updateRateLabel);
     connect(m_outDev, &QComboBox::currentIndexChanged, this, &ClientWindow::updateRateLabel);
 
@@ -340,22 +356,63 @@ void ClientWindow::refreshDevices()
 {
     const int api = m_hostApi ? m_hostApi->currentData().toInt() : -1;
     const QSignalBlocker b1(m_inDev), b2(m_outDev);
+
     m_inDev->clear();
     for (const auto &d : AudioEngine::inputDevices(api))
         m_inDev->addItem(d.name, d.index);
+    // Une liste vide doit se lire, pas se deviner. L'index -1 signale
+    // l'absence de peripherique au reste du programme.
+    if (m_inDev->count() == 0)
+        m_inDev->addItem(tr("No microphone found — receive only"), -1);
+
     m_outDev->clear();
     for (const auto &d : AudioEngine::outputDevices(api))
         m_outDev->addItem(d.name, d.index);
+    if (m_outDev->count() == 0)
+        m_outDev->addItem(tr("No playback device found"), -1);
+}
+
+void ClientWindow::onRescanDevices()
+{
+    if (m_connected) {
+        appendLog(tr("Disconnect first: the device list cannot be reread "
+                     "while the audio streams are open."));
+        return;
+    }
+    AudioEngine::rescanDevices();
+    const QString keptApi = m_hostApi->currentText();
+    {
+        const QSignalBlocker b(m_hostApi);
+        m_hostApi->clear();
+        for (const auto &h : AudioEngine::hostApis())
+            m_hostApi->addItem(h.second, h.first);
+        const int i = m_hostApi->findText(keptApi);
+        if (i >= 0) m_hostApi->setCurrentIndex(i);
+    }
+    refreshDevices();
+    updateRateLabel();
+    appendLog(tr("Device list reread."));
+}
+
+void ClientWindow::onReceiveOnly(bool on)
+{
+    m_rxOnly = on;
+    m_pttBtn->setEnabled(m_connected && !on);
+    m_pttBtn->setText(on ? tr("Transmit unavailable — no microphone")
+                         : tr("Transmit  (hold, or press space)"));
 }
 
 void ClientWindow::updateRateLabel()
 {
     if (!m_rateLabel) return;
-    const double in  = AudioEngine::probeRate(m_inDev->currentData().toInt(), true);
-    const double out = AudioEngine::probeRate(m_outDev->currentData().toInt(), false);
+    const int inIdx  = deviceIndexOf(m_inDev);
+    const int outIdx = deviceIndexOf(m_outDev);
+    const double in  = inIdx  < 0 ? -1.0 : AudioEngine::probeRate(inIdx, true);
+    const double out = outIdx < 0 ? -1.0 : AudioEngine::probeRate(outIdx, false);
 
     auto describe = [](double r) {
-        if (r <= 0.0) return tr("rejected");
+        if (r < 0.0)  return tr("no device");
+        if (r == 0.0) return tr("rejected");
         if (int(r) == AudioEngine::kAudioRate) return tr("48000 Hz, direct");
         return tr("%1 Hz, resampled").arg(int(r));
     };
@@ -378,8 +435,12 @@ void ClientWindow::onConnectClicked()
     c.encrypt  = m_encrypt->isChecked();
     c.codec    = m_codec->currentData().toString();
     c.bitrate  = m_bitrate->value();
-    c.inputDevice  = m_inDev->currentData().toInt();
-    c.outputDevice = m_outDev->currentData().toInt();
+    c.inputDevice  = deviceIndexOf(m_inDev);
+    c.outputDevice = deviceIndexOf(m_outDev);
+    if (c.outputDevice < 0) {
+        appendLog(tr("No playback device: nothing could be heard."));
+        return;
+    }
     c.framesPerBuffer = m_frames->currentData().toInt();
     c.jitterMs = m_jitter->value();
     c.rxGain = float(m_rxGain->value());
@@ -393,7 +454,11 @@ void ClientWindow::setConnectedUi(bool up)
 {
     m_connected = up;
     m_connectBtn->setText(up ? tr("Disconnect") : tr("Connect"));
-    m_pttBtn->setEnabled(up);
+    m_pttBtn->setEnabled(up && !m_rxOnly);
+    if (!up) {
+        m_rxOnly = false;
+        m_pttBtn->setText(tr("Transmit  (hold, or press space)"));
+    }
     if (!up) {
         m_statsLabel->setText(tr("Offline"));
         m_txLed->setText("RX");
@@ -463,7 +528,7 @@ void ClientWindow::tuneBy(qint64 delta)
 
 void ClientWindow::setPtt(bool on)
 {
-    if (m_ptt == on || !m_connected) return;
+    if (m_ptt == on || !m_connected || m_rxOnly) return;
     m_ptt = on;
     QMetaObject::invokeMethod(m_core, "setPtt", Qt::QueuedConnection, Q_ARG(bool, on));
     m_txLed->setText(on ? "TX" : "RX");

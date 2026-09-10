@@ -184,7 +184,27 @@ Two executables land in `build/`:
 ./build/remoterig-client    # on the operator side
 ```
 
-### 3. Serial port permissions
+### 3. Installing
+
+`install.sh` builds if needed, then puts the programs, their icons and their
+desktop entries where the desktop expects them.
+
+```bash
+./install.sh                  # for you alone, into ~/.local, no root needed
+sudo ./install.sh --system    # for everyone, into /usr/local
+```
+
+The entries then appear in the menu under Internet or Audio, each with its own
+icon, in English or French according to the session language. Icons are
+installed at nine sizes, from 16 to 512 px, so the panel, the menu and the
+task switcher all find one that fits.
+
+Other options: `--client-only` and `--server-only` to install just one program,
+`--no-build` to reuse the binaries already in `build/`, `--prefix DIR` to
+install somewhere else, and `--uninstall` to remove everything. Settings under
+`~/.config/F4JTV` are always left alone.
+
+### 4. Serial port permissions
 
 Your user must belong to the group that owns the serial port, otherwise Hamlib
 cannot open it:
@@ -195,7 +215,10 @@ sudo usermod -a -G dialout $USER      # plugdev on some distributions
 
 Log out and back in for it to take effect.
 
-### 4. Optional system-wide install
+### 5. Manual install
+
+`install.sh` is the easy route. To place only the binaries, without icons or
+menu entries:
 
 ```bash
 sudo cmake --install build            # into /usr/local/bin
@@ -207,6 +230,92 @@ sudo cmake --install build            # into /usr/local/bin
 cmake -B build -DWITH_HAMLIB=OFF      # serial PTT only
 cmake -B build -DWITH_OPUS=OFF        # 16-bit PCM only
 ```
+
+## Raspberry Pi 4 and 5
+
+Everything builds and runs on a Pi. The Debian section above applies as is —
+Raspberry Pi OS Bookworm is Debian 12, and carries `qt6-base-dev`,
+`qt6-serialport-dev`, `portaudio19-dev`, `libopus-dev` and `libhamlib-dev` for
+both arm64 and armhf.
+
+```bash
+sudo apt install build-essential cmake git \
+  qt6-base-dev qt6-serialport-dev \
+  portaudio19-dev libopus-dev libhamlib-dev
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4
+```
+
+Prefer the **64-bit** system: it is the default on Pi 4 and 5, and gives a
+noticeably faster build. The 32-bit one works too, checked below.
+
+### What was verified
+
+The pure C++ core was cross-compiled for `aarch64` and `armhf` and run under
+qemu. Results are identical to x86-64, byte for byte:
+
+| | x86-64 | aarch64 | armhf |
+|---|---|---|---|
+| `PktHeader` size and field offsets | 24 / 12 / 20 | 24 / 12 / 20 | 24 / 12 / 20 |
+| ChaCha20, RFC 8439 vector | matches | matches | matches |
+| Resampler, sample counts and gain | reference | identical | identical |
+| Ring buffer wraparound | ok | ok | ok |
+
+Worth knowing: `char` is **unsigned** on ARM and signed on x86. No part of the
+code depends on that, which the identical results confirm. The protocol header
+uses only fixed-width types and explicit little-endian conversions, so a Pi and
+a PC exchange the same bytes.
+
+Every source file was also syntax-checked with the `aarch64` and `armhf`
+compilers, warnings enabled, with no complaint.
+
+### CPU load
+
+Measured on an x86-64 core, per 10 ms audio frame:
+
+| | Time | Share of one core |
+|---|---|---|
+| Resampling 44.1 → 48 kHz | 9.7 µs | 0.10 % |
+| Opus encode + decode | 42.4 µs | 0.42 % |
+
+A Pi 4 core is several times slower, but the margin is wide: even ten times
+slower, the whole audio path stays around 5 % of one core. A Pi 4 is comfortable
+for either program, a Pi 5 more so.
+
+### Practical points
+
+- **A USB sound card is required on the server.** The Pi 4 headphone jack is
+  output only, and the Pi 5 has no analogue jack at all. Any USB CODEC works —
+  a Digirig, a CM108 interface, or a plain USB dongle.
+- **If a USB microphone does not show up in the list**, PortAudio has not been
+  able to enumerate it — usually because PipeWire is holding the card. Run
+  `remoterig-client --list-audio` to see exactly what PortAudio sees. The fix is
+  to declare a named PCM in `~/.asoundrc`, pointing at the card that `arecord -l`
+  reports:
+
+  ```
+  pcm.rr_micro {
+      type plug
+      slave.pcm "hw:3,0"
+  }
+  ```
+
+  `rr_micro` then appears in the microphone list. The `plug` type takes care of
+  format and rate conversion, so a headset limited to 16 kHz mono works too.
+- Many USB CODECs are locked to 44.1 or 48 kHz. The engine negotiates the rate
+  and resamples if needed; the Audio tab tells you which rate it got.
+- On Raspberry Pi OS Lite there is no PulseAudio or PipeWire, so PortAudio talks
+  straight to ALSA. That is the lowest-latency path, and also the strictest one
+  about sample rates.
+- Both programs have a graphical interface, so the server wants a desktop
+  session — Raspberry Pi OS Desktop, or Lite plus VNC.
+- Serial port access needs the group: `sudo usermod -a -G dialout $USER`, then
+  log out and back in.
+- The network thread asks for time-critical priority. Without privileges Linux
+  quietly ignores the request and the thread runs at normal priority, which is
+  fine; to actually grant it, add a line to `/etc/security/limits.conf`:
+  `@audio - rtprio 95` and put your user in the `audio` group.
+
 
 ---
 
@@ -454,7 +563,9 @@ RemoteRig/
 ├── compat/msvc/      pthread.h shim, MSVC only
 ├── server/           Hamlib control, network core, window, appicon.rc
 ├── client/           network core, rigctld interface, window, appicon.rc
-├── icons/            application icons (.png and .ico)
+├── install.sh        Linux install: build, icons, desktop entries
+├── icons/            application icons, .ico and hicolor .png tree
+├── desktop/          freedesktop desktop entries, bilingual
 ├── i18n/             remoterig_fr.ts, remoterig_fr.qm, translations.qrc
 └── installer/        Inno Setup script
 ```

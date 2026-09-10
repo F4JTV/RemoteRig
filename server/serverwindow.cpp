@@ -25,6 +25,15 @@
 
 namespace rr {
 
+// Sur une liste vide, currentData() est invalide et toInt() renvoie 0 :
+// on ouvrirait alors le périphérique numéro 0, qui n'est pas celui voulu.
+static int deviceIndexOf(const QComboBox *box)
+{
+    if (!box) return -1;
+    const QVariant v = box->currentData();
+    return v.isValid() ? v.toInt() : -1;
+}
+
 ServerWindow::ServerWindow(QWidget *parent) : QMainWindow(parent)
 {
     setWindowTitle(tr("RemoteRig — Station server"));
@@ -219,6 +228,12 @@ QWidget *ServerWindow::buildAudioPage()
     m_rateLabel = new QLabel("—");
     m_rateLabel->setWordWrap(true);
     f->addRow(tr("Negotiated rate"), m_rateLabel);
+
+    auto *rescan = new QPushButton(tr("Look for devices again"));
+    rescan->setToolTip(tr("Needed after plugging in a USB sound card: "
+                          "the device list is read once at startup."));
+    connect(rescan, &QPushButton::clicked, this, &ServerWindow::onRescanDevices);
+    f->addRow("", rescan);
     connect(m_inDev,  &QComboBox::currentIndexChanged, this, &ServerWindow::updateRateLabel);
     connect(m_outDev, &QComboBox::currentIndexChanged, this, &ServerWindow::updateRateLabel);
 
@@ -329,22 +344,53 @@ void ServerWindow::refreshDevices()
 {
     const int api = m_hostApi ? m_hostApi->currentData().toInt() : -1;
     const QSignalBlocker b1(m_inDev), b2(m_outDev);
+
     m_inDev->clear();
     for (const auto &d : AudioEngine::inputDevices(api))
         m_inDev->addItem(d.name, d.index);
+    if (m_inDev->count() == 0)
+        m_inDev->addItem(tr("No capture device found"), -1);
+
     m_outDev->clear();
     for (const auto &d : AudioEngine::outputDevices(api))
         m_outDev->addItem(d.name, d.index);
+    if (m_outDev->count() == 0)
+        m_outDev->addItem(tr("No playback device found"), -1);
+}
+
+void ServerWindow::onRescanDevices()
+{
+    if (m_running) {
+        appendLog(tr("Stop the server first: the device list cannot be reread "
+                     "while the audio streams are open."));
+        return;
+    }
+    AudioEngine::rescanDevices();
+    const QString keptApi = m_hostApi->currentText();
+    {
+        const QSignalBlocker b(m_hostApi);
+        m_hostApi->clear();
+        for (const auto &h : AudioEngine::hostApis())
+            m_hostApi->addItem(h.second, h.first);
+        const int i = m_hostApi->findText(keptApi);
+        if (i >= 0) m_hostApi->setCurrentIndex(i);
+    }
+    refreshDevices();
+    updateRateLabel();
+    appendLog(tr("Device list reread."));
 }
 
 void ServerWindow::updateRateLabel()
 {
     if (!m_rateLabel) return;
-    const double in  = AudioEngine::probeRate(m_inDev->currentData().toInt(), true);
-    const double out = AudioEngine::probeRate(m_outDev->currentData().toInt(), false);
+    const int inIdx  = deviceIndexOf(m_inDev);
+    const int outIdx = deviceIndexOf(m_outDev);
+    const double in  = inIdx  < 0 ? -1.0 : AudioEngine::probeRate(inIdx, true);
+    const double out = outIdx < 0 ? -1.0 : AudioEngine::probeRate(outIdx, false);
 
     auto describe = [](double r) {
-        if (r <= 0.0) return tr("rejected");
+        if (r < 0.0)  return tr("no device");
+        if (r == 0.0) return tr("rejected");
         if (int(r) == AudioEngine::kAudioRate) return tr("48000 Hz, direct");
         return tr("%1 Hz, resampled").arg(int(r));
     };
@@ -396,8 +442,13 @@ void ServerWindow::onStartStop()
     sc.udpPort  = quint16(m_udpPort->value());
     sc.password = m_password->text();
     sc.requireEncryption = m_forceEnc->isChecked();
-    sc.inputDevice  = m_inDev->currentData().toInt();
-    sc.outputDevice = m_outDev->currentData().toInt();
+    sc.inputDevice  = deviceIndexOf(m_inDev);
+    sc.outputDevice = deviceIndexOf(m_outDev);
+    if (sc.inputDevice < 0 || sc.outputDevice < 0) {
+        appendLog(tr("The station needs one capture device and one playback device. "
+                     "A Raspberry Pi has no analogue input: use a USB sound card."));
+        return;
+    }
     sc.framesPerBuffer = m_frames->currentData().toInt();
     sc.rxGain = float(m_rxGain->value());
     sc.txGain = float(m_txGain->value());

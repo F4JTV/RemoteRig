@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Version=1.1
+Name=RemoteRig Server
+GenericName=Remote radio station server
+GenericName[fr]=Serveur de station radio déportée
+Comment=Share a transceiver over the network: audio, PTT and CAT control
+Comment[fr]=Partage un poste radio sur le réseau : audio, PTT et pilotage CAT
+Exec=@BINDIR@/remoterig-server
+Icon=remoterig-server
+Terminal=false
+Categories=Network;Audio;HamRadio;
+Keywords=radio;ham;amateur;transceiver;hamlib;CAT;PTT;remote;
+Keywords[fr]=radio;amateur;poste;emetteur;hamlib;CAT;PTT;deporte;
+StartupWMClass=remoterig-server
+StartupNotify=true

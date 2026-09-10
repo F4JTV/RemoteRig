@@ -21,7 +21,7 @@ struct ClientConfig {
     bool    encrypt     = false;
     QString codec       = QStringLiteral("opus");   // "opus" ou "pcm"
     int     bitrate     = 48000;
-    int     inputDevice  = -1;    // micro, ou sortie du câble virtuel
+    int     inputDevice  = -1;    // micro, ou sortie du câble virtuel ; -1 = écoute seule
     int     outputDevice = -1;    // casque, ou entrée du câble virtuel
     int     monitorDevice = -1;   // seconde sortie facultative (écoute)
     int     framesPerBuffer = 480;
@@ -52,6 +52,7 @@ public slots:
 
 signals:
     void connectionChanged(bool up, const QString &message);
+    void receiveOnly(bool on);   // pas de micro : émission impossible
     void stateChanged(const rr::RigState &st);
     void logMessage(const QString &msg);
     void statsUpdated(int rttMs, int lostPackets, int jitterQueueMs,
@@ -89,6 +90,7 @@ private:
     bool    m_authenticated = false;
     bool    m_encrypted = false;
     bool    m_ptt = false;
+    bool    m_rxOnly = false;
     quint32 m_session = 0;
     quint32 m_seqOut = 0, m_tsOut = 0;
     quint32 m_expectedSeq = 0;

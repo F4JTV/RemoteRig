@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Version=1.1
+Name=RemoteRig Client
+GenericName=Remote radio operator console
+GenericName[fr]=Console opérateur de station déportée
+Comment=Operate a remote transceiver: audio, PTT, frequency and mode
+Comment[fr]=Exploite un poste radio distant : audio, PTT, fréquence et mode
+Exec=@BINDIR@/remoterig-client
+Icon=remoterig-client
+Terminal=false
+Categories=Network;Audio;HamRadio;
+Keywords=radio;ham;amateur;transceiver;remote;WSJT-X;fldigi;VARA;rigctld;
+Keywords[fr]=radio;amateur;poste;distant;WSJT-X;fldigi;VARA;rigctld;
+StartupWMClass=remoterig-client
+StartupNotify=true

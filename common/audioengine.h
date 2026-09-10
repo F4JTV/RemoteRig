@@ -38,6 +38,10 @@ public:
     ~AudioEngine();
 
     static bool initialiseLibrary();
+    // Relit la liste des periphériques. PortAudio fige l'enumeration a
+    // l'initialisation : sans cela, une carte USB branchee apres le
+    // demarrage reste invisible. A n'appeler qu'a flux fermes.
+    static bool rescanDevices();
     static void terminateLibrary();
 
     // hostApiIndex < 0 : tous les backends confondus.
@@ -49,7 +53,13 @@ public:
     static int  defaultOutput();
 
     // Debit qui sera reellement utilise, ou 0 si le peripherique est inutilisable.
+    // Le resultat est mis en cache : sonder un peripherique recalcitrant coute
+    // huit ouvertures ALSA et autant de lignes d'erreur sur la console.
     static double probeRate(int deviceIndex, bool input);
+    static void   clearProbeCache();
+
+    // Inventaire complet sur la sortie standard, pour diagnostic.
+    static QString describeDevices();
 
     bool startCapture(int deviceIndex, int framesPerBuffer = 480);
     bool startPlayback(int deviceIndex, int framesPerBuffer = 480);

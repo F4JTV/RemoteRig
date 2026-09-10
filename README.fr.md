@@ -190,7 +190,27 @@ Les deux exécutables sortent dans `build/` :
 ./build/remoterig-client    # côté opérateur
 ```
 
-### 3. Droits sur le port série
+### 3. Installation
+
+`install.sh` compile si besoin, puis pose les programmes, leurs icônes et leurs
+raccourcis là où le bureau les attend.
+
+```bash
+./install.sh                  # pour vous seul, dans ~/.local, sans root
+sudo ./install.sh --system    # pour tout le monde, dans /usr/local
+```
+
+Les entrées apparaissent ensuite dans le menu sous Internet ou Audio, chacune
+avec son icône, en français ou en anglais selon la langue de la session. Les
+icônes sont installées en neuf tailles, de 16 à 512 px, pour que le tableau de
+bord, le menu et le sélecteur de fenêtres trouvent chacun la leur.
+
+Autres options : `--client-only` et `--server-only` pour n'installer qu'un
+programme, `--no-build` pour réutiliser les binaires déjà dans `build/`,
+`--prefix DIR` pour installer ailleurs, et `--uninstall` pour tout retirer. Les
+réglages sous `~/.config/F4JTV` sont toujours laissés en place.
+
+### 4. Droits sur le port série
 
 Votre utilisateur doit appartenir au groupe propriétaire du port série, sinon
 Hamlib ne pourra pas l'ouvrir :
@@ -201,7 +221,10 @@ sudo usermod -a -G dialout $USER      # plugdev sur certaines distributions
 
 Il faut se déconnecter et se reconnecter pour que ça prenne effet.
 
-### 4. Installation système facultative
+### 5. Installation manuelle
+
+`install.sh` reste le chemin le plus simple. Pour ne poser que les binaires,
+sans icônes ni entrées de menu :
 
 ```bash
 sudo cmake --install build            # dans /usr/local/bin
@@ -213,6 +236,97 @@ sudo cmake --install build            # dans /usr/local/bin
 cmake -B build -DWITH_HAMLIB=OFF      # PTT série uniquement
 cmake -B build -DWITH_OPUS=OFF        # PCM 16 bits uniquement
 ```
+
+## Raspberry Pi 4 et 5
+
+Tout compile et tourne sur un Pi. La section Debian ci-dessus s'applique telle
+quelle : Raspberry Pi OS Bookworm est un Debian 12, et fournit `qt6-base-dev`,
+`qt6-serialport-dev`, `portaudio19-dev`, `libopus-dev` et `libhamlib-dev` en
+arm64 comme en armhf.
+
+```bash
+sudo apt install build-essential cmake git \
+  qt6-base-dev qt6-serialport-dev \
+  portaudio19-dev libopus-dev libhamlib-dev
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j4
+```
+
+Préférez le système **64 bits** : c'est celui par défaut sur Pi 4 et 5, et la
+compilation y est sensiblement plus rapide. Le 32 bits fonctionne aussi,
+vérifié ci-dessous.
+
+### Ce qui a été vérifié
+
+Le cœur du code en C++ pur a été compilé en croisé pour `aarch64` et `armhf`,
+puis exécuté sous qemu. Les résultats sont identiques au x86-64, octet pour
+octet :
+
+| | x86-64 | aarch64 | armhf |
+|---|---|---|---|
+| Taille et décalages de `PktHeader` | 24 / 12 / 20 | 24 / 12 / 20 | 24 / 12 / 20 |
+| ChaCha20, vecteur RFC 8439 | conforme | conforme | conforme |
+| Rééchantillonneur, comptes et gain | référence | identique | identique |
+| Bouclage de la file circulaire | ok | ok | ok |
+
+Un point à connaître : `char` est **non signé** sur ARM et signé sur x86. Aucune
+partie du code n'en dépend, ce que l'identité des résultats confirme. L'en-tête
+du protocole n'emploie que des types de largeur fixe et des conversions
+petit-boutistes explicites : un Pi et un PC échangent donc les mêmes octets.
+
+Chaque fichier source a également passé un contrôle syntaxique avec les
+compilateurs `aarch64` et `armhf`, avertissements activés, sans une remarque.
+
+### Charge processeur
+
+Mesuré sur un cœur x86-64, par trame audio de 10 ms :
+
+| | Temps | Part d'un cœur |
+|---|---|---|
+| Rééchantillonnage 44,1 → 48 kHz | 9,7 µs | 0,10 % |
+| Opus, encodage + décodage | 42,4 µs | 0,42 % |
+
+Un cœur de Pi 4 est plusieurs fois plus lent, mais la marge est large : même dix
+fois plus lent, toute la chaîne audio reste autour de 5 % d'un cœur. Un Pi 4 est
+à l'aise pour l'un ou l'autre programme, un Pi 5 davantage.
+
+### Points pratiques
+
+- **Une carte son USB est indispensable côté serveur.** La prise jack du Pi 4
+  est une sortie seulement, et le Pi 5 n'a plus de sortie analogique du tout.
+  N'importe quel CODEC USB convient : un Digirig, une interface CM108, ou une
+  simple clé USB audio.
+- **Si un micro USB n'apparaît pas dans la liste**, c'est que PortAudio n'a pas
+  pu l'énumérer, généralement parce que PipeWire tient la carte. Lancez
+  `remoterig-client --list-audio` pour voir exactement ce que PortAudio voit. Le
+  remède est de déclarer un PCM nommé dans `~/.asoundrc`, pointant sur la carte
+  que `arecord -l` rapporte :
+
+  ```
+  pcm.rr_micro {
+      type plug
+      slave.pcm "hw:3,0"
+  }
+  ```
+
+  `rr_micro` apparaît alors dans la liste des micros. Le type `plug` se charge
+  de la conversion de format et de débit, donc un casque limité au 16 kHz mono
+  fonctionne aussi.
+- Beaucoup de CODEC USB sont figés en 44,1 ou 48 kHz. Le moteur négocie le débit
+  et rééchantillonne si besoin ; l'onglet Audio indique celui qu'il a obtenu.
+- Sur Raspberry Pi OS Lite, il n'y a ni PulseAudio ni PipeWire : PortAudio parle
+  directement à ALSA. C'est le chemin le plus court en latence, et aussi le plus
+  strict sur les débits.
+- Les deux programmes ont une interface graphique : le serveur demande donc une
+  session de bureau — Raspberry Pi OS Desktop, ou Lite avec VNC.
+- L'accès au port série passe par le groupe :
+  `sudo usermod -a -G dialout $USER`, puis déconnexion et reconnexion.
+- Le thread réseau demande une priorité temps critique. Sans privilèges, Linux
+  ignore silencieusement la demande et le thread tourne en priorité normale, ce
+  qui suffit ; pour l'accorder réellement, ajoutez `@audio - rtprio 95` dans
+  `/etc/security/limits.conf` et mettez votre utilisateur dans le groupe
+  `audio`.
+
 
 ---
 
@@ -471,7 +585,9 @@ RemoteRig/
 ├── compat/msvc/      shim pthread.h, MSVC uniquement
 ├── server/           pilotage Hamlib, cœur réseau, fenêtre, appicon.rc
 ├── client/           cœur réseau, interface rigctld, fenêtre, appicon.rc
-├── icons/            icônes des applications (.png et .ico)
+├── install.sh        installation Linux : build, icônes, raccourcis
+├── icons/            icônes des applications, .ico et arborescence hicolor
+├── desktop/          raccourcis freedesktop, bilingues
 ├── i18n/             remoterig_fr.ts, remoterig_fr.qm, translations.qrc
 └── installer/        script Inno Setup
 ```

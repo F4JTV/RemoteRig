@@ -37,6 +37,8 @@ private slots:
     void onPttPressed();
     void onPttReleased();
     void appendLog(const QString &msg);
+    void onReceiveOnly(bool on);
+    void onRescanDevices();
 
 private:
     QWidget *buildStationPage();
@@ -56,6 +58,7 @@ private:
     RigctldServer *m_rigctld = nullptr;
     bool m_connected = false;
     bool m_ptt = false;
+    bool m_rxOnly = false;
     RigState m_state;
     QList<QWidget *> m_catWidgets;   // désactivés quand la station n'a pas de CAT
 

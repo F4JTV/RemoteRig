@@ -2,6 +2,8 @@
 #include "protocol.h"
 
 #include <QCoreApplication>
+#include <QHash>
+#include <QStringList>
 
 #include <portaudio.h>
 #include <algorithm>
@@ -24,6 +26,15 @@ bool AudioEngine::initialiseLibrary()
     if (g_paInit) return true;
     g_paInit = (Pa_Initialize() == paNoError);
     return g_paInit;
+}
+
+bool AudioEngine::rescanDevices()
+{
+    if (g_paInit) {
+        Pa_Terminate();
+        g_paInit = false;
+    }
+    return initialiseLibrary();
 }
 
 void AudioEngine::terminateLibrary()
@@ -113,7 +124,10 @@ QList<AudioDevice> enumerate(bool wantInput, int hostApiIndex)
 
         AudioDevice a;
         a.index  = i;
-        a.name   = QString::fromLocal8Bit(d->name);
+        // Certains pilotes ALSA rendent un nom vide ou truffe de blancs :
+        // une entree illisible dans la liste ne doit jamais arriver.
+        a.name   = QString::fromLocal8Bit(d->name).simplified();
+        if (a.name.isEmpty()) a.name = QStringLiteral("device %1").arg(i);
         a.maxIn  = d->maxInputChannels;
         a.maxOut = d->maxOutputChannels;
         a.hostApiIndex = d->hostApi;
@@ -129,7 +143,55 @@ QList<AudioDevice> enumerate(bool wantInput, int hostApiIndex)
 
 } // namespace
 
-double AudioEngine::probeRate(int deviceIndex, bool input) { return negotiate(deviceIndex, input); }
+static QHash<int, double> g_probeCache;
+
+double AudioEngine::probeRate(int deviceIndex, bool input)
+{
+    if (deviceIndex < 0) return 0.0;
+    const int key = deviceIndex * 2 + (input ? 1 : 0);
+    const auto it = g_probeCache.constFind(key);
+    if (it != g_probeCache.constEnd()) return *it;
+    const double r = negotiate(deviceIndex, input);
+    g_probeCache.insert(key, r);
+    return r;
+}
+
+void AudioEngine::clearProbeCache() { g_probeCache.clear(); }
+
+QString AudioEngine::describeDevices()
+{
+    initialiseLibrary();
+    QStringList out;
+    if (!g_paInit) return QStringLiteral("PortAudio failed to start.\n");
+
+    out << QStringLiteral("PortAudio: %1").arg(QString::fromLocal8Bit(Pa_GetVersionText()));
+    out << QStringLiteral("Default input  device: %1").arg(Pa_GetDefaultInputDevice());
+    out << QStringLiteral("Default output device: %1").arg(Pa_GetDefaultOutputDevice());
+    out << QString();
+
+    const int apis = Pa_GetHostApiCount();
+    for (int a = 0; a < apis; ++a) {
+        const PaHostApiInfo *h = Pa_GetHostApiInfo(a);
+        if (!h) continue;
+        out << QStringLiteral("[%1] %2   %3 device(s)")
+                   .arg(a).arg(QString::fromLocal8Bit(h->name)).arg(h->deviceCount);
+        for (int d = 0; d < Pa_GetDeviceCount(); ++d) {
+            const PaDeviceInfo *i = Pa_GetDeviceInfo(d);
+            if (!i || i->hostApi != a) continue;
+            out << QStringLiteral("   %1  in=%2 out=%3  native=%4 Hz  in48k=%5 out48k=%6  %7")
+                       .arg(d, 3)
+                       .arg(i->maxInputChannels, 3)
+                       .arg(i->maxOutputChannels, 3)
+                       .arg(int(i->defaultSampleRate), 6)
+                       .arg(i->maxInputChannels  > 0 ? QString::number(int(probeRate(d, true)))  : QStringLiteral("-"), 6)
+                       .arg(i->maxOutputChannels > 0 ? QString::number(int(probeRate(d, false))) : QStringLiteral("-"), 6)
+                       .arg(QString::fromLocal8Bit(i->name));
+        }
+        out << QString();
+    }
+    clearProbeCache();
+    return out.join('\n') + '\n';
+}
 
 QList<AudioDevice> AudioEngine::inputDevices(int hostApiIndex)  { return enumerate(true,  hostApiIndex); }
 QList<AudioDevice> AudioEngine::outputDevices(int hostApiIndex) { return enumerate(false, hostApiIndex); }
