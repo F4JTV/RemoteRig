@@ -77,6 +77,7 @@ add_library(rr_common STATIC
     common/crypto.cpp
     common/audiocodec.cpp
     common/resampler.cpp
+    common/speechproc.cpp
     common/audioengine.cpp
 )
 target_include_directories(rr_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${PORTAUDIO_INCLUDE_DIR})

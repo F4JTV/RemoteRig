@@ -45,6 +45,7 @@ void ClientCore::connectToStation(const ClientConfig &cfg)
 
     m_encoder.setCodec(CODEC_PCM16);
     m_decoder.setCodec(CODEC_PCM16);
+    m_speech.configure(AudioEngine::kAudioRate, cfg.speech);
 
     m_sock = new QTcpSocket(this);
     m_sock->setSocketOption(QAbstractSocket::LowDelayOption, 1);
@@ -273,6 +274,12 @@ void ClientCore::setGains(float rx, float tx)
 
 void ClientCore::setJitterMs(int ms) { m_cfg.jitterMs = ms; }
 
+void ClientCore::setSpeechSettings(const rr::SpeechSettings &s)
+{
+    m_cfg.speech = s;
+    m_speech.configure(AudioEngine::kAudioRate, s);
+}
+
 void ClientCore::sendPttPacket(bool on)
 {
     if (!m_udp || !m_authenticated) return;
@@ -296,6 +303,7 @@ void ClientCore::setPtt(bool on)
         // Le PTT part avant l'audio, sur les deux canaux.
         sendPttPacket(true);
         sendJson(QJsonObject{{"t", "cmd"}, {"c", "ptt"}, {"v", true}});
+        m_speech.reset();   // etats des filtres remis a zero a chaque alternat
         m_audio.flushCapture();
         m_audio.setCaptureMuted(false);
         m_audio.setPlaybackMuted(true);
@@ -378,6 +386,9 @@ void ClientCore::onAudioTick()
     int16_t pcm[kFrameSamples];
     while (m_audio.capturedAvailable() >= size_t(kFrameSamples)) {
         m_audio.readCaptured(pcm, kFrameSamples);
+        // Mise en forme avant encodage : le codec profite d'un signal déjà
+        // débarrassé des graves inutiles.
+        m_speech.process(pcm, kFrameSamples);
         const QByteArray payload = m_encoder.encode(pcm);
         if (payload.isEmpty()) continue;
         const QByteArray key = m_encrypted ? m_udpKey : QByteArray();
@@ -392,7 +403,8 @@ void ClientCore::onStatsTick()
 {
     const int queueMs = int(m_audio.playbackQueued() * 1000 / kSampleRate);
     emit statsUpdated(m_rttMs, m_lost, queueMs,
-                      m_audio.playbackLevel(), m_audio.captureLevel());
+                      m_audio.playbackLevel(), m_audio.captureLevel(),
+                      m_ptt ? m_speech.gainReductionDb() : 0.0f);
 }
 
 } // namespace rr

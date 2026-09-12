@@ -107,6 +107,49 @@ tonalités étroites : FT8, PSK31 et VARA perdent des décodages. Le sélecteur 
 client bascule les deux extrémités à chaud, sans couper la liaison. Règle
 simple : **Opus en phonie, PCM en numérique.**
 
+## Mise en forme du micro
+
+Un micro à perche porté près de la bouche souffre de l'effet de proximité :
+tout ce qui est sous 300 Hz remonte de 10 à 15 dB, la voix arrive grave et
+sourde en face, et la bande d'intelligibilité se retrouve masquée. L'onglet
+Audio propose une chaîne de correction, sur le chemin d'émission, avant
+l'encodage.
+
+Quatre préréglages : **aucune**, **micro-casque à perche**, **micro de table**,
+et **personnalisé**, qui donne accès aux quatre réglages — passe-haut, présence,
+passe-bas et compression — avec un vumètre de réduction de gain pour régler à
+l'œil.
+
+Le préréglage casque mesure ceci, passe-haut 300 Hz, présence +6 dB à 2 kHz,
+passe-bas 3,2 kHz :
+
+| Fréquence | 80 Hz | 150 Hz | 300 Hz | 600 Hz | 1 kHz | 2 kHz | 3 kHz | 3,5 kHz |
+|---|---|---|---|---|---|---|---|---|
+| Réponse | -23 dB | -12 dB | -3 dB | +0,5 dB | +2 dB | **+5,4 dB** | +1 dB | -1 dB |
+
+**La latence est rigoureusement nulle.** Rien que des biquads récursifs et un
+compresseur sans anticipation : aucun échantillon n'est retenu, ce qu'un test
+par impulsion confirme — la sortie démarre sur l'échantillon même où
+l'impulsion arrive.
+
+La distorsion reste inaudible sur toute la plage utile, mesurée sur un 1 kHz :
+
+| Entrée | -30 dBFS | -20 dBFS | -12 dBFS | -6 dBFS | -3 dBFS |
+|---|---|---|---|---|---|
+| Réduction de gain | 0 dB | 0 dB | 3,6 dB | 7,6 dB | 9,6 dB |
+| THD+N | 0,053 % | 0,018 % | 0,009 % | 0,004 % | 0,006 % |
+
+Deux choix y veillent : le genou du compresseur est quadratique, donc la pente
+ne casse jamais à l'entrée en compression, et le gain lui-même est lissé en dB
+avec 5 ms d'attaque et 150 ms de retour. Au-delà de -1 dBFS, un écrêteur doux
+prend le relais en dernier ressort, sans brutalité — 0,97 % de THD, toujours
+sans angle vif.
+
+**Passez le préréglage sur « aucune » en numérique.** Un compresseur détruit les
+tonalités de FT8, PSK et VARA. Les filtres sont par ailleurs réinitialisés à
+chaque passage en émission, pour que la première syllabe ne soit jamais colorée
+par un état résiduel.
+
 ## Sécurité
 
 - Authentification défi/réponse : PBKDF2-HMAC-SHA256 (60 000 tours) puis HMAC
@@ -581,7 +624,7 @@ RemoteRig/
 ├── CMakeLists.txt
 ├── build_all.bat     compilation Windows d'un bloc : build, déploiement, paquet
 ├── LICENSE.txt
-├── common/           protocole, crypto, codec, moteur audio, rééchantillonneur, i18n
+├── common/           protocole, crypto, codec, moteur audio, rééchantillonneur, voix, i18n
 ├── compat/msvc/      shim pthread.h, MSVC uniquement
 ├── server/           pilotage Hamlib, cœur réseau, fenêtre, appicon.rc
 ├── client/           cœur réseau, interface rigctld, fenêtre, appicon.rc

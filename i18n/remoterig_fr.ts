@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <!DOCTYPE TS>
 <TS version="2.1" language="fr_FR">
 <context>
@@ -9,7 +9,7 @@
     </message>
     <message>
         <source>This input device accepted no sample rate</source>
-        <translation>Aucun débit accepté par ce périphérique d&apos;entrée</translation>
+        <translation>Aucun débit accepté par ce périphérique d'entrée</translation>
     </message>
     <message>
         <source>This output device accepted no sample rate</source>
@@ -41,7 +41,7 @@
     <message>
         <source>The new language applies when the program starts again.
 Restart now?</source>
-        <translation>La nouvelle langue s&apos;applique au prochain démarrage du programme.
+        <translation>La nouvelle langue s'applique au prochain démarrage du programme.
 Redémarrer maintenant ?</translation>
     </message>
 </context>
@@ -49,7 +49,7 @@ Redémarrer maintenant ?</translation>
     <name>rr::ClientCore</name>
     <message>
         <source>PortAudio failed to start</source>
-        <translation>PortAudio n&apos;a pas pu démarrer</translation>
+        <translation>PortAudio n'a pas pu démarrer</translation>
     </message>
     <message>
         <source>Audio output: %1</source>
@@ -97,7 +97,7 @@ Redémarrer maintenant ?</translation>
     </message>
     <message>
         <source>Receive only: no microphone, transmit is disabled</source>
-        <translation>Écoute seule : aucun micro, l&apos;émission est désactivée</translation>
+        <translation>Écoute seule : aucun micro, l'émission est désactivée</translation>
     </message>
 </context>
 <context>
@@ -156,7 +156,7 @@ Redémarrer maintenant ?</translation>
     </message>
     <message>
         <source>Transmit  (hold, or press space)</source>
-        <translation>Émettre  (maintenir, ou barre d&apos;espace)</translation>
+        <translation>Émettre  (maintenir, ou barre d'espace)</translation>
     </message>
     <message>
         <source>Offline</source>
@@ -230,17 +230,17 @@ En numérique (FT8, VARA, PSK), basculez sur PCM 16 bits : Opus déforme les ton
     </message>
     <message>
         <source>Also accept connections from other machines</source>
-        <translation>Accepter aussi les connexions d&apos;autres machines</translation>
+        <translation>Accepter aussi les connexions d'autres machines</translation>
     </message>
     <message>
-        <source>In WSJT-X / fldigi / JS8Call, set the radio to &quot;Hamlib NET rigctl&quot;, address 127.0.0.1:4532, PTT &quot;CAT&quot;.
+        <source>In WSJT-X / fldigi / JS8Call, set the radio to "Hamlib NET rigctl", address 127.0.0.1:4532, PTT "CAT".
 
 For audio, pick the virtual cable in the Audio tab (VB-Audio Cable on Windows, a PulseAudio or PipeWire null-sink module on Linux), and point the data-mode software at the other end of that same cable.
 
 VARA works the same way: its PTT goes through rigctld, its audio through the cable.</source>
         <translation>Réglage côté WSJT-X / fldigi / JS8Call : radio « Hamlib NET rigctl », adresse 127.0.0.1:4532, PTT « CAT ».
 
-Audio : choisissez le câble virtuel dans l&apos;onglet Audio (VB-Audio Cable sous Windows, un module null-sink PulseAudio ou PipeWire sous Linux), et pointez le logiciel numérique sur l&apos;autre extrémité du même câble.
+Audio : choisissez le câble virtuel dans l'onglet Audio (VB-Audio Cable sous Windows, un module null-sink PulseAudio ou PipeWire sous Linux), et pointez le logiciel numérique sur l'autre extrémité du même câble.
 
 VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le câble.</translation>
     </message>
@@ -290,7 +290,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>Needed after plugging in a USB sound card: the device list is read once at startup.</source>
-        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n&apos;est lue qu&apos;au démarrage.</translation>
+        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n'est lue qu'au démarrage.</translation>
     </message>
     <message>
         <source>No microphone found — receive only</source>
@@ -302,7 +302,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>Disconnect first: the device list cannot be reread while the audio streams are open.</source>
-        <translation>Déconnectez-vous d&apos;abord : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
+        <translation>Déconnectez-vous d'abord : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
     </message>
     <message>
         <source>Device list reread.</source>
@@ -318,7 +318,79 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>No playback device: nothing could be heard.</source>
-        <translation>Aucun périphérique de sortie : vous n&apos;entendriez rien.</translation>
+        <translation>Aucun périphérique de sortie : vous n'entendriez rien.</translation>
+    </message>
+    <message>
+        <source>Microphone shaping</source>
+        <translation>Mise en forme du micro</translation>
+    </message>
+    <message>
+        <source>None — flat, required for data modes</source>
+        <translation>Aucune — neutre, indispensable en numérique</translation>
+    </message>
+    <message>
+        <source>Headset boom microphone</source>
+        <translation>Micro-casque à perche</translation>
+    </message>
+    <message>
+        <source>Desk microphone</source>
+        <translation>Micro de table</translation>
+    </message>
+    <message>
+        <source>Custom</source>
+        <translation>Personnalisé</translation>
+    </message>
+    <message>
+        <source>Preset</source>
+        <translation>Préréglage</translation>
+    </message>
+    <message>
+        <source>off</source>
+        <translation>désactivé</translation>
+    </message>
+    <message>
+        <source>High-pass</source>
+        <translation>Passe-haut</translation>
+    </message>
+    <message>
+        <source> dB at 2 kHz</source>
+        <translation> dB à 2 kHz</translation>
+    </message>
+    <message>
+        <source>Presence</source>
+        <translation>Présence</translation>
+    </message>
+    <message>
+        <source>Low-pass</source>
+        <translation>Passe-bas</translation>
+    </message>
+    <message>
+        <source>none</source>
+        <translation>aucune</translation>
+    </message>
+    <message>
+        <source>light — 2:1</source>
+        <translation>légère — 2:1</translation>
+    </message>
+    <message>
+        <source>medium — 3:1</source>
+        <translation>moyenne — 3:1</translation>
+    </message>
+    <message>
+        <source>firm — 4:1</source>
+        <translation>forte — 4:1</translation>
+    </message>
+    <message>
+        <source>Compression</source>
+        <translation>Compression</translation>
+    </message>
+    <message>
+        <source>%v dB</source>
+        <translation>%v dB</translation>
+    </message>
+    <message>
+        <source>Gain reduction</source>
+        <translation>Réduction de gain</translation>
     </message>
 </context>
 <context>
@@ -391,7 +463,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     <name>rr::ServerCore</name>
     <message>
         <source>PortAudio failed to start</source>
-        <translation>PortAudio n&apos;a pas pu démarrer</translation>
+        <translation>PortAudio n'a pas pu démarrer</translation>
     </message>
     <message>
         <source>Audio input: %1</source>
@@ -598,7 +670,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>PTT hold after transmit</source>
-        <translation>Maintien PTT en fin d&apos;émission</translation>
+        <translation>Maintien PTT en fin d'émission</translation>
     </message>
     <message>
         <source>RX level</source>
@@ -684,7 +756,7 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
     </message>
     <message>
         <source>Needed after plugging in a USB sound card: the device list is read once at startup.</source>
-        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n&apos;est lue qu&apos;au démarrage.</translation>
+        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n'est lue qu'au démarrage.</translation>
     </message>
     <message>
         <source>No capture device found</source>
@@ -696,7 +768,7 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
     </message>
     <message>
         <source>Stop the server first: the device list cannot be reread while the audio streams are open.</source>
-        <translation>Arrêtez d&apos;abord le serveur : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
+        <translation>Arrêtez d'abord le serveur : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
     </message>
     <message>
         <source>Device list reread.</source>
@@ -708,7 +780,7 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
     </message>
     <message>
         <source>The station needs one capture device and one playback device. A Raspberry Pi has no analogue input: use a USB sound card.</source>
-        <translation>La station a besoin d&apos;un périphérique de capture et d&apos;un de sortie. Un Raspberry Pi n&apos;a aucune entrée analogique : utilisez une carte son USB.</translation>
+        <translation>La station a besoin d'un périphérique de capture et d'un de sortie. Un Raspberry Pi n'a aucune entrée analogique : utilisez une carte son USB.</translation>
     </message>
 </context>
 </TS>

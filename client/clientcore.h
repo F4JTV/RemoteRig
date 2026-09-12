@@ -7,6 +7,7 @@
 #include "../common/protocol.h"
 #include "../common/audiocodec.h"
 #include "../common/audioengine.h"
+#include "../common/speechproc.h"
 
 class QTcpSocket;
 class QUdpSocket;
@@ -28,6 +29,7 @@ struct ClientConfig {
     int     jitterMs    = 40;
     float   rxGain      = 1.0f;
     float   txGain      = 1.0f;
+    SpeechSettings speech;   // mise en forme de la modulation
 };
 
 class ClientCore : public QObject {
@@ -49,6 +51,7 @@ public slots:
     void setCodec(const QString &codec, int bitrate);
     void setGains(float rx, float tx);
     void setJitterMs(int ms);
+    void setSpeechSettings(const rr::SpeechSettings &s);
 
 signals:
     void connectionChanged(bool up, const QString &message);
@@ -56,7 +59,7 @@ signals:
     void stateChanged(const rr::RigState &st);
     void logMessage(const QString &msg);
     void statsUpdated(int rttMs, int lostPackets, int jitterQueueMs,
-                      float rxLevel, float txLevel);
+                      float rxLevel, float txLevel, float gainReductionDb);
 
 private slots:
     void onTcpConnected();
@@ -84,6 +87,7 @@ private:
     AudioEngine m_audio;
     AudioCodec  m_encoder;   // micro -> station
     AudioCodec  m_decoder;   // station -> casque
+    SpeechProcessor m_speech;
 
     QByteArray m_rxBuffer, m_masterKey, m_udpKey, m_pttToken;
     quint64 m_txCounter = 0, m_rxCounter = 0;

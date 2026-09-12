@@ -29,6 +29,7 @@ int main(int argc, char *argv[])
 
     qRegisterMetaType<rr::RigState>("rr::RigState");
     qRegisterMetaType<rr::ClientConfig>("rr::ClientConfig");
+    qRegisterMetaType<rr::SpeechSettings>("rr::SpeechSettings");
 
     rr::ClientWindow w;
     w.show();

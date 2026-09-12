@@ -33,7 +33,8 @@ private slots:
     void onConnectClicked();
     void onConnectionChanged(bool up, const QString &msg);
     void onStateChanged(const rr::RigState &st);
-    void onStats(int rttMs, int lost, int jitterMs, float rxLevel, float txLevel);
+    void onStats(int rttMs, int lost, int jitterMs, float rxLevel, float txLevel,
+                 float gainReductionDb);
     void onPttPressed();
     void onPttReleased();
     void appendLog(const QString &msg);
@@ -51,6 +52,9 @@ private:
     void saveSettings();
     void refreshDevices();
     void updateRateLabel();
+    void pushSpeechSettings();
+    void applySpeechPreset(int index);
+    rr::SpeechSettings currentSpeech() const;
     void setConnectedUi(bool up);
 
     QThread     m_netThread;
@@ -95,6 +99,15 @@ private:
     QDoubleSpinBox *m_txGain = nullptr;
     QProgressBar *m_rxMeter = nullptr;
     QProgressBar *m_txMeter = nullptr;
+
+    // mise en forme de la modulation
+    QComboBox *m_speechPreset = nullptr;
+    QComboBox *m_speechHp = nullptr;
+    QDoubleSpinBox *m_speechPresence = nullptr;
+    QComboBox *m_speechLp = nullptr;
+    QComboBox *m_speechComp = nullptr;
+    QProgressBar *m_compMeter = nullptr;
+    bool m_applyingPreset = false;
 
     // numerique
     QCheckBox *m_rigctldOn = nullptr;

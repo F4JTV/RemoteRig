@@ -303,6 +303,58 @@ QWidget *ClientWindow::buildAudioPage()
     f->addRow(tr("Received level"), m_rxMeter);
     f->addRow(tr("Transmitted level"), m_txMeter);
 
+    // ------------------------------------------------ mise en forme du micro
+    auto *sep = new QLabel(QStringLiteral("<b>%1</b>").arg(tr("Microphone shaping")));
+    f->addRow(sep);
+
+    m_speechPreset = new QComboBox;
+    m_speechPreset->addItem(tr("None — flat, required for data modes"), 0);
+    m_speechPreset->addItem(tr("Headset boom microphone"), 1);
+    m_speechPreset->addItem(tr("Desk microphone"), 2);
+    m_speechPreset->addItem(tr("Custom"), 3);
+    f->addRow(tr("Preset"), m_speechPreset);
+
+    m_speechHp = new QComboBox;
+    m_speechHp->addItem(tr("off"), 0);
+    for (int hz : {150, 200, 250, 300, 400})
+        m_speechHp->addItem(QStringLiteral("%1 Hz").arg(hz), hz);
+    f->addRow(tr("High-pass"), m_speechHp);
+
+    m_speechPresence = new QDoubleSpinBox;
+    m_speechPresence->setRange(0.0, 12.0);
+    m_speechPresence->setSingleStep(0.5);
+    m_speechPresence->setSuffix(tr(" dB at 2 kHz"));
+    f->addRow(tr("Presence"), m_speechPresence);
+
+    m_speechLp = new QComboBox;
+    m_speechLp->addItem(tr("off"), 0);
+    for (int hz : {2700, 3000, 3200, 3500})
+        m_speechLp->addItem(QStringLiteral("%1 Hz").arg(hz), hz);
+    f->addRow(tr("Low-pass"), m_speechLp);
+
+    m_speechComp = new QComboBox;
+    m_speechComp->addItem(tr("none"), 10);
+    m_speechComp->addItem(tr("light — 2:1"), 20);
+    m_speechComp->addItem(tr("medium — 3:1"), 30);
+    m_speechComp->addItem(tr("firm — 4:1"), 40);
+    f->addRow(tr("Compression"), m_speechComp);
+
+    m_compMeter = new QProgressBar;
+    m_compMeter->setRange(0, 20);
+    m_compMeter->setFormat(tr("%v dB"));
+    f->addRow(tr("Gain reduction"), m_compMeter);
+
+    connect(m_speechPreset, &QComboBox::activated, this, &ClientWindow::applySpeechPreset);
+    for (QComboBox *c : {m_speechHp, m_speechLp, m_speechComp})
+        connect(c, &QComboBox::activated, this, [this] {
+            if (!m_applyingPreset) m_speechPreset->setCurrentIndex(3);
+            pushSpeechSettings();
+        });
+    connect(m_speechPresence, &QDoubleSpinBox::valueChanged, this, [this] {
+        if (!m_applyingPreset) m_speechPreset->setCurrentIndex(3);
+        pushSpeechSettings();
+    });
+
     auto *hint = new QLabel(tr(
         "For voice, keep Opus: it fits in 48 kbit/s for about 25 ms of total latency.\n"
         "For data modes (FT8, VARA, PSK), switch to 16-bit PCM: Opus distorts narrow tones "
@@ -402,6 +454,60 @@ void ClientWindow::onReceiveOnly(bool on)
                          : tr("Transmit  (hold, or press space)"));
 }
 
+rr::SpeechSettings ClientWindow::currentSpeech() const
+{
+    rr::SpeechSettings s;
+    s.highPassHz = m_speechHp->currentData().toDouble();
+    s.presenceHz = 2000.0;
+    s.presenceDb = m_speechPresence->value();
+    s.lowPassHz  = m_speechLp->currentData().toDouble();
+    s.compRatio  = m_speechComp->currentData().toInt() / 10.0;
+    s.compThreshDb = -18.0;
+    s.enabled = (m_speechPreset->currentIndex() != 0) &&
+                (s.highPassHz > 0 || s.presenceDb > 0 || s.lowPassHz > 0 || s.compRatio > 1.0);
+    return s;
+}
+
+void ClientWindow::pushSpeechSettings()
+{
+    const bool custom = m_speechPreset->currentIndex() != 0;
+    const QList<QWidget *> shaping{m_speechHp, m_speechPresence, m_speechLp, m_speechComp};
+    for (QWidget *w : shaping) w->setEnabled(custom);
+    m_compMeter->setEnabled(custom);
+
+    QMetaObject::invokeMethod(m_core, "setSpeechSettings", Qt::QueuedConnection,
+                              Q_ARG(rr::SpeechSettings, currentSpeech()));
+}
+
+void ClientWindow::applySpeechPreset(int index)
+{
+    m_applyingPreset = true;
+    switch (index) {
+    case 0:   // aucun : indispensable en numerique
+        m_speechHp->setCurrentIndex(0);
+        m_speechPresence->setValue(0.0);
+        m_speechLp->setCurrentIndex(0);
+        m_speechComp->setCurrentIndex(0);
+        break;
+    case 1:   // casque a perche : effet de proximite marque
+        m_speechHp->setCurrentIndex(m_speechHp->findData(300));
+        m_speechPresence->setValue(6.0);
+        m_speechLp->setCurrentIndex(m_speechLp->findData(3200));
+        m_speechComp->setCurrentIndex(2);
+        break;
+    case 2:   // micro de table, a distance
+        m_speechHp->setCurrentIndex(m_speechHp->findData(200));
+        m_speechPresence->setValue(4.0);
+        m_speechLp->setCurrentIndex(m_speechLp->findData(3200));
+        m_speechComp->setCurrentIndex(1);
+        break;
+    default:
+        break;
+    }
+    m_applyingPreset = false;
+    pushSpeechSettings();
+}
+
 void ClientWindow::updateRateLabel()
 {
     if (!m_rateLabel) return;
@@ -445,6 +551,7 @@ void ClientWindow::onConnectClicked()
     c.jitterMs = m_jitter->value();
     c.rxGain = float(m_rxGain->value());
     c.txGain = float(m_txGain->value());
+    c.speech = currentSpeech();
 
     QMetaObject::invokeMethod(m_core, "connectToStation", Qt::QueuedConnection,
                               Q_ARG(rr::ClientConfig, c));
@@ -508,8 +615,10 @@ void ClientWindow::onStateChanged(const RigState &st)
     m_txLed->setStyleSheet(st.ptt ? kTxStyle : kRxStyle);
 }
 
-void ClientWindow::onStats(int rttMs, int lost, int jitterMs, float rxLevel, float txLevel)
+void ClientWindow::onStats(int rttMs, int lost, int jitterMs, float rxLevel, float txLevel,
+                           float gainReductionDb)
 {
+    m_compMeter->setValue(int(gainReductionDb + 0.5f));
     m_rxMeter->setValue(int(rxLevel * 100));
     m_txMeter->setValue(int(txLevel * 100));
     m_statsLabel->setText(tr("Round trip %1 ms · buffer %2 ms · %3 frames lost")
@@ -590,6 +699,17 @@ void ClientWindow::loadSettings()
     if (out >= 0) m_outDev->setCurrentIndex(out);
     m_rigctldPort->setValue(s.value("rigctldPort", 4532).toInt());
     m_rigctldAny->setChecked(s.value("rigctldAny", false).toBool());
+    m_speechPreset->setCurrentIndex(s.value("speechPreset", 1).toInt());
+    applySpeechPreset(m_speechPreset->currentIndex());
+    if (m_speechPreset->currentIndex() == 3) {
+        const int hp = m_speechHp->findData(s.value("speechHp", 300).toInt());
+        if (hp >= 0) m_speechHp->setCurrentIndex(hp);
+        m_speechPresence->setValue(s.value("speechPresence", 6.0).toDouble());
+        const int lp = m_speechLp->findData(s.value("speechLp", 3200).toInt());
+        if (lp >= 0) m_speechLp->setCurrentIndex(lp);
+        m_speechComp->setCurrentIndex(s.value("speechComp", 2).toInt());
+        pushSpeechSettings();
+    }
     m_rigctldOn->setChecked(s.value("rigctldOn", false).toBool());
     updateRateLabel();
 }
@@ -613,6 +733,11 @@ void ClientWindow::saveSettings()
     s.setValue("rigctldPort", m_rigctldPort->value());
     s.setValue("rigctldAny", m_rigctldAny->isChecked());
     s.setValue("hostApi", m_hostApi->currentText());
+    s.setValue("speechPreset", m_speechPreset->currentIndex());
+    s.setValue("speechHp", m_speechHp->currentData().toInt());
+    s.setValue("speechPresence", m_speechPresence->value());
+    s.setValue("speechLp", m_speechLp->currentData().toInt());
+    s.setValue("speechComp", m_speechComp->currentIndex());
 }
 
 } // namespace rr

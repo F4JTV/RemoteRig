@@ -103,6 +103,44 @@ FT8, PSK31 and VARA lose decodes. The client's selector switches both ends on
 the fly, without dropping the link. Simple rule: **Opus for voice, PCM for data
 modes.**
 
+## Microphone shaping
+
+A boom microphone worn close to the mouth suffers from the proximity effect:
+everything below 300 Hz is lifted by 10 to 15 dB, and the voice sounds dark and
+muffled at the far end while the intelligibility band gets masked. The Audio tab
+carries a shaping chain to correct that, on the transmit path, before encoding.
+
+Four presets: **none**, **headset boom microphone**, **desk microphone**, and
+**custom**, which exposes the four controls — high-pass, presence, low-pass and
+compression — plus a gain reduction meter to set the level by eye.
+
+The headset preset measures as follows, high-pass 300 Hz, presence +6 dB at
+2 kHz, low-pass 3.2 kHz:
+
+| Frequency | 80 Hz | 150 Hz | 300 Hz | 600 Hz | 1 kHz | 2 kHz | 3 kHz | 3.5 kHz |
+|---|---|---|---|---|---|---|---|---|
+| Response | -23 dB | -12 dB | -3 dB | +0.5 dB | +2 dB | **+5.4 dB** | +1 dB | -1 dB |
+
+**Latency is exactly zero.** Only recursive biquads and a compressor with no
+lookahead: not a single sample is held back, which an impulse test confirms —
+the output starts on the very sample the impulse arrives.
+
+Distortion stays inaudible across the working range, measured on a 1 kHz tone:
+
+| Input | -30 dBFS | -20 dBFS | -12 dBFS | -6 dBFS | -3 dBFS |
+|---|---|---|---|---|---|
+| Gain reduction | 0 dB | 0 dB | 3.6 dB | 7.6 dB | 9.6 dB |
+| THD+N | 0.053 % | 0.018 % | 0.009 % | 0.004 % | 0.006 % |
+
+Two design points keep it that way: the compressor knee is quadratic, so the
+slope never breaks when compression starts, and the gain itself is smoothed in
+the dB domain with a 5 ms attack and a 150 ms release. Above -1 dBFS a soft
+clipper takes over as a last resort, gently — 0.97 % THD, still no hard edges.
+
+**Switch the preset to "none" for data modes.** A compressor destroys FT8, PSK
+and VARA tones. The filters are also reset at each transition to transmit, so
+the first syllable is never coloured by leftover state.
+
 ## Security
 
 - Challenge/response authentication: PBKDF2-HMAC-SHA256 (60,000 rounds) then an
@@ -559,7 +597,7 @@ RemoteRig/
 ├── CMakeLists.txt
 ├── build_all.bat     one-shot Windows build: compile, deploy, package
 ├── LICENSE.txt
-├── common/           protocol, crypto, codec, audio engine, resampler, i18n
+├── common/           protocol, crypto, codec, audio engine, resampler, speech, i18n
 ├── compat/msvc/      pthread.h shim, MSVC only
 ├── server/           Hamlib control, network core, window, appicon.rc
 ├── client/           network core, rigctld interface, window, appicon.rc
