@@ -255,7 +255,8 @@ void ServerCore::handleControl(const QJsonObject &o)
             {"encrypt",  wantEnc},
             {"codec",    c == CODEC_OPUS ? "opus" : "pcm"},
             {"pttToken", QString::fromLatin1(m_pttToken.toHex())},
-            {"state",    m_state.toJson()}});
+            {"state",    m_state.toJson()},
+            {"caps",     m_caps.toJson()}});
 
         m_encrypted = wantEnc;
         emit clientChanged(m_sock->peerAddress().toString(), true, m_encrypted,
@@ -273,6 +274,16 @@ void ServerCore::handleControl(const QJsonObject &o)
         if      (c == "freq") emit requestFrequency(quint64(o["v"].toDouble()));
         else if (c == "mode") emit requestMode(o["v"].toString(), o["pb"].toInt());
         else if (c == "vfo")  emit requestVfo(o["v"].toString());
+        else if (c == "tune") {
+            // Pas d'accord en pleine emission, et pas deux cycles a la fois.
+            if (m_tx || m_tuning) return;
+            m_tuning = true;
+            m_tuneClock.start();
+            m_state.tuning = true;
+            sendJson(QJsonObject{{"t", "state"}, {"s", m_state.toJson()}});
+            emit requestTune();
+            emit logMessage(tr("Tune requested"));
+        }
         else if (c == "ptt")  setTx(o["v"].toBool());
         else if (c == "codec") {
             Codec cc = (o["v"].toString() == "opus" && AudioCodec::opusAvailable())
@@ -291,15 +302,36 @@ void ServerCore::handleControl(const QJsonObject &o)
     }
 }
 
+void ServerCore::onRigCaps(const RigCaps &caps)
+{
+    m_caps = caps;
+    if (m_authenticated) sendJson(QJsonObject{{"t", "caps"}, {"c", caps.toJson()}});
+}
+
 void ServerCore::onRigState(const RigState &st)
 {
     m_state = st;
+
+    // Le cycle est fini quand le poste a repose son PTT. Le delai evite de
+    // conclure trop tot, avant meme que le poste ne l'ait leve.
+    if (m_tuning) {
+        const bool settled = !st.ptt && m_tuneClock.elapsed() > 1500;
+        if (settled || m_tuneClock.elapsed() > 15000) {
+            m_tuning = false;
+            emit logMessage(tr("Tuning finished"));
+        }
+    }
+    m_state.tuning = m_tuning;
     if (m_authenticated) sendJson(QJsonObject{{"t", "state"}, {"s", st.toJson()}});
 }
 
 // ------------------------------------------------------------------- bascule TX
 void ServerCore::setTx(bool on)
 {
+    // Pendant un accord, le poste emet deja : lui superposer le PTT du client
+    // le ferait osciller entre les deux.
+    if (on && m_tuning) return;
+
     if (on) {
         if (m_tailTimer) m_tailTimer->stop();
         if (m_tx) return;

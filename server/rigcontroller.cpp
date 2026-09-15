@@ -95,6 +95,26 @@ RigState RigController::state() const
     return m_state;
 }
 
+RigCaps RigController::caps() const
+{
+    QMutexLocker lock(&m_mutex);
+    return m_caps;
+}
+
+// Un cycle d'accord met le poste en emission plusieurs secondes. Le serveur
+// verrouille le PTT pendant ce temps ; ici on se contente de lancer.
+void RigController::startTune()
+{
+#ifdef RR_HAVE_HAMLIB
+    if (!m_rig) return;
+    const int r = rig_vfo_op(RIGP(m_rig), RIG_VFO_CURR, RIG_OP_TUNE);
+    if (r != RIG_OK)
+        emit logMessage(tr("Tune refused: %1").arg(QString::fromLatin1(rigerror(r))));
+    else
+        emit logMessage(tr("Tuning started"));
+#endif
+}
+
 void RigController::emitState()
 {
     RigState copy;
@@ -179,6 +199,23 @@ bool RigController::openHamlib()
     }
 
     m_rig = rig;
+
+    // Capacites declarees par le poste : plages d'emission normalisees par
+    // Hamlib a l'ouverture, et disponibilite du cycle d'accord.
+    RigCaps caps;
+    caps.hasTune = (rig_has_vfo_op(rig, RIG_OP_TUNE) & RIG_OP_TUNE) != 0;
+    for (int i = 0; i < HAMLIB_FRQRANGESIZ; ++i) {
+        const freq_range_t &fr = rig->state.tx_range_list[i];
+        if (fr.startf == 0 && fr.endf == 0) break;      // fin de liste
+        if (fr.endf <= fr.startf) continue;
+        caps.txRanges.append({quint64(fr.startf), quint64(fr.endf)});
+    }
+    {
+        QMutexLocker lock(&m_mutex);
+        m_caps = caps;
+    }
+    emit capsChanged(caps);
+
     {
         QMutexLocker lock(&m_mutex);
         m_state = RigState();

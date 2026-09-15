@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QHostAddress>
 #include <QByteArray>
+#include <QElapsedTimer>
 #include "../common/protocol.h"
 #include "../common/audiocodec.h"
 #include "../common/audioengine.h"
@@ -43,6 +44,7 @@ public slots:
     void start(const rr::ServerConfig &cfg);
     void stop();
     void onRigState(const rr::RigState &st);
+    void onRigCaps(const rr::RigCaps &caps);
     void setGains(float rx, float tx);
 
 signals:
@@ -57,6 +59,7 @@ signals:
     void requestFrequency(quint64 hz);
     void requestMode(const QString &mode, int passband);
     void requestVfo(const QString &vfo);
+    void requestTune();
 
 private slots:
     void onNewConnection();
@@ -102,6 +105,9 @@ private:
     quint16      m_clientUdpPort = 0;
     bool         m_tx = false;
     RigState     m_state;
+    RigCaps      m_caps;
+    bool         m_tuning = false;
+    QElapsedTimer m_tuneClock;
 };
 
 } // namespace rr

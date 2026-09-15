@@ -1,0 +1,26 @@
+.TH REMOTERIG-CLIENT 1 "September 2026" "RemoteRig 1.0.0" "User Commands"
+.SH NAME
+remoterig\-client \- operate a remote amateur radio transceiver
+.SH SYNOPSIS
+.B remoterig\-client
+.RI [ --list-audio ]
+.SH DESCRIPTION
+Connects to a RemoteRig server and gives the operator the rig's audio, its PTT
+and, when the rig supports CAT, its frequency, mode, VFO and band selection.
+.PP
+Hold the transmit button or the space bar to talk. Click the frequency display
+to type one: megahertz, kilohertz or hertz are all accepted.
+.PP
+A rigctld interface can be published on 127.0.0.1:4532 so that WSJT\-X, fldigi
+or VARA drive the remote rig as if it were local.
+.SH OPTIONS
+.TP
+.B \-\-list\-audio
+Print every audio interface and device PortAudio can see, then exit.
+.SH FILES
+.TP
+.I ~/.config/F4JTV/RemoteRigClient.conf
+Settings: host, ports, audio devices, microphone shaping, theme.
+.SH SEE ALSO
+.BR remoterig-server (1),
+.BR wsjtx (1)

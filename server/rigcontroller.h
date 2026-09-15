@@ -41,6 +41,7 @@ public:
     static bool hamlibAvailable();
 
     RigState state() const;
+    RigCaps caps() const;
 
 public slots:
     void open(const RigConfig &cfg);
@@ -50,9 +51,11 @@ public slots:
     void setMode(const QString &mode, int passband);
     void setVfo(const QString &vfo);
     void poll();
+    void startTune();
 
 signals:
     void stateChanged(const rr::RigState &st);
+    void capsChanged(const rr::RigCaps &caps);
     void logMessage(const QString &msg);
     void opened(bool ok, const QString &message);
 
@@ -64,6 +67,7 @@ private:
 
     RigConfig    m_cfg;
     RigState     m_state;
+    RigCaps      m_caps;
     mutable QMutex m_mutex;
     QTimer      *m_timer  = nullptr;
     QSerialPort *m_serial = nullptr;

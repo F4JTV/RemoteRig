@@ -1,0 +1,19 @@
+#!/bin/sh
+# Rafraichit les caches du bureau : sans cela, l'entree de menu et son icone
+# n'apparaissent qu'a la session suivante.
+set -e
+
+if [ "$1" = "configure" ]; then
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database -q /usr/share/applications || true
+    fi
+    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+        gtk-update-icon-cache -q -f -t /usr/share/icons/hicolor || true
+    fi
+
+    # Hamlib ne peut pas ouvrir un port serie sans appartenance au groupe.
+    echo "RemoteRig: pour piloter un poste en CAT, ajoutez votre utilisateur au"
+    echo "           groupe dialout :  sudo usermod -a -G dialout \$USER"
+fi
+
+exit 0

@@ -1,0 +1,9 @@
+remoterig (1.0.0) stable; urgency=medium
+
+  * First release.
+  * Station server: Hamlib CAT or plain serial PTT, two-way audio.
+  * Desktop client and Qt Quick touch client.
+  * Low-latency Opus or 16-bit PCM, switchable without dropping the link.
+  * Microphone shaping, and a rigctld interface for data-mode software.
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Tue, 15 Sep 2026 00:00:00 +0200

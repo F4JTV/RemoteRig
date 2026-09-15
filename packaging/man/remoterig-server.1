@@ -1,0 +1,29 @@
+.TH REMOTERIG-SERVER 1 "September 2026" "RemoteRig 1.0.0" "User Commands"
+.SH NAME
+remoterig\-server \- share an amateur radio transceiver over the network
+.SH SYNOPSIS
+.B remoterig\-server
+.RI [ --list-audio ]
+.SH DESCRIPTION
+Runs next to the transceiver and serves its audio, PTT and CAT control to a
+remote client. Radio control goes through Hamlib, or through plain RTS/DTR
+toggling on a serial port for rigs without CAT.
+.PP
+Audio travels over UDP, control over TCP. The PTT is sent on both at once, so a
+lost datagram never leaves the rig transmitting.
+.SH OPTIONS
+.TP
+.B \-\-list\-audio
+Print every audio interface and device PortAudio can see, with the sample rate
+each one accepts, then exit. Use this when a device is missing from the lists.
+.SH FILES
+.TP
+.I ~/.config/F4JTV/RemoteRigServer.conf
+Settings: radio model, serial port, audio devices, network ports.
+.SH NOTES
+Opening a serial port requires membership of the
+.B dialout
+group.
+.SH SEE ALSO
+.BR remoterig-client (1),
+.BR rigctl (1)

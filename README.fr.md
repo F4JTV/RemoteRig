@@ -104,7 +104,8 @@ réseau local ou en numérique.
 
 Opus en `RESTRICTED_LOWDELAY` est excellent en phonie et médiocre sur les
 tonalités étroites : FT8, PSK31 et VARA perdent des décodages. Le sélecteur du
-client bascule les deux extrémités à chaud, sans couper la liaison. Règle
+client bascule les deux extrémités à chaud, sans couper la liaison : le serveur
+permute son encodeur et son décodeur à réception de la commande. Règle
 simple : **Opus en phonie, PCM en numérique.**
 
 ## Mise en forme du micro
@@ -149,6 +150,25 @@ sans angle vif.
 tonalités de FT8, PSK et VARA. Les filtres sont par ailleurs réinitialisés à
 chaque passage en émission, pour que la première syllabe ne soit jamais colorée
 par un état résiduel.
+
+## Bandes et coupleur d'antenne
+
+Les boutons de bande ne sont pas une liste figée. À la connexion, le serveur lit
+les plages d'émission du poste dans Hamlib — `tx_range_list`, normalisée à
+`rig_open` pour la région ITU que le poste annonce — et les envoie au client,
+qui les croise avec un plan de bandes de référence allant du 2200 m au 23 cm.
+Chaque poste affiche donc ses propres bandes, avec une fréquence proposée
+ramenée dans ce qu'il sait réellement émettre. Sans CAT, le plan complet est
+affiché à titre de repère.
+
+Un bouton **Accord** apparaît quand `rig_has_vfo_op` signale `RIG_OP_TUNE` ; il
+reste caché sur les postes qui ne le gèrent pas, plutôt que d'échouer en
+silence. Un cycle d'accord met le poste en émission plusieurs secondes : le
+serveur verrouille donc le PTT pendant ce temps — l'indicateur affiche ACCORD,
+le bouton d'émission est désactivé, et une demande de PTT qui arriverait entre
+temps est ignorée. Le verrou tombe quand le poste repose son propre PTT, avec
+1,5 s de grâce pour ne pas conclure avant que le cycle ne démarre, et une limite
+dure de 15 s si le poste ne rend jamais la main.
 
 ## Sécurité
 
@@ -219,6 +239,22 @@ Sans eux la compilation fonctionne quand même et utilise le `.qm` livré.
 | `libopus-dev` | codec voix faible latence (facultatif) |
 | `libhamlib-dev` | pilotage CAT (facultatif) |
 
+### Paquets supplémentaires pour le client tactile
+
+L'interface Qt Quick réclame les modules d'exécution QML en plus des paquets
+ci-dessus. Ils sont séparés sur Debian et Ubuntu, et leur absence se manifeste
+par une fenêtre qui s'ouvre vide plutôt que par une erreur de compilation :
+
+```bash
+sudo apt install qt6-declarative-dev \
+  qml6-module-qtquick qml6-module-qtquick-controls \
+  qml6-module-qtquick-layouts qml6-module-qtquick-templates \
+  qml6-module-qtquick-window qml6-module-qtqml-workerscript
+```
+
+Ajoutez ensuite `-DWITH_QML_CLIENT=ON` à la ligne cmake. Un troisième programme
+en sort, `remoterig-client-qml`.
+
 ### 2. Compilation
 
 ```bash
@@ -232,6 +268,39 @@ Les deux exécutables sortent dans `build/` :
 ./build/remoterig-server    # côté poste
 ./build/remoterig-client    # côté opérateur
 ```
+
+### Paquet Debian
+
+`make_deb.sh` produit un `.deb` pour la machine sur laquelle il tourne :
+
+```bash
+./make_deb.sh            # serveur, client bureau, client tactile
+./make_deb.sh --no-qml   # sans le client Qt Quick
+./make_deb.sh --check    # et passe lintian sur le resultat
+```
+
+Installez-le avec `apt`, pas avec `dpkg -i`, pour que les dépendances suivent :
+
+```bash
+sudo apt install build-deb/remoterig_1.0.0_amd64.deb
+```
+
+**Un `.deb` contient du code compilé : une architecture égale un paquet.**
+`amd64` pour un PC, `arm64` pour un Raspberry Pi 64 bits, `armhf` pour un
+32 bits. Il faut compiler sur chaque machine, il n'existe pas de paquet
+universel.
+
+Les dépendances ne sont pas écrites à la main. `dpkg-shlibdeps` lit les
+bibliothèques réellement liées aux binaires et nomme les paquets qui les
+fournissent, ce qui donne la bonne réponse sur Ubuntu comme sur Raspberry Pi OS
+malgré leurs versions de Qt différentes. Les six paquets `qml6-module-*` font
+exception : le moteur QML les charge à l'exécution, aucun outil ne peut le
+deviner, ils sont donc déclarés explicitement. Sans eux, le client tactile ouvre
+une fenêtre vide sans rien dire.
+
+Le paquet installe les trois programmes, leurs raccourcis, les icônes en neuf
+tailles, les pages de manuel, et rafraîchit les caches du bureau à
+l'installation. `lintian` ne signale rien.
 
 ### 3. Installation
 
@@ -623,16 +692,20 @@ gain micro du poste.
 RemoteRig/
 ├── CMakeLists.txt
 ├── build_all.bat     compilation Windows d'un bloc : build, déploiement, paquet
+├── build_android.sh  compilation Android d'un bloc : build, paquet, signature
 ├── LICENSE.txt
 ├── common/           protocole, crypto, codec, moteur audio, rééchantillonneur, voix, i18n
 ├── compat/msvc/      shim pthread.h, MSVC uniquement
 ├── server/           pilotage Hamlib, cœur réseau, fenêtre, appicon.rc
 ├── client/           cœur réseau, interface rigctld, fenêtre, appicon.rc
+│   └── qml/          interface tactile : pont, Main.qml, colle du service Android
 ├── install.sh        installation Linux : build, icônes, raccourcis
+├── make_deb.sh       paquet Debian pour l'architecture courante
 ├── icons/            icônes des applications, .ico et arborescence hicolor
 ├── desktop/          raccourcis freedesktop, bilingues
 ├── i18n/             remoterig_fr.ts, remoterig_fr.qm, translations.qrc
-└── installer/        script Inno Setup
+├── installer/        script Inno Setup
+└── android/          manifeste, icônes de lanceur, service de premier plan
 ```
 
 ## État du code
@@ -665,6 +738,392 @@ Trois points à vérifier lors du premier essai :
   Hamlib. L'accès à `rig->caps` pour le nom du poste reste direct ; c'est encore
   un simple membre en 4.7.2, mais Hamlib expose un commutateur
   `RIGCAPS_NOT_CONST` qui laisse penser que cela pourrait changer.
+
+---
+
+# Portage Android, en cours
+
+Le client fait tourner le même C++ sur Android. La couche audio est faite,
+l'interface tactile ne l'est pas.
+
+## Ce qui est en place
+
+`common/audioengine_oboe.cpp` implémente toute l'interface `AudioEngine` sur
+**Oboe**, la bibliothèque audio faible latence de Google. PortAudio n'a pas de
+backend Android en amont — le ticket OpenSL ES ouvert en 2011 n'a jamais abouti
+— et Google recommande Oboe, qui appelle AAudio quand il est disponible et
+retombe sur OpenSL ES sinon.
+
+Rien d'autre n'a changé. `clientcore.cpp`, le protocole, le codec, la mise en
+forme de la voix et le tampon de gigue se compilent tels quels : le gain, la
+mesure de crête, le rééchantillonnage et les files circulaires ont été déplacés
+dans `audioengine_shared.cpp`, que les deux backends appellent. CMake choisit
+seul et l'annonce :
+
+```
+-- Audio backend: PortAudio      (bureau)
+-- Audio backend: Oboe           (Android, récupéré automatiquement)
+```
+
+Choix délibérés dans la couche Oboe :
+
+- **`InputPreset::VoiceRecognition`** — désactive l'annulation d'écho et la
+  correction automatique de gain, pour que la voix arrive telle quelle et que
+  notre propre chaîne s'en charge. L'AGC d'Android lutterait contre le
+  compresseur.
+- **C'est Oboe qui convertit le débit**, en qualité `High`, si bien que
+  l'application voit toujours du 48 kHz mono quoi que fasse le matériel du
+  téléphone. Notre rééchantillonneur reste en court-circuit.
+- **`onErrorAfterClose` rouvre le flux.** Débrancher un casque ferme le flux
+  sous les pieds de l'application ; sans cela l'audio ne revient jamais.
+- Le serveur n'est pas compilé sur Android : ni port série, ni Hamlib.
+
+## L'interface tactile
+
+`client/qml/Main.qml` est une interface Qt Quick pensée pour le pouce : le PTT
+occupe le quart bas de l'écran, la fréquence est lisible à bout de bras, et tout
+le reste vit dans un tiroir. `client/qml/clientbridge.cpp` expose l'état du cœur
+sous forme de propriétés QML — `clientcore.cpp` lui-même est repris sans
+modification, et tourne dans le même thread de travail que sur le bureau.
+
+Le pont est enregistré comme **singleton QML** plutôt que comme propriété de
+contexte : Qt 6 déconseille la seconde, qui empêche la compilation anticipée du
+QML et prive l'outillage de toute vérification de type.
+
+### Aperçu sur le bureau
+
+Vous pouvez juger l'ergonomie sans téléphone. La même interface se compile sur
+le bureau :
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release -DWITH_QML_CLIENT=ON
+cmake --build build -j$(nproc)
+./build/remoterig-client-qml
+```
+
+Trois programmes en sortent : le serveur, le client bureau et le client
+tactile. Sur Android, seul le dernier est compilé, et il s'appelle
+`remoterig-client`.
+
+## Rester en vie écran éteint
+
+`android/src/org/remoterig/client/RemoteRigService.java` est un service de
+premier plan, démarré à l'ouverture de la liaison et arrêté à sa fermeture. Sans
+lui, Android suspend l'application dès que l'écran s'éteint et l'audio meurt en
+plein contact. Il tient en outre deux verrous :
+
+- un **WifiLock** en mode haute performance, sans quoi l'économie d'énergie du
+  Wi-Fi troue le flux ;
+- un **WakeLock partiel**, pour que le processeur continue de traiter l'audio.
+
+Le service déclare `foregroundServiceType="microphone"`, qu'Android 14 exige de
+tout service captant du son. Il est piloté depuis le C++ via `QJniObject`, sans
+colle Java côté application.
+
+## Thèmes
+
+Le client tactile embarque quatre palettes, chacune pour une situation
+d'exploitation réelle : **Sombre**, **Rouge** qui préserve la vision nocturne,
+**Contraste** pour le plein soleil, et **Clair**. Le choix se
+trouve en bas du tiroir et reste mémorisé. Les contrôles Qt Quick suivent la
+même palette que nos propres tracés, donc la bascule est immédiate et complète,
+sans redémarrage.
+
+## Périphérique audio, touche PTT et rigctld
+
+La section Audio du tiroir liste les périphériques réels, énumérés par
+`AudioManager.getDevices()` en JNI : micro intégré, casque filaire, CODEC USB,
+Bluetooth. L'identifiant part directement dans le `setDeviceId` d'Oboe, ce qui
+permet de viser une interface USB précise plutôt que de subir le choix du
+système. **Rechercher les périphériques** prend en compte un casque branché
+après le lancement.
+
+**Le PTT sur la touche volume bas** transforme la touche physique en bouton
+d'émission. Le filtre est posé sur l'application entière plutôt que sur un
+élément d'interface, car les touches de volume ne suivent pas le focus clavier ;
+l'événement est consommé, donc le volume ne bouge pas pendant l'émission.
+L'interrupteur est désactivé par défaut, puisqu'il confisque la touche.
+
+**L'interface rigctld** se publie sur 127.0.0.1:4532 depuis la même section. Un
+logiciel numérique du téléphone pilote alors le poste distant par Hamlib NET
+rigctl, exactement comme sur le bureau. Désactivée par défaut.
+
+## Ce qui manque encore
+
+- Rien d'identifié. Signalez ce que vous trouvez.
+
+## Fabriquer l'APK sous Ubuntu 24.04
+
+Rien ici ne vient de la distribution : Ubuntu n'empaquette Qt que pour le
+bureau. Tout ce qui suit s'installe dans votre dossier personnel et ne touche au
+système que pour le JDK.
+
+### Tout d'un coup
+
+`build_android.sh` enchaîne l'ensemble et vérifie chaque prérequis avant de
+toucher à quoi que ce soit :
+
+```bash
+./build_android.sh --logcat
+```
+
+Il configure, compile, efface `android-build` avant l'empaquetage, signe,
+installe par `adb` puis suit le journal d'Oboe. Chaque contrôle correspond à un
+échec rencontré en sortant le premier APK, et chaque message d'erreur porte la
+commande qui le répare. Tous les chemins sont redéfinissables par
+l'environnement — `QT_VERSION`, `NDK_VERSION`, `SDK_PLATFORM`, `KEYSTORE` et les
+autres ; `--help` les liste.
+
+Définir `QT_ANDROID_KEYSTORE_STORE_PASS` fait signer Qt pendant la compilation,
+au lieu de passer par `apksigner` ensuite.
+
+Les étapes ci-dessous décrivent la même chose à la main.
+
+### 1. JDK et outils courants
+
+```bash
+sudo apt update
+sudo apt install openjdk-21-jdk unzip curl cmake ninja-build python3-pip
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+```
+
+La documentation de Qt pour la version courante demande le JDK 21. Les versions
+plus anciennes de Qt 6 réclamaient le JDK 17, qu'Ubuntu fournit aussi sous
+`openjdk-17-jdk` — consultez le tableau « Supported Configurations » de la page
+Android de votre version de Qt si la compilation proteste.
+
+### 2. Outils en ligne de commande du SDK Android
+
+Prenez le lien Linux « command line tools only » courant sur
+<https://developer.android.com/studio#command-tools> : le numéro de build change
+tous les quelques mois.
+
+```bash
+mkdir -p ~/Android/Sdk/cmdline-tools
+cd ~/Android/Sdk/cmdline-tools
+curl -O https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+unzip -q commandlinetools-linux-*.zip
+mv cmdline-tools latest        # sdkmanager exige cette disposition
+export ANDROID_SDK_ROOT=$HOME/Android/Sdk
+export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH"
+```
+
+### 3. Plateforme, outils de build et NDK
+
+```bash
+yes | sdkmanager --licenses
+sdkmanager "platform-tools" "platforms;android-36" \
+           "build-tools;36.0.0" "ndk;27.2.12479018"
+export ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/27.2.12479018
+```
+
+**API 36, et non 35.** Qt 6.11 entraîne Gradle 9 et le plugin Gradle d'Android
+9, qui tirent `androidx.core` 1.17. Cette bibliothèque refuse d'être compilée
+contre une API antérieure à la 36. N'installer que `android-35` mène jusqu'à
+Gradle, qui s'arrête alors sur `checkReleaseAarMetadata`. Les variables de cache
+CMake `RR_ANDROID_TARGET_SDK` (36) et `RR_ANDROID_MIN_SDK` (26) permettent de
+changer cela sans toucher au projet.
+
+**Le NDK doit correspondre à votre version de Qt.** Les bibliothèques de Qt sont
+compilées avec un NDK précis, et les mélanger produit des erreurs de symboles
+manquants à l'édition de liens, rien de lisible. Les versions récentes de Qt 6
+utilisent r27c (27.2.12479018) ; Qt 6.8 et 6.9 acceptaient aussi r26b
+(26.1.10909125). Le tableau de la page Android de votre version fait foi.
+
+### 4. Qt pour Android
+
+L'installateur en ligne de Qt convient, mais `aqtinstall` scripte l'ensemble. Il
+faut à la fois la version Android **et** une version bureau identique : cette
+dernière fournit `androiddeployqt` et `qmlimportscanner`.
+
+```bash
+pip install --user aqtinstall
+export PATH="$HOME/.local/bin:$PATH"
+
+# les outils hôtes d'abord : l'installation Android les réclame
+aqt install-qt linux desktop 6.11.2 linux_gcc_64 -O ~/Qt
+
+# la cible Android
+aqt install-qt linux android 6.11.2 android_arm64_v8a -O ~/Qt
+```
+
+**Pas d'option `-m` ici.** En Qt 6, Qt Quick (`qtdeclarative`) et
+`qtshadertools` font partie du paquet de base et non des extensions
+facultatives : les demander par leur nom échoue sur *« The packages
+['qtdeclarative'] were not found while parsing XML of package information »*.
+La liste du `-m` ne contient que les vraies extensions — Qt Charts, Qt
+Multimedia, Qt WebEngine et consorts :
+
+```bash
+aqt list-qt linux android --modules 6.11.2 android_arm64_v8a
+```
+
+Pour vérifier que Qt Quick est bien arrivé, contrôlez l'existence de ce dossier
+une fois l'installation terminée :
+
+```bash
+ls ~/Qt/6.11.2/android_arm64_v8a/lib/cmake/Qt6Quick
+```
+
+### 5. Configuration et compilation
+
+```bash
+cd /chemin/vers/RemoteRig
+~/Qt/6.11.2/android_arm64_v8a/bin/qt-cmake -B build-android \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DQT_HOST_PATH=$HOME/Qt/6.11.2/gcc_64 \
+    -DANDROID_SDK_ROOT=$ANDROID_SDK_ROOT \
+    -DANDROID_NDK_ROOT=$ANDROID_NDK_ROOT
+
+cmake --build build-android -j$(nproc)
+cmake --build build-android --target apk
+```
+
+La première passe est longue : CMake récupère et compile **Oboe** et **Opus**
+depuis les sources, aucun des deux n'existant en paquet Android. `qt-cmake`
+règle seul la chaîne de compilation, l'ABI et les chemins de Qt — ne passez pas
+`CMAKE_TOOLCHAIN_FILE` vous-même.
+
+L'APK sort dans :
+
+```
+build-android/android-build/build/outputs/apk/debug/android-build-debug.apk
+```
+
+### 6. Installation sur le téléphone
+
+Activez le mode développeur et le débogage USB sur l'appareil, puis :
+
+```bash
+adb devices                 # le téléphone doit apparaître en « device »
+adb install -r build-android/android-build/build/outputs/apk/debug/android-build-debug.apk
+adb logcat -s RemoteRig:V Qt:V oboe:V
+```
+
+La dernière ligne est celle qui compte au premier essai : Oboe journalise le
+flux qu'il a réellement obtenu — débit, taille de tampon, et s'il a décroché le
+chemin faible latence.
+
+### 7. Une version signée
+
+Une compilation Release produit un APK **non signé**, qu'Android refuse
+d'installer : `INSTALL_PARSE_FAILED_NO_CERTIFICATES`. La signature n'est pas
+facultative, même pour votre propre téléphone.
+
+Créez d'abord une clé, une fois pour toutes :
+
+```bash
+keytool -genkey -v -keystore ~/remoterig.keystore -alias remoterig \
+        -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Gardez le mot de passe : le perdre interdit toute mise à jour ultérieure sous la
+même identité. Les informations du certificat que vous saisissez restent
+visibles pour quiconque inspecte l'APK, alors choisissez ce que vous acceptez de
+publier.
+
+Laissez ensuite Qt signer à la compilation. `QT_ANDROID_SIGN_APK` est une
+variable CMake, les autres sont des variables d'environnement lues par
+`androiddeployqt` :
+
+```bash
+export QT_ANDROID_KEYSTORE_PATH=$HOME/remoterig.keystore
+export QT_ANDROID_KEYSTORE_ALIAS=remoterig
+export QT_ANDROID_KEYSTORE_STORE_PASS=votremotdepasse
+export QT_ANDROID_KEYSTORE_KEY_PASS=votremotdepasse
+
+~/Qt/6.11.2/android_arm64_v8a/bin/qt-cmake -B build-android \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DQT_HOST_PATH=$HOME/Qt/6.11.2/gcc_64 \
+    -DANDROID_SDK_ROOT=$ANDROID_SDK_ROOT \
+    -DANDROID_NDK_ROOT=$ANDROID_NDK_ROOT \
+    -DQT_ANDROID_SIGN_APK:BOOL=ON
+
+cmake --build build-android --target apk
+ls build-android/android-build/build/outputs/apk/release/
+```
+
+**Si vous préférez ne pas reconfigurer**, signez l'APK déjà produit avec les
+outils du SDK :
+
+```bash
+BT=$ANDROID_SDK_ROOT/build-tools/36.0.0
+OUT=build-android/android-build/build/outputs/apk/release
+
+$BT/zipalign -p -f 4 $OUT/android-build-release-unsigned.apk /tmp/aligned.apk
+$BT/apksigner sign --ks ~/remoterig.keystore --ks-key-alias remoterig \
+    --out ~/remoterig-1.0.0.apk /tmp/aligned.apk
+
+adb install -r ~/remoterig-1.0.0.apk
+```
+
+`zipalign` doit passer avant `apksigner`, jamais après : réaligner un paquet
+signé casse sa signature.
+
+### En cas de problème
+
+- **`fatal: référence invalide : 1.10.x`** à la récupération d'Oboe —
+  l'étiquette n'existe pas. Oboe numérote ses étiquettes sans préfixe `v`, et
+  son `Version.h` est en avance sur la dernière version publiée.
+  `git ls-remote --tags https://github.com/google/oboe.git` liste ce qui existe
+  réellement.
+- **`Could NOT find Qt6TaskTree`** — sans conséquence. Cela vient d'un greffon
+  QML facultatif de Qt dont la dépendance n'est pas livrée dans le paquet
+  Android ; la configuration se poursuit.
+- **`Target "rr_common" links to oboe::oboe but the target was not found`** —
+  Oboe déclare une cible `oboe` toute simple, sans alias avec espace de noms. La
+  compilation accepte les deux formes ; ce message ne concerne qu'une ancienne
+  copie du CMakeLists.
+- **`unknown type name 'QJniObject'; did you mean 'QObject'?`** — un problème
+  d'ordre d'inclusion. `Q_OS_ANDROID` est défini par `<QtGlobal>` : tout
+  `#ifdef Q_OS_ANDROID` placé avant lui est silencieusement faux. Les inclusions
+  sautent alors que le code qui en dépend, lui, compile.
+- **`AAPT: error: resource drawable/icon not found`** — les icônes de lanceur
+  manquent dans `android/res/drawable-*/`. Elles sont livrées avec le projet ;
+  une copie partielle de l'arborescence en est la cause habituelle.
+- **`checkReleaseAarMetadata` échoue sur `androidx.core:core` qui réclame
+  l'API 36** — `platforms;android-36` n'est pas installé. Voir l'étape 3.
+- **`QML import could not be resolved in any of the import paths: RemoteRig`** —
+  sans conséquence. L'espace de noms `RemoteRig` est enregistré depuis le C++ au
+  démarrage par `qmlRegisterSingletonInstance`, ce que l'analyseur d'imports QML
+  ne peut pas anticiper. L'import se résout à l'exécution.
+- **`The specified Android SDK Build Tools version (35.0.0) is ignored`** — sans
+  conséquence également. Le plugin Gradle d'Android 9 choisit ses propres outils
+  de build et les installe au passage.
+- **`INSTALL_PARSE_FAILED_NO_CERTIFICATES`** — l'APK n'est pas signé. Voir
+  l'étape 7.
+- **`androiddeployqt : Aucun fichier ou dossier de ce nom`** dans le Qt
+  Android — c'est un outil hôte. Il se trouve dans le Qt bureau :
+  `~/Qt/6.11.2/gcc_64/bin/`.
+- **`Could not find Qt6Quick`** — l'installation Android est incomplète.
+  N'essayez pas d'ajouter `qtdeclarative` par `-m` : réinstallez le paquet de
+  base.
+- **Symboles indéfinis à l'édition de liens** — le NDK ne correspond pas à celui
+  avec lequel Qt a été compilé. Étape 3.
+- **L'application s'ouvre, les vumètres bougent, mais l'émission est muette** —
+  la permission micro a été refusée. Paramètres, Applications, RemoteRig,
+  Autorisations.
+- **L'audio meurt quand l'écran s'éteint** — le service de premier plan n'a pas
+  démarré. `adb logcat` filtré sur `RemoteRigService` dira pourquoi.
+
+## Ce qui a été vérifié, et ce qui ne l'a pas été
+
+`audioengine_oboe.cpp` compile sans un avertissement contre les vrais en-têtes
+d'Oboe 1.10.2, pour x86-64 et pour `aarch64`, l'architecture des téléphones. Les
+trois programmes se compilent en `-Wall -Wextra` sans un avertissement, et
+l'interface Qt Quick a été chargée et exécutée pour de bon sur le bureau —
+`qmllint` ne signale plus aucun accès non qualifié ni aucune erreur. Le service
+Java est syntaxiquement valide : ses 59 plaintes du compilateur viennent toutes
+du SDK Android absent, aucune du code.
+
+Rien n'a tourné sur un téléphone. Comptez 80 à 150 ms de latence totale selon
+l'appareil, plutôt que les 65 ms du bureau. Un casque **Bluetooth** retombe à 8
+ou 16 kHz en SCO et sonnera mal quoi que fasse la mise en forme — filaire ou
+USB-C uniquement.
+
+Bug amont contourné : Oboe 1.10.2 oublie `<cstring>` dans
+`FullDuplexStream.h`, ce que la chaîne du NDK masque. L'include est ajouté
+avant les en-têtes d'Oboe.
 
 ---
 

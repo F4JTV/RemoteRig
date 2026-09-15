@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
     qRegisterMetaType<rr::RigState>("rr::RigState");
     qRegisterMetaType<rr::RigConfig>("rr::RigConfig");
     qRegisterMetaType<rr::ServerConfig>("rr::ServerConfig");
+    qRegisterMetaType<rr::RigCaps>("rr::RigCaps");
 
     rr::ServerWindow w;
     w.show();

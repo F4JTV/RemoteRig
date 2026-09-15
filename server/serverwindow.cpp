@@ -50,7 +50,9 @@ ServerWindow::ServerWindow(QWidget *parent) : QMainWindow(parent)
     connect(m_core, &ServerCore::requestFrequency, m_rig, &RigController::setFrequency);
     connect(m_core, &ServerCore::requestMode,      m_rig, &RigController::setMode);
     connect(m_core, &ServerCore::requestVfo,       m_rig, &RigController::setVfo);
+    connect(m_core, &ServerCore::requestTune,      m_rig, &RigController::startTune);
     connect(m_rig,  &RigController::stateChanged,  m_core, &ServerCore::onRigState);
+    connect(m_rig,  &RigController::capsChanged,   m_core, &ServerCore::onRigCaps);
 
     connect(m_rig,  &RigController::stateChanged,  this, &ServerWindow::onRigState);
     connect(m_rig,  &RigController::logMessage,    this, &ServerWindow::appendLog);

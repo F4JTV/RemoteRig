@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="fr_FR">
 <context>
@@ -9,11 +9,55 @@
     </message>
     <message>
         <source>This input device accepted no sample rate</source>
-        <translation>Aucun débit accepté par ce périphérique d'entrée</translation>
+        <translation>Aucun débit accepté par ce périphérique d&apos;entrée</translation>
     </message>
     <message>
         <source>This output device accepted no sample rate</source>
         <translation>Aucun débit accepté par ce périphérique de sortie</translation>
+    </message>
+    <message>
+        <source>System audio route</source>
+        <translation>Routage audio du système</translation>
+    </message>
+    <message>
+        <source>built-in microphone</source>
+        <translation>micro intégré</translation>
+    </message>
+    <message>
+        <source>earpiece</source>
+        <translation>écouteur</translation>
+    </message>
+    <message>
+        <source>wired headset</source>
+        <translation>casque filaire</translation>
+    </message>
+    <message>
+        <source>wired headphones</source>
+        <translation>écouteurs filaires</translation>
+    </message>
+    <message>
+        <source>Bluetooth SCO</source>
+        <translation>Bluetooth SCO</translation>
+    </message>
+    <message>
+        <source>Bluetooth A2DP</source>
+        <translation>Bluetooth A2DP</translation>
+    </message>
+    <message>
+        <source>USB device</source>
+        <translation>périphérique USB</translation>
+    </message>
+    <message>
+        <source>USB accessory</source>
+        <translation>accessoire USB</translation>
+    </message>
+    <message>
+        <source>USB headset</source>
+        <translation>casque USB</translation>
+    </message>
+    <message>
+        <source>audio device</source>
+        <translation>périphérique audio</translation>
     </message>
 </context>
 <context>
@@ -41,15 +85,241 @@
     <message>
         <source>The new language applies when the program starts again.
 Restart now?</source>
-        <translation>La nouvelle langue s'applique au prochain démarrage du programme.
+        <translation>La nouvelle langue s&apos;applique au prochain démarrage du programme.
 Redémarrer maintenant ?</translation>
+    </message>
+</context>
+<context>
+    <name>Main</name>
+    <message>
+        <source>Connected</source>
+        <translation>Connectée</translation>
+    </message>
+    <message>
+        <source>Offline</source>
+        <translation>Hors ligne</translation>
+    </message>
+    <message>
+        <source>PTT only</source>
+        <translation>PTT seul</translation>
+    </message>
+    <message>
+        <source>Signal</source>
+        <translation>Signal</translation>
+    </message>
+    <message>
+        <source>RX</source>
+        <translation>RX</translation>
+    </message>
+    <message>
+        <source>TX</source>
+        <translation>TX</translation>
+    </message>
+    <message>
+        <source>Round trip %1 ms · buffer %2 ms · %3 lost</source>
+        <translation>Aller-retour %1 ms · tampon %2 ms · %3 perdues</translation>
+    </message>
+    <message>
+        <source>TRANSMITTING</source>
+        <translation>ÉMISSION</translation>
+    </message>
+    <message>
+        <source>HOLD TO TALK</source>
+        <translation>MAINTENIR POUR PARLER</translation>
+    </message>
+    <message>
+        <source>Station</source>
+        <translation>Station</translation>
+    </message>
+    <message>
+        <source>Host</source>
+        <translation>Hôte</translation>
+    </message>
+    <message>
+        <source>Encrypt</source>
+        <translation>Chiffrer</translation>
+    </message>
+    <message>
+        <source>Password</source>
+        <translation>Mot de passe</translation>
+    </message>
+    <message>
+        <source>Disconnect</source>
+        <translation>Déconnecter</translation>
+    </message>
+    <message>
+        <source>Connect</source>
+        <translation>Connecter</translation>
+    </message>
+    <message>
+        <source>Audio</source>
+        <translation>Audio</translation>
+    </message>
+    <message>
+        <source>Codec</source>
+        <translation>Codec</translation>
+    </message>
+    <message>
+        <source>Opus low latency</source>
+        <translation>Opus faible latence</translation>
+    </message>
+    <message>
+        <source>16-bit PCM</source>
+        <translation>PCM 16 bits</translation>
+    </message>
+    <message>
+        <source>Jitter</source>
+        <translation>Gigue</translation>
+    </message>
+    <message>
+        <source>Volume</source>
+        <translation>Volume</translation>
+    </message>
+    <message>
+        <source>Mic level</source>
+        <translation>Niveau micro</translation>
+    </message>
+    <message>
+        <source>Microphone shaping</source>
+        <translation>Mise en forme du micro</translation>
+    </message>
+    <message>
+        <source>None — required for data modes</source>
+        <translation>Aucune — indispensable en numérique</translation>
+    </message>
+    <message>
+        <source>Headset boom microphone</source>
+        <translation>Micro-casque à perche</translation>
+    </message>
+    <message>
+        <source>Phone microphone</source>
+        <translation>Micro du téléphone</translation>
+    </message>
+    <message>
+        <source>Reduction</source>
+        <translation>Réduction</translation>
+    </message>
+    <message>
+        <source>Log</source>
+        <translation>Journal</translation>
+    </message>
+    <message>
+        <source>Appearance</source>
+        <translation>Apparence</translation>
+    </message>
+    <message>
+        <source>Build of %1</source>
+        <translation>Compilé le %1</translation>
+    </message>
+    <message>
+        <source>Microphone</source>
+        <translation>Micro</translation>
+    </message>
+    <message>
+        <source>Playback</source>
+        <translation>Écoute</translation>
+    </message>
+    <message>
+        <source>Rescan audio devices</source>
+        <translation>Rechercher les périphériques</translation>
+    </message>
+    <message>
+        <source>Controls</source>
+        <translation>Commandes</translation>
+    </message>
+    <message>
+        <source>PTT on volume-down key</source>
+        <translation>PTT sur la touche volume bas</translation>
+    </message>
+    <message>
+        <source>The key no longer changes the volume while this is on.</source>
+        <translation>La touche ne règle plus le volume tant que c&apos;est activé.</translation>
+    </message>
+    <message>
+        <source>Publish a rigctld interface</source>
+        <translation>Publier une interface rigctld</translation>
+    </message>
+    <message>
+        <source>Data-mode software on this device can then drive the remote radio: Hamlib NET rigctl, 127.0.0.1:%1.</source>
+        <translation>Un logiciel numérique de cet appareil peut alors piloter le poste distant : Hamlib NET rigctl, 127.0.0.1:%1.</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation>Sombre</translation>
+    </message>
+    <message>
+        <source>Red</source>
+        <translation>Rouge</translation>
+    </message>
+    <message>
+        <source>Contrast</source>
+        <translation>Contraste</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation>Clair</translation>
+    </message>
+    <message>
+        <source>Frequency</source>
+        <translation>Fréquence</translation>
+    </message>
+    <message>
+        <source>MHz, kHz or Hz — 14.074, 14074 and 14074000 all work.</source>
+        <translation>MHz, kHz ou Hz — 14.074, 14074 et 14074000 conviennent tous.</translation>
+    </message>
+    <message>
+        <source>UDP audio port, 0 to follow the server</source>
+        <translation>Port audio UDP, 0 pour suivre le serveur</translation>
+    </message>
+    <message>
+        <source>auto</source>
+        <translation>auto</translation>
+    </message>
+    <message>
+        <source>TUNE</source>
+        <translation>ACCORD</translation>
+    </message>
+    <message>
+        <source>Tuning…</source>
+        <translation>Accord…</translation>
+    </message>
+    <message>
+        <source>Tune</source>
+        <translation>Accord</translation>
+    </message>
+</context>
+<context>
+    <name>rr::ClientBridge</name>
+    <message>
+        <source>no CAT</source>
+        <translation>pas de CAT</translation>
+    </message>
+    <message>
+        <source>Disconnected</source>
+        <translation>Déconnecté</translation>
+    </message>
+    <message>
+        <source>%1 Hz mono, route chosen by the system</source>
+        <translation>%1 Hz mono, routage choisi par le système</translation>
+    </message>
+    <message>
+        <source>Frequency not understood: %1</source>
+        <translation>Fréquence incomprise : %1</translation>
+    </message>
+    <message>
+        <source>%1 bands, antenna tuner available</source>
+        <translation>%1 bandes, coupleur d&apos;antenne disponible</translation>
+    </message>
+    <message>
+        <source>%1 bands, no antenna tuner</source>
+        <translation>%1 bandes, pas de coupleur d&apos;antenne</translation>
     </message>
 </context>
 <context>
     <name>rr::ClientCore</name>
     <message>
         <source>PortAudio failed to start</source>
-        <translation>PortAudio n'a pas pu démarrer</translation>
+        <translation>PortAudio n&apos;a pas pu démarrer</translation>
     </message>
     <message>
         <source>Audio output: %1</source>
@@ -97,7 +367,27 @@ Redémarrer maintenant ?</translation>
     </message>
     <message>
         <source>Receive only: no microphone, transmit is disabled</source>
-        <translation>Écoute seule : aucun micro, l'émission est désactivée</translation>
+        <translation>Écoute seule : aucun micro, l&apos;émission est désactivée</translation>
+    </message>
+    <message>
+        <source>No microphone: receive only</source>
+        <translation>Aucun micro : réception seule</translation>
+    </message>
+    <message>
+        <source>Audio input: %1</source>
+        <translation>Entrée audio : %1</translation>
+    </message>
+    <message>
+        <source>Microphone switched</source>
+        <translation>Micro changé</translation>
+    </message>
+    <message>
+        <source>No playback device: nothing could be heard.</source>
+        <translation>Aucun périphérique de sortie : rien ne serait audible.</translation>
+    </message>
+    <message>
+        <source>Playback switched</source>
+        <translation>Sortie audio changée</translation>
     </message>
 </context>
 <context>
@@ -156,7 +446,7 @@ Redémarrer maintenant ?</translation>
     </message>
     <message>
         <source>Transmit  (hold, or press space)</source>
-        <translation>Émettre  (maintenir, ou barre d'espace)</translation>
+        <translation>Émettre  (maintenir, ou barre d&apos;espace)</translation>
     </message>
     <message>
         <source>Offline</source>
@@ -230,17 +520,17 @@ En numérique (FT8, VARA, PSK), basculez sur PCM 16 bits : Opus déforme les ton
     </message>
     <message>
         <source>Also accept connections from other machines</source>
-        <translation>Accepter aussi les connexions d'autres machines</translation>
+        <translation>Accepter aussi les connexions d&apos;autres machines</translation>
     </message>
     <message>
-        <source>In WSJT-X / fldigi / JS8Call, set the radio to "Hamlib NET rigctl", address 127.0.0.1:4532, PTT "CAT".
+        <source>In WSJT-X / fldigi / JS8Call, set the radio to &quot;Hamlib NET rigctl&quot;, address 127.0.0.1:4532, PTT &quot;CAT&quot;.
 
 For audio, pick the virtual cable in the Audio tab (VB-Audio Cable on Windows, a PulseAudio or PipeWire null-sink module on Linux), and point the data-mode software at the other end of that same cable.
 
 VARA works the same way: its PTT goes through rigctld, its audio through the cable.</source>
         <translation>Réglage côté WSJT-X / fldigi / JS8Call : radio « Hamlib NET rigctl », adresse 127.0.0.1:4532, PTT « CAT ».
 
-Audio : choisissez le câble virtuel dans l'onglet Audio (VB-Audio Cable sous Windows, un module null-sink PulseAudio ou PipeWire sous Linux), et pointez le logiciel numérique sur l'autre extrémité du même câble.
+Audio : choisissez le câble virtuel dans l&apos;onglet Audio (VB-Audio Cable sous Windows, un module null-sink PulseAudio ou PipeWire sous Linux), et pointez le logiciel numérique sur l&apos;autre extrémité du même câble.
 
 VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le câble.</translation>
     </message>
@@ -290,7 +580,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>Needed after plugging in a USB sound card: the device list is read once at startup.</source>
-        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n'est lue qu'au démarrage.</translation>
+        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n&apos;est lue qu&apos;au démarrage.</translation>
     </message>
     <message>
         <source>No microphone found — receive only</source>
@@ -302,7 +592,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>Disconnect first: the device list cannot be reread while the audio streams are open.</source>
-        <translation>Déconnectez-vous d'abord : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
+        <translation>Déconnectez-vous d&apos;abord : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
     </message>
     <message>
         <source>Device list reread.</source>
@@ -318,7 +608,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>No playback device: nothing could be heard.</source>
-        <translation>Aucun périphérique de sortie : vous n'entendriez rien.</translation>
+        <translation>Aucun périphérique de sortie : vous n&apos;entendriez rien.</translation>
     </message>
     <message>
         <source>Microphone shaping</source>
@@ -392,6 +682,58 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
         <source>Gain reduction</source>
         <translation>Réduction de gain</translation>
     </message>
+    <message>
+        <source>Codec switched to %1</source>
+        <translation>Codec basculé en %1</translation>
+    </message>
+    <message>
+        <source>auto</source>
+        <translation>auto</translation>
+    </message>
+    <message>
+        <source>UDP audio port. Leave on auto unless a NAT rule remaps it.</source>
+        <translation>Port audio UDP. Laissez sur auto, sauf si une redirection NAT le change.</translation>
+    </message>
+    <message>
+        <source>UDP</source>
+        <translation>UDP</translation>
+    </message>
+    <message>
+        <source>Click to type a frequency</source>
+        <translation>Cliquez pour saisir une fréquence</translation>
+    </message>
+    <message>
+        <source>Frequency</source>
+        <translation>Fréquence</translation>
+    </message>
+    <message>
+        <source>MHz, kHz or Hz — 14.074, 14074 and 14074000 all work:</source>
+        <translation>MHz, kHz ou Hz — 14.074, 14074 et 14074000 conviennent tous :</translation>
+    </message>
+    <message>
+        <source>Frequency not understood: %1</source>
+        <translation>Fréquence incomprise : %1</translation>
+    </message>
+    <message>
+        <source>Tune</source>
+        <translation>Accord</translation>
+    </message>
+    <message>
+        <source>Start the radio&apos;s antenna tuner</source>
+        <translation>Lance le coupleur d&apos;antenne du poste</translation>
+    </message>
+    <message>
+        <source>TUNE</source>
+        <translation>ACCORD</translation>
+    </message>
+    <message>
+        <source>%1 bands, antenna tuner available</source>
+        <translation>%1 bandes, coupleur d&apos;antenne disponible</translation>
+    </message>
+    <message>
+        <source>%1 bands, no antenna tuner</source>
+        <translation>%1 bandes, pas de coupleur d&apos;antenne</translation>
+    </message>
 </context>
 <context>
     <name>rr::RigController</name>
@@ -443,6 +785,14 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
         <source>VFO refused: %1</source>
         <translation>VFO refusé : %1</translation>
     </message>
+    <message>
+        <source>Tune refused: %1</source>
+        <translation>Accord refusé : %1</translation>
+    </message>
+    <message>
+        <source>Tuning started</source>
+        <translation>Accord lancé</translation>
+    </message>
 </context>
 <context>
     <name>rr::RigctldServer</name>
@@ -463,7 +813,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     <name>rr::ServerCore</name>
     <message>
         <source>PortAudio failed to start</source>
-        <translation>PortAudio n'a pas pu démarrer</translation>
+        <translation>PortAudio n&apos;a pas pu démarrer</translation>
     </message>
     <message>
         <source>Audio input: %1</source>
@@ -536,6 +886,14 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     <message>
         <source>Codec switched to %1</source>
         <translation>Codec basculé en %1</translation>
+    </message>
+    <message>
+        <source>Tune requested</source>
+        <translation>Accord demandé</translation>
+    </message>
+    <message>
+        <source>Tuning finished</source>
+        <translation>Accord terminé</translation>
     </message>
 </context>
 <context>
@@ -670,7 +1028,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>PTT hold after transmit</source>
-        <translation>Maintien PTT en fin d'émission</translation>
+        <translation>Maintien PTT en fin d&apos;émission</translation>
     </message>
     <message>
         <source>RX level</source>
@@ -756,7 +1114,7 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
     </message>
     <message>
         <source>Needed after plugging in a USB sound card: the device list is read once at startup.</source>
-        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n'est lue qu'au démarrage.</translation>
+        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n&apos;est lue qu&apos;au démarrage.</translation>
     </message>
     <message>
         <source>No capture device found</source>
@@ -768,7 +1126,7 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
     </message>
     <message>
         <source>Stop the server first: the device list cannot be reread while the audio streams are open.</source>
-        <translation>Arrêtez d'abord le serveur : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
+        <translation>Arrêtez d&apos;abord le serveur : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
     </message>
     <message>
         <source>Device list reread.</source>
@@ -780,7 +1138,7 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
     </message>
     <message>
         <source>The station needs one capture device and one playback device. A Raspberry Pi has no analogue input: use a USB sound card.</source>
-        <translation>La station a besoin d'un périphérique de capture et d'un de sortie. Un Raspberry Pi n'a aucune entrée analogique : utilisez une carte son USB.</translation>
+        <translation>La station a besoin d&apos;un périphérique de capture et d&apos;un de sortie. Un Raspberry Pi n&apos;a aucune entrée analogique : utilisez une carte son USB.</translation>
     </message>
 </context>
 </TS>
