@@ -3,7 +3,13 @@
 #include <cstring>
 
 #ifdef RR_HAVE_OPUS
-#include <opus/opus.h>
+// Une distribution installe ses en-tetes dans opus/ ; l'arborescence source,
+// utilisee sur Android, les range a plat.
+#  ifdef RR_OPUS_FLAT_HEADERS
+#    include <opus.h>
+#  else
+#    include <opus/opus.h>
+#  endif
 #endif
 
 namespace rr {

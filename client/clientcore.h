@@ -15,9 +15,15 @@ class QTimer;
 
 namespace rr {
 
+// Accepte « 14.074 », « 14074 », « 14 074 000 » ou « 14.074 MHz ».
+// Sous 100 000 la valeur est lue en MHz, au-dela en Hz : personne ne saisit
+// 14074000 a la main, et personne ne travaille sous 100 kHz.
+quint64 parseFrequency(const QString &text, bool *ok = nullptr);
+
 struct ClientConfig {
     QString host        = QStringLiteral("192.168.1.10");
     quint16 tcpPort     = 7300;
+    quint16 udpPort     = 0;      // 0 : celui annonce par le serveur
     QString password;
     bool    encrypt     = false;
     QString codec       = QStringLiteral("opus");   // "opus" ou "pcm"
@@ -40,6 +46,7 @@ public:
 
     bool connected() const { return m_authenticated; }
     RigState state() const { return m_state; }
+    RigCaps  caps() const  { return m_caps; }
 
 public slots:
     void connectToStation(const rr::ClientConfig &cfg);
@@ -48,15 +55,19 @@ public slots:
     void setFrequency(quint64 hz);
     void setMode(const QString &mode, int passband);
     void setVfo(const QString &vfo);
+    void startTune();
     void setCodec(const QString &codec, int bitrate);
     void setGains(float rx, float tx);
     void setJitterMs(int ms);
     void setSpeechSettings(const rr::SpeechSettings &s);
+    void setInputDevice(int deviceIndex);
+    void setOutputDevice(int deviceIndex);
 
 signals:
     void connectionChanged(bool up, const QString &message);
     void receiveOnly(bool on);   // pas de micro : émission impossible
     void stateChanged(const rr::RigState &st);
+    void capsChanged(const rr::RigCaps &caps);
     void logMessage(const QString &msg);
     void statsUpdated(int rttMs, int lostPackets, int jitterQueueMs,
                       float rxLevel, float txLevel, float gainReductionDb);
@@ -106,6 +117,7 @@ private:
     QHostAddress m_serverAddr;
     quint16 m_serverUdpPort = 0;
     RigState m_state;
+    RigCaps  m_caps;
 };
 
 } // namespace rr

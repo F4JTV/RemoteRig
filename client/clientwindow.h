@@ -14,6 +14,7 @@ class QPushButton;
 class QLabel;
 class QPlainTextEdit;
 class QProgressBar;
+class QGridLayout;
 class QSlider;
 
 namespace rr {
@@ -25,6 +26,7 @@ public:
     ~ClientWindow() override;
 
 protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void keyPressEvent(QKeyEvent *e) override;
     void keyReleaseEvent(QKeyEvent *e) override;
     void closeEvent(QCloseEvent *e) override;
@@ -33,6 +35,7 @@ private slots:
     void onConnectClicked();
     void onConnectionChanged(bool up, const QString &msg);
     void onStateChanged(const rr::RigState &st);
+    void onCapsChanged(const rr::RigCaps &caps);
     void onStats(int rttMs, int lost, int jitterMs, float rxLevel, float txLevel,
                  float gainReductionDb);
     void onPttPressed();
@@ -47,6 +50,8 @@ private:
     QWidget *buildDataPage();
     void setPtt(bool on);
     void setCatEnabled(bool on);
+    void rebuildBands(const QList<rr::Band> &bands);
+    void promptFrequency();
     void tuneBy(qint64 delta);
     void loadSettings();
     void saveSettings();
@@ -69,6 +74,7 @@ private:
     // connexion
     QLineEdit *m_host = nullptr;
     QSpinBox  *m_port = nullptr;
+    QSpinBox  *m_udpPort = nullptr;
     QLineEdit *m_password = nullptr;
     QCheckBox *m_encrypt = nullptr;
     QComboBox *m_codec = nullptr;
@@ -86,6 +92,9 @@ private:
     QProgressBar *m_sMeter = nullptr;
     QLabel *m_sLabel = nullptr;
     QPushButton *m_pttBtn = nullptr;
+    QPushButton *m_tuneBtn = nullptr;
+    QGridLayout *m_bandGrid = nullptr;
+    QList<QPushButton *> m_bandButtons;
     QLabel *m_statsLabel = nullptr;
 
     // audio

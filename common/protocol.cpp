@@ -14,6 +14,7 @@ QJsonObject RigState::toJson() const
     o["connected"] = connected;
     o["hasCat"]    = hasCat;
     o["ptt"]       = ptt;
+    o["tuning"]    = tuning;
     o["freqA"]     = double(freqA);
     o["freqB"]     = double(freqB);
     o["vfo"]       = vfo;
@@ -31,6 +32,7 @@ RigState RigState::fromJson(const QJsonObject &o)
     s.connected = o["connected"].toBool();
     s.hasCat    = o["hasCat"].toBool();
     s.ptt       = o["ptt"].toBool();
+    s.tuning    = o["tuning"].toBool();
     s.freqA     = quint64(o["freqA"].toDouble());
     s.freqB     = quint64(o["freqB"].toDouble());
     s.vfo       = o["vfo"].toString(QStringLiteral("A"));
@@ -40,6 +42,73 @@ RigState RigState::fromJson(const QJsonObject &o)
     s.rigName   = o["rigName"].toString();
     s.error     = o["error"].toString();
     return s;
+}
+
+QJsonObject RigCaps::toJson() const
+{
+    QJsonArray ranges;
+    for (const BandRange &r : txRanges)
+        ranges.append(QJsonObject{{"s", double(r.start)}, {"e", double(r.end)}});
+    return QJsonObject{{"hasTune", hasTune}, {"tx", ranges}};
+}
+
+RigCaps RigCaps::fromJson(const QJsonObject &o)
+{
+    RigCaps c;
+    c.hasTune = o["hasTune"].toBool();
+    const QJsonArray ranges = o["tx"].toArray();
+    for (const QJsonValue &v : ranges) {
+        const QJsonObject r = v.toObject();
+        c.txRanges.append({quint64(r["s"].toDouble()), quint64(r["e"].toDouble())});
+    }
+    return c;
+}
+
+// Bandes amateur, region 1. Les bornes servent a reconnaitre ce que le poste
+// sait faire ; la frequence proposee est un point de depart usuel en phonie.
+QList<Band> standardBandPlan()
+{
+    return {
+        {QStringLiteral("2200 m"),     135700,     137800,     136000},
+        {QStringLiteral("630 m"),      472000,     479000,     474200},
+        {QStringLiteral("160 m"),     1810000,    2000000,    1840000},
+        {QStringLiteral("80 m"),      3500000,    3800000,    3650000},
+        {QStringLiteral("60 m"),      5351500,    5366500,    5354000},
+        {QStringLiteral("40 m"),      7000000,    7200000,    7100000},
+        {QStringLiteral("30 m"),     10100000,   10150000,   10130000},
+        {QStringLiteral("20 m"),     14000000,   14350000,   14200000},
+        {QStringLiteral("17 m"),     18068000,   18168000,   18130000},
+        {QStringLiteral("15 m"),     21000000,   21450000,   21250000},
+        {QStringLiteral("12 m"),     24890000,   24990000,   24950000},
+        {QStringLiteral("10 m"),     28000000,   29700000,   28400000},
+        {QStringLiteral("6 m"),      50000000,   52000000,   50200000},
+        {QStringLiteral("4 m"),      70000000,   70500000,   70200000},
+        {QStringLiteral("2 m"),     144000000,  148000000,  145500000},
+        {QStringLiteral("70 cm"),   430000000,  440000000,  433500000},
+        {QStringLiteral("23 cm"),  1240000000, 1300000000, 1296200000},
+    };
+}
+
+QList<Band> bandsWithin(const QList<BandRange> &ranges)
+{
+    const QList<Band> plan = standardBandPlan();
+    if (ranges.isEmpty()) return plan;
+
+    QList<Band> kept;
+    for (const Band &b : plan) {
+        for (const BandRange &r : ranges) {
+            const quint64 lo = qMax(b.start, r.start);
+            const quint64 hi = qMin(b.end, r.end);
+            if (lo >= hi) continue;          // aucun recouvrement
+
+            Band band = b;
+            // La frequence proposee doit tomber dans ce que le poste emet.
+            band.preset = qBound(lo, b.preset, hi);
+            kept.append(band);
+            break;
+        }
+    }
+    return kept;
 }
 
 // Nonce deterministe : 4 octets session | 4 octets seq | 4 octets (type<<8|flags)

@@ -11,6 +11,8 @@
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QInputDialog>
+#include <utility>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -54,6 +56,7 @@ ClientWindow::ClientWindow(QWidget *parent) : QMainWindow(parent)
 
     connect(m_core, &ClientCore::connectionChanged, this, &ClientWindow::onConnectionChanged);
     connect(m_core, &ClientCore::stateChanged,      this, &ClientWindow::onStateChanged);
+    connect(m_core, &ClientCore::capsChanged,       this, &ClientWindow::onCapsChanged);
     connect(m_core, &ClientCore::statsUpdated,      this, &ClientWindow::onStats);
     connect(m_core, &ClientCore::logMessage,        this, &ClientWindow::appendLog);
     connect(m_core, &ClientCore::receiveOnly,       this, &ClientWindow::onReceiveOnly);
@@ -73,6 +76,13 @@ ClientWindow::ClientWindow(QWidget *parent) : QMainWindow(parent)
     auto *cl = new QHBoxLayout(connBox);
     m_host = new QLineEdit("192.168.1.10");
     m_port = new QSpinBox; m_port->setRange(1, 65535); m_port->setValue(7300);
+    m_udpPort = new QSpinBox;
+    m_udpPort->setRange(0, 65535);
+    m_udpPort->setValue(0);
+    // Zero laisse le serveur annoncer son port ; une valeur force l'autre bout,
+    // utile derriere une redirection NAT qui change le numero.
+    m_udpPort->setSpecialValueText(tr("auto"));
+    m_udpPort->setToolTip(tr("UDP audio port. Leave on auto unless a NAT rule remaps it."));
     m_password = new QLineEdit; m_password->setEchoMode(QLineEdit::Password);
     m_password->setPlaceholderText(tr("password"));
     m_encrypt = new QCheckBox(tr("Encrypt"));
@@ -80,6 +90,14 @@ ClientWindow::ClientWindow(QWidget *parent) : QMainWindow(parent)
     m_codec->addItem(tr("Opus low latency"), "opus");
     m_codec->addItem(tr("16-bit PCM"), "pcm");
     if (!AudioCodec::opusAvailable()) { m_codec->setCurrentIndex(1); m_codec->setEnabled(false); }
+    // Bascule a chaud : inutile de couper la liaison pour passer en numerique.
+    connect(m_codec, &QComboBox::activated, this, [this] {
+        if (!m_connected) return;
+        QMetaObject::invokeMethod(m_core, "setCodec", Qt::QueuedConnection,
+                                  Q_ARG(QString, m_codec->currentData().toString()),
+                                  Q_ARG(int, m_bitrate->value()));
+        appendLog(tr("Codec switched to %1").arg(m_codec->currentText()));
+    });
     m_bitrate = new QSpinBox;
     m_bitrate->setRange(16000, 128000); m_bitrate->setSingleStep(8000);
     m_bitrate->setValue(48000); m_bitrate->setSuffix(" bit/s");
@@ -88,6 +106,7 @@ ClientWindow::ClientWindow(QWidget *parent) : QMainWindow(parent)
 
     cl->addWidget(new QLabel(tr("Host")));   cl->addWidget(m_host, 2);
     cl->addWidget(new QLabel(tr("Port")));   cl->addWidget(m_port);
+    cl->addWidget(new QLabel(tr("UDP")));    cl->addWidget(m_udpPort);
     cl->addWidget(m_password, 1);
     cl->addWidget(m_encrypt);
     cl->addWidget(m_codec);
@@ -141,6 +160,9 @@ QWidget *ClientWindow::buildStationPage()
     m_freqLabel->setFont(f);
     m_freqLabel->setAlignment(Qt::AlignCenter);
     m_freqLabel->setStyleSheet("color:#f0c674;padding:8px;");
+    m_freqLabel->setCursor(Qt::PointingHandCursor);
+    m_freqLabel->setToolTip(tr("Click to type a frequency"));
+    m_freqLabel->installEventFilter(this);
     v->addWidget(m_freqLabel);
 
     auto *line = new QHBoxLayout;
@@ -169,8 +191,10 @@ QWidget *ClientWindow::buildStationPage()
 
     // VFO, mode, pas
     auto *ctl = new QHBoxLayout;
-    m_vfoA = new QPushButton("VFO A"); m_vfoA->setCheckable(true); m_vfoA->setChecked(true);
-    m_vfoB = new QPushButton("VFO B"); m_vfoB->setCheckable(true);
+    // De simples boutons : le VFO actif se lit a la couleur, pas a un enfoncement
+    // qui laissait croire a une bascule verrouillee.
+    m_vfoA = new QPushButton("VFO A");
+    m_vfoB = new QPushButton("VFO B");
     connect(m_vfoA, &QPushButton::clicked, this, [this] {
         QMetaObject::invokeMethod(m_core, "setVfo", Qt::QueuedConnection, Q_ARG(QString, "A")); });
     connect(m_vfoB, &QPushButton::clicked, this, [this] {
@@ -199,34 +223,33 @@ QWidget *ClientWindow::buildStationPage()
 
     m_catWidgets << m_vfoA << m_vfoB << m_mode << down << m_step << up;
 
-    // Bandes
-    auto *bands = new QGridLayout;
-    struct { const char *name; quint64 hz; } table[] = {
-        {"160 m", 1840000},  {"80 m", 3650000},   {"60 m", 5354000},
-        {"40 m", 7100000},   {"30 m", 10130000},  {"20 m", 14200000},
-        {"17 m", 18130000},  {"15 m", 21250000},  {"12 m", 24950000},
-        {"10 m", 28400000},  {"6 m", 50200000},   {"2 m", 145500000},
-        {"70 cm", 433500000}
-    };
-    int col = 0, row = 0;
-    for (const auto &b : table) {
-        auto *btn = new QPushButton(b.name);
-        const quint64 hz = b.hz;
-        connect(btn, &QPushButton::clicked, this, [this, hz] {
-            QMetaObject::invokeMethod(m_core, "setFrequency", Qt::QueuedConnection,
-                                      Q_ARG(quint64, hz)); });
-        bands->addWidget(btn, row, col);
-        m_catWidgets << btn;
-        if (++col == 7) { col = 0; ++row; }
-    }
-    v->addLayout(bands);
+    // Bandes : la grille est remplie a la connexion, d'apres ce que le poste
+    // declare savoir emettre. Hors connexion, le plan complet sert de repere.
+    m_bandGrid = new QGridLayout;
+    m_bandGrid->setHorizontalSpacing(6);
+    m_bandGrid->setVerticalSpacing(6);
+    v->addLayout(m_bandGrid);
+    rebuildBands(standardBandPlan());
 
+    auto *txRow = new QHBoxLayout;
     m_pttBtn = new QPushButton(tr("Transmit  (hold, or press space)"));
     m_pttBtn->setMinimumHeight(56);
     m_pttBtn->setStyleSheet("font-size:16px;font-weight:bold;");
     connect(m_pttBtn, &QPushButton::pressed,  this, &ClientWindow::onPttPressed);
     connect(m_pttBtn, &QPushButton::released, this, &ClientWindow::onPttReleased);
-    v->addWidget(m_pttBtn);
+
+    m_tuneBtn = new QPushButton(tr("Tune"));
+    m_tuneBtn->setMinimumHeight(56);
+    m_tuneBtn->setMinimumWidth(110);
+    m_tuneBtn->setToolTip(tr("Start the radio's antenna tuner"));
+    m_tuneBtn->setEnabled(false);
+    connect(m_tuneBtn, &QPushButton::clicked, this, [this] {
+        QMetaObject::invokeMethod(m_core, "startTune", Qt::QueuedConnection);
+    });
+
+    txRow->addWidget(m_pttBtn, 1);
+    txRow->addWidget(m_tuneBtn);
+    v->addLayout(txRow);
 
     m_statsLabel = new QLabel(tr("Offline"));
     m_statsLabel->setStyleSheet("color:#888;");
@@ -272,6 +295,18 @@ QWidget *ClientWindow::buildAudioPage()
     f->addRow("", rescan);
     connect(m_inDev,  &QComboBox::currentIndexChanged, this, &ClientWindow::updateRateLabel);
     connect(m_outDev, &QComboBox::currentIndexChanged, this, &ClientWindow::updateRateLabel);
+
+    // Bascule a chaud : inutile de couper la liaison pour changer de carte.
+    connect(m_inDev, &QComboBox::activated, this, [this] {
+        if (!m_connected) return;
+        QMetaObject::invokeMethod(m_core, "setInputDevice", Qt::QueuedConnection,
+                                  Q_ARG(int, deviceIndexOf(m_inDev)));
+    });
+    connect(m_outDev, &QComboBox::activated, this, [this] {
+        if (!m_connected) return;
+        QMetaObject::invokeMethod(m_core, "setOutputDevice", Qt::QueuedConnection,
+                                  Q_ARG(int, deviceIndexOf(m_outDev)));
+    });
 
     m_frames = new QComboBox;
     m_frames->addItem(tr("120 samples — 2.5 ms"), 120);
@@ -537,6 +572,7 @@ void ClientWindow::onConnectClicked()
     ClientConfig c;
     c.host     = m_host->text().trimmed();
     c.tcpPort  = quint16(m_port->value());
+    c.udpPort  = quint16(m_udpPort->value());
     c.password = m_password->text();
     c.encrypt  = m_encrypt->isChecked();
     c.codec    = m_codec->currentData().toString();
@@ -570,6 +606,7 @@ void ClientWindow::setConnectedUi(bool up)
         m_statsLabel->setText(tr("Offline"));
         m_txLed->setText("RX");
         m_txLed->setStyleSheet(kRxStyle);
+        m_tuneBtn->setEnabled(false);
         m_freqLabel->setText(QStringLiteral("—.——— ———"));
         m_modeLabel->setText(QStringLiteral("—"));
         m_sMeter->setValue(-54);
@@ -599,8 +636,9 @@ void ClientWindow::onStateChanged(const RigState &st)
         m_modeLabel->setText(tr("%1 · VFO %2 · %3").arg(st.mode, st.vfo, st.rigName));
         const int i = m_mode->findText(st.mode);
         if (i >= 0 && !m_mode->hasFocus()) m_mode->setCurrentIndex(i);
-        m_vfoA->setChecked(st.vfo == "A");
-        m_vfoB->setChecked(st.vfo == "B");
+        const QString activeVfo = "font-weight:bold;color:#f0c674;";
+        m_vfoA->setStyleSheet(st.vfo == "A" ? activeVfo : QString());
+        m_vfoB->setStyleSheet(st.vfo == "B" ? activeVfo : QString());
     } else {
         m_freqLabel->setText(tr("no CAT"));
         m_modeLabel->setText(st.rigName.isEmpty() ? tr("PTT only") : st.rigName);
@@ -611,8 +649,12 @@ void ClientWindow::onStateChanged(const RigState &st)
     m_sLabel->setText(st.strength > 0 ? QString("S9+%1").arg(st.strength)
                                       : QString("S%1").arg(sUnits));
 
-    m_txLed->setText(st.ptt ? "TX" : "RX");
-    m_txLed->setStyleSheet(st.ptt ? kTxStyle : kRxStyle);
+    m_txLed->setText(st.tuning ? tr("TUNE") : (st.ptt ? "TX" : "RX"));
+    m_txLed->setStyleSheet(st.ptt || st.tuning ? kTxStyle : kRxStyle);
+
+    // Pendant l'accord le poste emet deja : le PTT reste inaccessible.
+    m_pttBtn->setEnabled(m_connected && !st.tuning);
+    m_tuneBtn->setEnabled(m_connected && m_core->caps().hasTune && !st.tuning && !st.ptt);
 }
 
 void ClientWindow::onStats(int rttMs, int lost, int jitterMs, float rxLevel, float txLevel,
@@ -646,6 +688,39 @@ void ClientWindow::setPtt(bool on)
 
 // Sans CAT sur la station, rien de tout cela n'aboutirait : mieux vaut
 // griser les commandes que laisser l'opérateur cliquer dans le vide.
+void ClientWindow::rebuildBands(const QList<rr::Band> &bands)
+{
+    for (QPushButton *b : std::as_const(m_bandButtons)) {
+        m_catWidgets.removeAll(b);
+        delete b;
+    }
+    m_bandButtons.clear();
+
+    int col = 0, row = 0;
+    for (const rr::Band &band : bands) {
+        auto *btn = new QPushButton(band.name);
+        btn->setMinimumHeight(30);
+        const quint64 hz = band.preset;
+        connect(btn, &QPushButton::clicked, this, [this, hz] {
+            QMetaObject::invokeMethod(m_core, "setFrequency", Qt::QueuedConnection,
+                                      Q_ARG(quint64, hz));
+        });
+        m_bandGrid->addWidget(btn, row, col);
+        m_bandButtons << btn;
+        m_catWidgets << btn;
+        if (++col == 6) { col = 0; ++row; }
+    }
+    setCatEnabled(m_connected && m_state.hasCat);
+}
+
+void ClientWindow::onCapsChanged(const rr::RigCaps &caps)
+{
+    rebuildBands(bandsWithin(caps.txRanges));
+    m_tuneBtn->setEnabled(m_connected && caps.hasTune);
+    appendLog(caps.hasTune ? tr("%1 bands, antenna tuner available").arg(m_bandButtons.size())
+                           : tr("%1 bands, no antenna tuner").arg(m_bandButtons.size()));
+}
+
 void ClientWindow::setCatEnabled(bool on)
 {
     for (QWidget *w : std::as_const(m_catWidgets))
@@ -654,6 +729,38 @@ void ClientWindow::setCatEnabled(bool on)
     m_sLabel->setEnabled(on);
     m_freqLabel->setStyleSheet(on ? "color:#f0c674;padding:8px;"
                                   : "color:#5a5a5a;padding:8px;");
+}
+
+// Un clic sur l'afficheur ouvre la saisie. Sans CAT il n'y a rien a regler,
+// donc rien ne s'ouvre.
+bool ClientWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_freqLabel && event->type() == QEvent::MouseButtonRelease) {
+        if (m_connected && m_state.hasCat) promptFrequency();
+        return true;
+    }
+    return QMainWindow::eventFilter(watched, event);
+}
+
+void ClientWindow::promptFrequency()
+{
+    const quint64 current = (m_state.vfo == "B") ? m_state.freqB : m_state.freqA;
+
+    bool accepted = false;
+    const QString text = QInputDialog::getText(
+        this, tr("Frequency"),
+        tr("MHz, kHz or Hz — 14.074, 14074 and 14074000 all work:"),
+        QLineEdit::Normal,
+        QString::number(double(current) / 1e6, 'f', 6), &accepted);
+    if (!accepted) return;
+
+    bool valid = false;
+    const quint64 hz = parseFrequency(text, &valid);
+    if (!valid) {
+        appendLog(tr("Frequency not understood: %1").arg(text));
+        return;
+    }
+    QMetaObject::invokeMethod(m_core, "setFrequency", Qt::QueuedConnection, Q_ARG(quint64, hz));
 }
 
 void ClientWindow::onPttPressed()  { setPtt(true); }
@@ -684,6 +791,7 @@ void ClientWindow::loadSettings()
     if (api >= 0) { m_hostApi->setCurrentIndex(api); refreshDevices(); }
     m_host->setText(s.value("host", "192.168.1.10").toString());
     m_port->setValue(s.value("port", 7300).toInt());
+    m_udpPort->setValue(s.value("udpPort", 0).toInt());
     m_password->setText(s.value("password").toString());
     m_encrypt->setChecked(s.value("encrypt", false).toBool());
     const int ci = m_codec->findData(s.value("codec", "opus").toString());
@@ -719,6 +827,7 @@ void ClientWindow::saveSettings()
     QSettings s("F4JTV", "RemoteRigClient");
     s.setValue("host", m_host->text());
     s.setValue("port", m_port->value());
+    s.setValue("udpPort", m_udpPort->value());
     s.setValue("password", m_password->text());
     s.setValue("encrypt", m_encrypt->isChecked());
     s.setValue("codec", m_codec->currentData().toString());

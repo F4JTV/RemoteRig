@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <QByteArray>
 #include <QJsonObject>
+#include <QList>
+#include <QJsonArray>
 #include <QMetaType>
 
 namespace rr {
@@ -53,11 +55,41 @@ struct PktHeader {
 #pragma pack(pop)
 static_assert(sizeof(PktHeader) == 24, "PktHeader doit faire 24 octets");
 
+// --------------------------------------------- capacites declarees par le poste
+// Plage d'emission telle que Hamlib la rapporte. Le client y taille sa grille
+// de bandes, au lieu d'afficher une liste figee qui ne correspond a rien.
+struct BandRange {
+    quint64 start = 0;
+    quint64 end   = 0;
+};
+
+// Bande amateur nommee, decoupee dans les plages du poste.
+struct Band {
+    QString name;
+    quint64 start   = 0;
+    quint64 end     = 0;
+    quint64 preset  = 0;   // frequence proposee par le bouton
+};
+
+struct RigCaps {
+    bool hasTune = false;              // le poste accepte un cycle d'accord
+    QList<BandRange> txRanges;
+
+    QJsonObject toJson() const;
+    static RigCaps fromJson(const QJsonObject &o);
+};
+
+// Plan de bandes de reference, puis son intersection avec ce que le poste sait
+// emettre. Sans plage declaree, la liste complete est rendue telle quelle.
+QList<Band> standardBandPlan();
+QList<Band> bandsWithin(const QList<BandRange> &ranges);
+
 // ------------------------------------------------------------- etat du poste
 struct RigState {
     bool     connected   = false;
     bool     hasCat      = false;
     bool     ptt         = false;
+    bool     tuning      = false;   // cycle d'accord en cours
     quint64  freqA       = 0;
     quint64  freqB       = 0;
     QString  vfo         = QStringLiteral("A");
@@ -90,3 +122,5 @@ bool       parseJsonFrame(const QByteArray &frame, const QByteArray &key,
 } // namespace rr
 
 Q_DECLARE_METATYPE(rr::RigState)
+
+Q_DECLARE_METATYPE(rr::RigCaps)

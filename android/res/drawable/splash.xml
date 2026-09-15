@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ecran de demarrage : fond uni, nom et logo centres.
+     Qt l'affiche pendant le chargement de la bibliotheque native, avant que
+     le moteur QML n'ait dessine sa premiere image. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/splash_background"/>
+    <item>
+        <bitmap android:src="@drawable/splash_logo"
+                android:gravity="center"/>
+    </item>
+</layer-list>

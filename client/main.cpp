@@ -6,6 +6,10 @@
 #include "clientwindow.h"
 #include "../common/i18n.h"
 
+#ifdef Q_OS_ANDROID
+#include <QPermissions>
+#endif
+
 int main(int argc, char *argv[])
 {
     // Diagnostic audio avant toute interface : utile quand un périphérique
@@ -30,6 +34,15 @@ int main(int argc, char *argv[])
     qRegisterMetaType<rr::RigState>("rr::RigState");
     qRegisterMetaType<rr::ClientConfig>("rr::ClientConfig");
     qRegisterMetaType<rr::SpeechSettings>("rr::SpeechSettings");
+    qRegisterMetaType<rr::RigCaps>("rr::RigCaps");
+
+#ifdef Q_OS_ANDROID
+    // Android exige la permission micro a l'execution. Sans elle, Oboe ouvre
+    // un flux d'entree qui ne rend que du silence, sans signaler d'erreur.
+    QMicrophonePermission micPermission;
+    if (app.checkPermission(micPermission) == Qt::PermissionStatus::Undetermined)
+        app.requestPermission(micPermission, [](const QPermission &) {});
+#endif
 
     rr::ClientWindow w;
     w.show();

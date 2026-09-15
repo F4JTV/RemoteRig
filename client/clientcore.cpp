@@ -7,9 +7,43 @@
 #include <QJsonObject>
 #include <QDateTime>
 #include <QHostInfo>
+#include <QRegularExpression>
 #include <QtEndian>
 
 namespace rr {
+
+quint64 parseFrequency(const QString &text, bool *ok)
+{
+    if (ok) *ok = false;
+
+    QString t = text.simplified();
+    t.remove(QRegularExpression(QStringLiteral("(?i)\\s*(hz|khz|mhz)\\s*$")));
+    const bool wasKhz = text.contains(QStringLiteral("kHz"), Qt::CaseInsensitive);
+    const bool wasHz  = !wasKhz && text.contains(QStringLiteral("Hz"), Qt::CaseInsensitive)
+                        && !text.contains(QStringLiteral("MHz"), Qt::CaseInsensitive);
+
+    // Espaces et apostrophes de groupement, virgule decimale a la francaise.
+    t.remove(QLatin1Char(' ')).remove(QLatin1Char('\''));
+    t.replace(QLatin1Char(','), QLatin1Char('.'));
+
+    bool valid = false;
+    const double value = t.toDouble(&valid);
+    if (!valid || value <= 0) return 0;
+
+    double hz;
+    if (wasHz)        hz = value;
+    else if (wasKhz)  hz = value * 1e3;
+    // Sans unite, l'ordre de grandeur tranche : 14.074 est en megahertz,
+    // 14074 en kilohertz, 14074000 en hertz. C'est ainsi qu'on ecrit une
+    // frequence a la main.
+    else if (value < 1000.0)     hz = value * 1e6;
+    else if (value < 100000.0)   hz = value * 1e3;
+    else                         hz = value;
+
+    if (hz < 1000.0 || hz > 3e10) return 0;
+    if (ok) *ok = true;
+    return quint64(hz + 0.5);
+}
 
 ClientCore::ClientCore(QObject *parent) : QObject(parent) {}
 ClientCore::~ClientCore() { disconnectFromStation(); }
@@ -184,7 +218,10 @@ void ClientCore::handleControl(const QJsonObject &o)
 
     if (t == "authOk") {
         m_session       = quint32(o["session"].toDouble());
-        m_serverUdpPort = quint16(o["udpPort"].toInt());
+        // Un port force sert quand une redirection NAT expose l'audio sur un
+        // autre port que celui que le serveur croit utiliser.
+        m_serverUdpPort = m_cfg.udpPort > 0 ? m_cfg.udpPort
+                                            : quint16(o["udpPort"].toInt());
         m_pttToken      = QByteArray::fromHex(o["pttToken"].toString().toLatin1());
         m_udpKey        = subKey(m_masterKey, "udp");
         m_encrypted     = o["encrypt"].toBool();
@@ -196,6 +233,8 @@ void ClientCore::handleControl(const QJsonObject &o)
 
         m_state = RigState::fromJson(o["state"].toObject());
         emit stateChanged(m_state);
+        m_caps = RigCaps::fromJson(o["caps"].toObject());
+        emit capsChanged(m_caps);
 
         m_serverAddr = m_sock->peerAddress();
         m_udp = new QUdpSocket(this);
@@ -228,6 +267,12 @@ void ClientCore::handleControl(const QJsonObject &o)
         return;
     }
 
+    if (t == "caps") {
+        m_caps = RigCaps::fromJson(o["c"].toObject());
+        emit capsChanged(m_caps);
+        return;
+    }
+
     if (t == "pong") {
         const qint64 sent = qint64(o["ts"].toDouble());
         m_rttMs = int(QDateTime::currentMSecsSinceEpoch() - sent);
@@ -252,6 +297,11 @@ void ClientCore::setVfo(const QString &vfo)
     if (m_authenticated) sendJson(QJsonObject{{"t", "cmd"}, {"c", "vfo"}, {"v", vfo}});
 }
 
+void ClientCore::startTune()
+{
+    if (m_authenticated) sendJson(QJsonObject{{"t", "cmd"}, {"c", "tune"}});
+}
+
 void ClientCore::setCodec(const QString &codec, int bitrate)
 {
     if (!m_authenticated) return;
@@ -273,6 +323,57 @@ void ClientCore::setGains(float rx, float tx)
 }
 
 void ClientCore::setJitterMs(int ms) { m_cfg.jitterMs = ms; }
+
+// Changement de micro en cours de liaison : on referme le flux de capture et
+// on en ouvre un autre. Le reseau, le codec et le PTT ne sont pas touches, donc
+// la liaison tient ; seul l'audio d'emission s'interrompt le temps du
+// basculement, quelques dizaines de millisecondes.
+void ClientCore::setInputDevice(int deviceIndex)
+{
+    m_cfg.inputDevice = deviceIndex;
+    if (!m_authenticated) return;   // sera pris a la prochaine connexion
+
+    m_audio.stopCapture();
+    m_rxOnly = (deviceIndex < 0);
+    if (m_rxOnly) {
+        emit logMessage(tr("No microphone: receive only"));
+        return;
+    }
+
+    if (!m_audio.startCapture(deviceIndex, m_cfg.framesPerBuffer)) {
+        m_rxOnly = true;
+        emit logMessage(tr("Audio input: %1").arg(m_audio.lastError()));
+        return;
+    }
+    m_audio.setCaptureGain(m_cfg.txGain);
+    // Le micro ne part qu'en emission : on retrouve l'etat courant du PTT.
+    m_audio.setCaptureMuted(!m_ptt);
+    m_speech.reset();
+    emit logMessage(tr("Microphone switched"));
+}
+
+void ClientCore::setOutputDevice(int deviceIndex)
+{
+    m_cfg.outputDevice = deviceIndex;
+    if (!m_authenticated) return;
+
+    m_audio.stopPlayback();
+    if (deviceIndex < 0) {
+        emit logMessage(tr("No playback device: nothing could be heard."));
+        return;
+    }
+
+    if (!m_audio.startPlayback(deviceIndex, m_cfg.framesPerBuffer)) {
+        emit logMessage(tr("Audio output: %1").arg(m_audio.lastError()));
+        return;
+    }
+    m_audio.setPlaybackGain(m_cfg.rxGain);
+    m_audio.setPlaybackMuted(m_ptt);
+    // Le tampon de gigue repart de zero : il doit se remplir avant de jouer.
+    m_prefilled = false;
+    m_expectedSeq = 0;
+    emit logMessage(tr("Playback switched"));
+}
 
 void ClientCore::setSpeechSettings(const rr::SpeechSettings &s)
 {

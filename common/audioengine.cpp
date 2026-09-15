@@ -217,100 +217,16 @@ int AudioEngine::defaultOutput()  { return g_paInit ? Pa_GetDefaultOutputDevice(
 int AudioEngine::inCallback(const void *in, void *, unsigned long frames,
                             const PaStreamCallbackTimeInfo *, unsigned long, void *user)
 {
-    auto *self = static_cast<AudioEngine *>(user);
-    const int16_t *src = static_cast<const int16_t *>(in);
-    if (!src) return paContinue;
-
-    if (self->m_inMuted.load()) {
-        self->m_inPeak.store(0.0f);
-        self->m_inResamp.reset();
-        return paContinue;
-    }
-
-    if (self->m_inScratch.size() < frames) return paContinue;   // securite
-
-    const float gain = self->m_inGain.load();
-    float peak = 0.0f;
-    for (unsigned long i = 0; i < frames; ++i) {
-        float v = float(src[i]) * gain;
-        if (v >  32767.0f) v =  32767.0f;
-        if (v < -32768.0f) v = -32768.0f;
-        self->m_inScratch[i] = int16_t(v);
-        const float a = std::fabs(v) / 32768.0f;
-        if (a > peak) peak = a;
-    }
-
-    if (self->m_inResamp.bypass()) {
-        self->m_inRing.write(self->m_inScratch.data(), frames);
-    } else {
-        self->m_inConverted.clear();
-        self->m_inResamp.process(self->m_inScratch.data(), frames, self->m_inConverted);
-        self->m_inRing.write(self->m_inConverted.data(), self->m_inConverted.size());
-    }
-
-    if (peak > self->m_inPeak.load()) self->m_inPeak.store(peak);
+    static_cast<AudioEngine *>(user)->ingestCapture(
+        static_cast<const int16_t *>(in), size_t(frames));
     return paContinue;
 }
 
 int AudioEngine::outCallback(const void *, void *out, unsigned long frames,
                              const PaStreamCallbackTimeInfo *, unsigned long, void *user)
 {
-    auto *self = static_cast<AudioEngine *>(user);
-    int16_t *dst = static_cast<int16_t *>(out);
-
-    if (self->m_outMuted.load()) {
-        std::memset(dst, 0, frames * sizeof(int16_t));
-        self->m_outPeak.store(0.0f);
-        self->m_outFifo.clear();
-        self->m_outFifoPos = 0;
-        self->m_outResamp.reset();
-        return paContinue;
-    }
-
-    if (self->m_outResamp.bypass()) {
-        self->m_outRing.readOrSilence(dst, frames);
-    } else {
-        // On complete la file de sortie jusqu'a couvrir la demande. Le tirage
-        // depuis l'anneau comble les manques par du silence, donc la boucle
-        // se termine toujours.
-        while (self->m_outFifo.size() - self->m_outFifoPos < frames) {
-            const size_t need = frames - (self->m_outFifo.size() - self->m_outFifoPos);
-            size_t pull = self->m_outResamp.inputNeeded(need);
-            if (pull > self->m_outPulled.size()) pull = self->m_outPulled.size();
-            if (pull == 0) break;
-            self->m_outRing.readOrSilence(self->m_outPulled.data(), pull);
-            self->m_outResamp.process(self->m_outPulled.data(), pull, self->m_outFifo);
-        }
-
-        const size_t have = self->m_outFifo.size() - self->m_outFifoPos;
-        const size_t take = std::min<size_t>(have, frames);
-        if (take) std::memcpy(dst, self->m_outFifo.data() + self->m_outFifoPos,
-                              take * sizeof(int16_t));
-        if (take < frames) std::memset(dst + take, 0, (frames - take) * sizeof(int16_t));
-        self->m_outFifoPos += take;
-
-        // Compactage periodique, sans reallocation.
-        if (self->m_outFifoPos > 0 && self->m_outFifoPos == self->m_outFifo.size()) {
-            self->m_outFifo.clear();
-            self->m_outFifoPos = 0;
-        } else if (self->m_outFifoPos > 4096) {
-            self->m_outFifo.erase(self->m_outFifo.begin(),
-                                  self->m_outFifo.begin() + long(self->m_outFifoPos));
-            self->m_outFifoPos = 0;
-        }
-    }
-
-    const float gain = self->m_outGain.load();
-    float peak = 0.0f;
-    for (unsigned long i = 0; i < frames; ++i) {
-        float v = float(dst[i]) * gain;
-        if (v >  32767.0f) v =  32767.0f;
-        if (v < -32768.0f) v = -32768.0f;
-        dst[i] = int16_t(v);
-        const float a = std::fabs(v) / 32768.0f;
-        if (a > peak) peak = a;
-    }
-    if (peak > self->m_outPeak.load()) self->m_outPeak.store(peak);
+    static_cast<AudioEngine *>(user)->renderPlayback(
+        static_cast<int16_t *>(out), size_t(frames));
     return paContinue;
 }
 
@@ -425,30 +341,5 @@ void AudioEngine::stopPlayback()
 }
 
 void AudioEngine::stopAll() { stopCapture(); stopPlayback(); }
-
-size_t AudioEngine::readCaptured(int16_t *dst, size_t samples)
-{
-    return m_inRing.read(dst, samples);
-}
-
-void AudioEngine::pushPlayback(const int16_t *src, size_t samples)
-{
-    // Si la file deborde (horloges des deux machines legerement differentes),
-    // on jette les plus anciens echantillons plutot que d'accumuler du retard.
-    if (m_outRing.freeSpace() < samples) {
-        int16_t drop[480];
-        size_t need = samples - m_outRing.freeSpace();
-        while (need > 0) {
-            const size_t n = need > 480 ? 480 : need;
-            const size_t got = m_outRing.read(drop, n);
-            if (got == 0) break;
-            need -= got;
-        }
-    }
-    m_outRing.write(src, samples);
-}
-
-float AudioEngine::captureLevel()  { return m_inPeak.exchange(0.0f); }
-float AudioEngine::playbackLevel() { return m_outPeak.exchange(0.0f); }
 
 } // namespace rr

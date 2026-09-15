@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Meme fond que le theme sombre de l'interface : pas de rupture entre
+         l'ecran de demarrage et la premiere image de l'application. -->
+    <color name="splash_background">#1C222C</color>
+</resources>

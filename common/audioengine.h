@@ -14,8 +14,18 @@
 #include "ringbuffer.h"
 #include "resampler.h"
 
+// Deux implementations derriere la meme interface :
+//   audioengine.cpp        PortAudio, pour Windows, Linux et macOS
+//   audioengine_oboe.cpp   Oboe, pour Android
+// Seules les fonctions publiques comptent : le reste du programme ignore
+// laquelle est compilee.
+#if defined(__ANDROID__) && !defined(RR_AUDIO_OBOE)
+#  define RR_AUDIO_OBOE 1
+#endif
+#ifndef RR_AUDIO_OBOE
 typedef void PaStream;
 struct PaStreamCallbackTimeInfo;
+#endif
 
 namespace rr {
 
@@ -67,8 +77,13 @@ public:
     void stopPlayback();
     void stopAll();
 
+#ifdef RR_AUDIO_OBOE
+    bool captureRunning()  const { return m_inRunning; }
+    bool playbackRunning() const { return m_outRunning; }
+#else
     bool captureRunning()  const { return m_inStream  != nullptr; }
     bool playbackRunning() const { return m_outStream != nullptr; }
+#endif
 
     // Debit impose par la carte son (48000 si elle a accepte notre demande).
     int  captureDeviceRate()  const { return m_inDevRate; }
@@ -95,6 +110,18 @@ public:
     QString lastError() const { return m_lastError; }
 
 private:
+    // Traitement partage par les deux backends : gain, mesure de crete,
+    // reechantillonnage eventuel et files circulaires. Appele depuis le
+    // callback temps reel, donc sans allocation.
+    void ingestCapture(const int16_t *src, size_t frames);
+    void renderPlayback(int16_t *dst, size_t frames);
+
+#ifdef RR_AUDIO_OBOE
+    struct OboeImpl;
+    OboeImpl *m_impl = nullptr;
+    bool m_inRunning = false;
+    bool m_outRunning = false;
+#else
     static int inCallback(const void *in, void *out, unsigned long frames,
                           const PaStreamCallbackTimeInfo *timeInfo,
                           unsigned long statusFlags, void *user);
@@ -104,6 +131,7 @@ private:
 
     PaStream *m_inStream  = nullptr;
     PaStream *m_outStream = nullptr;
+#endif
     int m_inDevRate  = kAudioRate;
     int m_outDevRate = kAudioRate;
 
