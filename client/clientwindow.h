@@ -1,6 +1,8 @@
 #pragma once
 
 #include <QMainWindow>
+
+#include "levelmeter.h"
 #include <QThread>
 #include "clientcore.h"
 #include "rigctldserver.h"
@@ -37,7 +39,8 @@ private slots:
     void onStateChanged(const rr::RigState &st);
     void onCapsChanged(const rr::RigCaps &caps);
     void onStats(int rttMs, int lost, int jitterMs, float rxLevel, float txLevel,
-                 float gainReductionDb);
+                 float gainReductionDb, bool rxClipped, bool txClipped);
+    void onRetryCountdown(int secondsLeft, int attempt);
     void onPttPressed();
     void onPttReleased();
     void appendLog(const QString &msg);
@@ -48,10 +51,12 @@ private:
     QWidget *buildStationPage();
     QWidget *buildAudioPage();
     QWidget *buildDataPage();
+    QWidget *buildCwPage();
     void setPtt(bool on);
     void setCatEnabled(bool on);
     void rebuildBands(const QList<rr::Band> &bands);
     void promptFrequency();
+    void sendMorseText(const QString &text);
     void tuneBy(qint64 delta);
     void loadSettings();
     void saveSettings();
@@ -67,6 +72,7 @@ private:
     RigctldServer *m_rigctld = nullptr;
     bool m_connected = false;
     bool m_ptt = false;
+    bool m_retrying = false;
     bool m_rxOnly = false;
     RigState m_state;
     QList<QWidget *> m_catWidgets;   // désactivés quand la station n'a pas de CAT
@@ -77,6 +83,7 @@ private:
     QSpinBox  *m_udpPort = nullptr;
     QLineEdit *m_password = nullptr;
     QCheckBox *m_encrypt = nullptr;
+    QCheckBox *m_autoReconnect = nullptr;
     QComboBox *m_codec = nullptr;
     QSpinBox  *m_bitrate = nullptr;
     QPushButton *m_connectBtn = nullptr;
@@ -91,8 +98,16 @@ private:
     QComboBox *m_step = nullptr;
     QProgressBar *m_sMeter = nullptr;
     QLabel *m_sLabel = nullptr;
+    QWidget *m_swrRow = nullptr;
+    QProgressBar *m_swrMeter = nullptr;
+    QLabel *m_swrLabel = nullptr;
     QPushButton *m_pttBtn = nullptr;
     QPushButton *m_tuneBtn = nullptr;
+    QWidget   *m_cwPage = nullptr;
+    QLineEdit *m_myCall = nullptr;
+    QLineEdit *m_cwText = nullptr;
+    QSpinBox  *m_wpm = nullptr;
+    QList<QLineEdit *> m_cwMacros;
     QGridLayout *m_bandGrid = nullptr;
     QList<QPushButton *> m_bandButtons;
     QLabel *m_statsLabel = nullptr;
@@ -106,8 +121,8 @@ private:
     QSpinBox  *m_jitter = nullptr;
     QDoubleSpinBox *m_rxGain = nullptr;
     QDoubleSpinBox *m_txGain = nullptr;
-    QProgressBar *m_rxMeter = nullptr;
-    QProgressBar *m_txMeter = nullptr;
+    LevelMeter *m_rxMeter = nullptr;
+    LevelMeter *m_txMeter = nullptr;
 
     // mise en forme de la modulation
     QComboBox *m_speechPreset = nullptr;

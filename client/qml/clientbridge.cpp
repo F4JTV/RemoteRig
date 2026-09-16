@@ -51,21 +51,33 @@ ClientBridge::ClientBridge(QObject *parent) : QObject(parent)
     });
 
     connect(m_core, &ClientCore::statsUpdated, this,
-            [this](int rtt, int lost, int jitter, float rx, float tx, float reduction) {
+            [this](int rtt, int lost, int jitter, float rx, float tx, float reduction,
+                   bool rxClip, bool txClip) {
                 m_rtt = rtt; m_lost = lost; m_jitter = jitter;
                 m_rxLevel = rx; m_txLevel = tx; m_reduction = reduction;
+                m_rxClipped = rxClip; m_txClipped = txClip;
                 emit statsChanged();
             });
 
     connect(m_core, &ClientCore::logMessage, this, &ClientBridge::appendLog);
 
+    connect(m_core, &ClientCore::retryCountdown, this, [this](int seconds, int attempt) {
+        m_retrySeconds = seconds;
+        m_retryAttempt = attempt;
+        emit retryChanged();
+    });
+
     setVolumePttSink(this);
     connect(m_core, &ClientCore::capsChanged, this, [this](const rr::RigCaps &caps) {
         m_caps = caps;
         m_bands = bandsWithin(caps.txRanges);
-        appendLog(caps.hasTune
-                      ? tr("%1 bands, antenna tuner available").arg(m_bands.size())
-                      : tr("%1 bands, no antenna tuner").arg(m_bands.size()));
+        QStringList found;
+        if (caps.hasTune)  found << tr("tuner");
+        if (caps.hasMorse) found << tr("keyer");
+        if (caps.hasSwr)   found << tr("SWR");
+        appendLog(tr("%1 bands · %2").arg(m_bands.size())
+                      .arg(found.isEmpty() ? tr("no extra capability")
+                                           : found.join(QStringLiteral(", "))));
         emit capsChanged();
     });
 
@@ -186,6 +198,27 @@ void ClientBridge::setRigctldEnabled(bool v)
     emit settingsChanged();
 }
 
+// Deux decimales n'apprennent rien : un ROS se lit a la dizaine pres.
+// Ce que l'emission occuperait reellement : l'operateur voit alors pourquoi la
+// meme frequence passe en LSB et pas en USB.
+QString ClientBridge::emissionText() const
+{
+    if (!m_state.hasCat || m_state.mode.isEmpty()) return QString();
+    const quint64 hz = (m_state.vfo == QLatin1String("B")) ? m_state.freqB : m_state.freqA;
+    const EmissionSpan s = occupiedSpan(hz, m_state.mode, m_state.passband);
+    return tr("%1: %2 – %3 kHz")
+        .arg(m_state.mode)
+        .arg(double(s.low) / 1000.0, 0, 'f', 1)
+        .arg(double(s.high) / 1000.0, 0, 'f', 1);
+}
+
+QString ClientBridge::swrText() const
+{
+    if (m_state.swr < 1.0f) return QStringLiteral("—");
+    if (m_state.swr >= 9.9f) return QStringLiteral("> 9:1");
+    return QStringLiteral("%1:1").arg(double(m_state.swr), 0, 'f', 1);
+}
+
 QString ClientBridge::sMeterText() const
 {
     if (m_state.strength > 0) return QStringLiteral("S9+%1").arg(m_state.strength);
@@ -280,6 +313,55 @@ void ClientBridge::startTune()
     QMetaObject::invokeMethod(m_core, "startTune", Qt::QueuedConnection);
 }
 
+// ------------------------------------------------------------------ morse
+void ClientBridge::setWpm(int v)
+{
+    if (m_wpm == v) return;
+    m_wpm = v;
+    if (m_connected)
+        QMetaObject::invokeMethod(m_core, "setKeySpeed", Qt::QueuedConnection, Q_ARG(int, v));
+    emit cwChanged();
+}
+
+void ClientBridge::setMyCall(const QString &call)
+{
+    const QString up = call.trimmed().toUpper();
+    if (m_myCall == up) return;
+    m_myCall = up;
+    emit cwChanged();
+}
+
+void ClientBridge::setCwMacro(int index, const QString &text)
+{
+    if (index < 0 || index >= m_cwMacros.size()) return;
+    if (m_cwMacros.at(index) == text) return;
+    m_cwMacros[index] = text;
+    emit cwChanged();
+}
+
+// %c est remplace par l'indicatif de l'operateur : les memoires restent ainsi
+// valables quel que soit celui qui utilise l'application.
+QString ClientBridge::expandMacro(const QString &text) const
+{
+    QString out = text;
+    out.replace(QLatin1String("%c"), m_myCall.isEmpty() ? QStringLiteral("?") : m_myCall);
+    return out.toUpper();
+}
+
+void ClientBridge::sendCw(const QString &text)
+{
+    const QString payload = expandMacro(text).trimmed();
+    if (payload.isEmpty()) return;
+    QMetaObject::invokeMethod(m_core, "sendMorse", Qt::QueuedConnection,
+                              Q_ARG(QString, payload));
+    appendLog(tr("CW: %1").arg(payload));
+}
+
+void ClientBridge::stopCw()
+{
+    QMetaObject::invokeMethod(m_core, "stopMorse", Qt::QueuedConnection);
+}
+
 // Les bandes viennent du poste : Hamlib rapporte ses plages d'emission, on y
 // taille le plan de bandes standard. Hors connexion, le plan complet sert de
 // repere.
@@ -328,6 +410,20 @@ void ClientBridge::setPort(int v)                 { if (m_cfg.tcpPort==v) return
 void ClientBridge::setUdpPort(int v)              { if (m_cfg.udpPort==v) return; m_cfg.udpPort=quint16(v); emit settingsChanged(); }
 void ClientBridge::setPassword(const QString &v)  { if (m_cfg.password==v) return; m_cfg.password=v; emit settingsChanged(); }
 void ClientBridge::setEncrypt(bool v)             { if (m_cfg.encrypt==v) return; m_cfg.encrypt=v; emit settingsChanged(); }
+
+void ClientBridge::setAutoReconnect(bool v)
+{
+    if (m_cfg.autoReconnect == v) return;
+    m_cfg.autoReconnect = v;
+    QMetaObject::invokeMethod(m_core, "setAutoReconnect", Qt::QueuedConnection, Q_ARG(bool, v));
+    emit settingsChanged();
+}
+
+QString ClientBridge::retryText() const
+{
+    if (m_retrySeconds <= 0) return QString();
+    return tr("Reconnecting in %1 s — attempt %2").arg(m_retrySeconds).arg(m_retryAttempt);
+}
 // Le codec se change sans couper la liaison : le serveur bascule son encodeur
 // et son decodeur sur reception de la commande.
 void ClientBridge::setCodec(const QString &v)
@@ -410,12 +506,23 @@ void ClientBridge::loadSettings()
     m_cfg.udpPort  = quint16(s.value("udpPort", 0).toInt());
     m_cfg.password = s.value("password").toString();
     m_cfg.encrypt  = s.value("encrypt", true).toBool();
+    m_cfg.autoReconnect = s.value("autoReconnect", true).toBool();
     m_cfg.codec    = s.value("codec", "opus").toString();
     m_cfg.jitterMs = s.value("jitter", 60).toInt();
     m_cfg.rxGain   = float(s.value("rxGain", 1.0).toDouble());
     m_cfg.txGain   = float(s.value("txGain", 1.0).toDouble());
     m_speechPreset = s.value("speechPreset", 1).toInt();
     m_theme        = s.value("theme", 0).toInt();
+    m_wpm          = s.value("wpm", 20).toInt();
+    m_myCall       = s.value("myCall").toString();
+    // Memoires par defaut : %c sera remplace par l'indicatif saisi.
+    m_cwMacros     = s.value("cwMacros", QStringList{
+                         QStringLiteral("CQ CQ DE %c %c K"),
+                         QStringLiteral("%c"),
+                         QStringLiteral("RST 599 599"),
+                         QStringLiteral("TU 73 E E"),
+                         QStringLiteral("AGN?"),
+                         QStringLiteral("QRZ? DE %c")}).toStringList();
     m_cfg.inputDevice   = s.value("inputDevice",  AudioEngine::defaultInput()).toInt();
     m_cfg.outputDevice  = s.value("outputDevice", AudioEngine::defaultOutput()).toInt();
     m_pttOnVolumeKey    = s.value("pttOnVolumeKey", false).toBool();
@@ -433,12 +540,16 @@ void ClientBridge::saveSettings()
     s.setValue("udpPort", m_cfg.udpPort);
     s.setValue("password", m_cfg.password);
     s.setValue("encrypt", m_cfg.encrypt);
+    s.setValue("autoReconnect", m_cfg.autoReconnect);
     s.setValue("codec", m_cfg.codec);
     s.setValue("jitter", m_cfg.jitterMs);
     s.setValue("rxGain", m_cfg.rxGain);
     s.setValue("txGain", m_cfg.txGain);
     s.setValue("speechPreset", m_speechPreset);
     s.setValue("theme", m_theme);
+    s.setValue("wpm", m_wpm);
+    s.setValue("myCall", m_myCall);
+    s.setValue("cwMacros", m_cwMacros);
     s.setValue("inputDevice", m_cfg.inputDevice);
     s.setValue("outputDevice", m_cfg.outputDevice);
     s.setValue("pttOnVolumeKey", m_pttOnVolumeKey);

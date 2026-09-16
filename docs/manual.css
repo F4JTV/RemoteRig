@@ -1,0 +1,54 @@
+/* Feuille commune aux deux langues du manuel.
+   Le bloc sombre est en dernier : a specificite egale, c'est la derniere regle
+   qui l'emporte. Place plus haut, il etait ecrase par les fonds clairs. */
+:root { color-scheme: light dark; }
+
+body {
+    font-family: system-ui, "Segoe UI", Cantarell, sans-serif;
+    line-height: 1.6; margin: 0 auto; max-width: 52rem; padding: 2rem 1.4rem 4rem;
+    color: #1c222c; background: #ffffff;
+}
+header { display: flex; align-items: center; gap: 1.2rem; margin-bottom: 1rem; }
+header img { width: 84px; height: 84px; }
+h1 { font-size: 1.9rem; margin: 0; }
+h2 { margin-top: 2.4rem; border-bottom: 2px solid #f0c674; padding-bottom: .3rem; }
+h3 { margin-top: 1.8rem; }
+
+code, pre { background: #f2f4f7; color: #1c222c; border-radius: 4px; }
+code { padding: .1rem .3rem; font-size: .92em; }
+pre { padding: .8rem 1rem; overflow-x: auto; }
+pre code { background: none; padding: 0; color: inherit; }
+
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+td, th { border: 1px solid #d4d9e0; padding: .45rem .6rem; text-align: left; vertical-align: top; }
+th { background: #f2f4f7; }
+
+aside {
+    background: #fbf6e8; color: #1c222c;
+    border-left: 4px solid #f0c674;
+    padding: .8rem 1rem; margin: 1.2rem 0; border-radius: 0 4px 4px 0;
+}
+aside code, aside pre { background: #eee6d2; color: #1c222c; }
+
+nav ol { padding-left: 1.2rem; }
+nav a { text-decoration: none; }
+nav a:hover { text-decoration: underline; }
+footer { margin-top: 3rem; font-size: .9em; opacity: .75; }
+
+/* ----------------------------------------------------------- mode sombre */
+@media (prefers-color-scheme: dark) {
+    body { color: #e6ebf2; background: #1c222c; }
+    a { color: #f0c674; }
+
+    code, pre { background: #10151d; color: #e6ebf2; }
+    pre code { background: none; color: inherit; }
+
+    td, th { border-color: #3a4250; }
+    th { background: #252c38; }
+
+    aside {
+        background: #252c38; color: #e6ebf2;
+        border-left-color: #f0c674;
+    }
+    aside code, aside pre { background: #10151d; color: #e6ebf2; }
+}

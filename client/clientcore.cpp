@@ -50,11 +50,24 @@ ClientCore::~ClientCore() { disconnectFromStation(); }
 
 void ClientCore::connectToStation(const ClientConfig &cfg)
 {
-    disconnectFromStation();
+    shutdownLink();
+    cancelRetry();
     m_cfg = cfg;
+    m_wantConnected = true;
+    m_retryDelay = 1;
+    m_retryAttempt = 0;
+    openLink();
+}
+
+// Ouverture effective du lien. Separee de connectToStation pour qu'une
+// tentative de reconnexion reprenne exactement la meme sequence.
+void ClientCore::openLink()
+{
+    const ClientConfig &cfg = m_cfg;
 
     if (!AudioEngine::initialiseLibrary()) {
         emit connectionChanged(false, tr("PortAudio failed to start"));
+        scheduleRetry();
         return;
     }
 
@@ -62,6 +75,7 @@ void ClientCore::connectToStation(const ClientConfig &cfg)
     m_audio.setPlaybackGain(cfg.rxGain);
     if (!m_audio.startPlayback(cfg.outputDevice, cfg.framesPerBuffer)) {
         emit connectionChanged(false, tr("Audio output: %1").arg(m_audio.lastError()));
+        scheduleRetry();
         return;
     }
 
@@ -101,6 +115,15 @@ void ClientCore::connectToStation(const ClientConfig &cfg)
 
 void ClientCore::disconnectFromStation()
 {
+    m_wantConnected = false;
+    cancelRetry();
+    shutdownLink();
+}
+
+// Fermeture du lien sans toucher a l'intention : sert aussi bien a une coupure
+// subie qu'a une deconnexion voulue.
+void ClientCore::shutdownLink()
+{
     if (m_ptt) setPtt(false);
 
     // QAbstractSocket::abort() émet disconnected() immédiatement, dans la
@@ -133,13 +156,54 @@ void ClientCore::disconnectFromStation()
     m_audio.stopAll();
     m_encrypted = false;
     m_rxOnly = false;
+    m_ptt = false;
     m_serverUdpPort = 0;
 }
 
+// Recul exponentiel, plafonne : inutile de marteler un serveur eteint, mais une
+// coupure passagere doit se rattraper en une seconde.
+void ClientCore::scheduleRetry()
+{
+    if (!m_wantConnected || !m_cfg.autoReconnect) return;
+
+    ++m_retryAttempt;
+    m_retrySeconds = m_retryDelay;
+    m_retryDelay = qMin(m_retryDelay * 2, 30);
+
+    if (!m_retryTimer) {
+        m_retryTimer = new QTimer(this);
+        connect(m_retryTimer, &QTimer::timeout, this, &ClientCore::onRetryTick);
+    }
+    m_retryTimer->start(1000);
+    emit retryCountdown(m_retrySeconds, m_retryAttempt);
+    emit logMessage(tr("Link lost, retrying in %1 s (attempt %2)")
+                        .arg(m_retrySeconds).arg(m_retryAttempt));
+}
+
+void ClientCore::cancelRetry()
+{
+    if (m_retryTimer) m_retryTimer->stop();
+    m_retrySeconds = 0;
+    emit retryCountdown(0, 0);
+}
+
+void ClientCore::onRetryTick()
+{
+    if (--m_retrySeconds > 0) {
+        emit retryCountdown(m_retrySeconds, m_retryAttempt);
+        return;
+    }
+    m_retryTimer->stop();
+    emit retryCountdown(0, m_retryAttempt);
+    if (m_wantConnected) openLink();
+}
+
+
 void ClientCore::teardown(const QString &why)
 {
-    disconnectFromStation();
+    shutdownLink();
     emit connectionChanged(false, why);
+    scheduleRetry();
 }
 
 // ------------------------------------------------------------------ handshake
@@ -255,6 +319,13 @@ void ClientCore::handleControl(const QJsonObject &o)
         connect(m_statsTimer, &QTimer::timeout, this, &ClientCore::onStatsTick);
         m_statsTimer->start(200);
 
+        m_retryDelay = 1;
+        if (m_retryAttempt > 0) {
+            emit logMessage(tr("Link restored after %1 attempt(s)").arg(m_retryAttempt));
+            m_retryAttempt = 0;
+        }
+        cancelRetry();
+
         emit connectionChanged(true, tr("Station connected (%1, %2)")
                                          .arg(c == CODEC_OPUS ? "Opus" : "16-bit PCM",
                                               m_encrypted ? tr("encrypted") : tr("unencrypted")));
@@ -302,6 +373,23 @@ void ClientCore::startTune()
     if (m_authenticated) sendJson(QJsonObject{{"t", "cmd"}, {"c", "tune"}});
 }
 
+void ClientCore::sendMorse(const QString &text)
+{
+    if (m_authenticated)
+        sendJson(QJsonObject{{"t", "cmd"}, {"c", "cw"}, {"text", text}});
+}
+
+void ClientCore::stopMorse()
+{
+    if (m_authenticated) sendJson(QJsonObject{{"t", "cmd"}, {"c", "cwstop"}});
+}
+
+void ClientCore::setKeySpeed(int wpm)
+{
+    if (m_authenticated)
+        sendJson(QJsonObject{{"t", "cmd"}, {"c", "keyspd"}, {"wpm", wpm}});
+}
+
 void ClientCore::setCodec(const QString &codec, int bitrate)
 {
     if (!m_authenticated) return;
@@ -323,6 +411,12 @@ void ClientCore::setGains(float rx, float tx)
 }
 
 void ClientCore::setJitterMs(int ms) { m_cfg.jitterMs = ms; }
+
+void ClientCore::setAutoReconnect(bool on)
+{
+    m_cfg.autoReconnect = on;
+    if (!on) cancelRetry();
+}
 
 // Changement de micro en cours de liaison : on referme le flux de capture et
 // on en ouvre un autre. Le reseau, le codec et le PTT ne sont pas touches, donc
@@ -503,9 +597,12 @@ void ClientCore::onAudioTick()
 void ClientCore::onStatsTick()
 {
     const int queueMs = int(m_audio.playbackQueued() * 1000 / kSampleRate);
+    // Les drapeaux d'ecretage sont lus a chaque tour : ils se remettent a zero
+    // a la lecture, donc rien ne s'accumule.
     emit statsUpdated(m_rttMs, m_lost, queueMs,
                       m_audio.playbackLevel(), m_audio.captureLevel(),
-                      m_ptt ? m_speech.gainReductionDb() : 0.0f);
+                      m_ptt ? m_speech.gainReductionDb() : 0.0f,
+                      m_audio.playbackClipped(), m_audio.captureClipped());
 }
 
 } // namespace rr

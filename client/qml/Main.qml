@@ -59,6 +59,7 @@ ApplicationWindow {
     component ReliefButton: Rectangle {
         id: relief
         property alias text: reliefLabel.text
+        property alias fontSize: reliefLabel.font.pixelSize
         property bool down: reliefArea.pressed
         property color baseColor: win.panel
         property bool active: true
@@ -118,6 +119,109 @@ ApplicationWindow {
         y: offset
     }
 
+    // Vumetre a maintien de crete. Une simple ProgressBar ne montre que
+    // l'instant ; regler un niveau micro demande de voir jusqu'ou il est monte,
+    // et de savoir s'il a touche la butee.
+    component LevelMeter: Item {
+        property real level: 0
+        property bool clipped: false
+
+        implicitHeight: 14
+
+        // La crete tient une seconde et demie puis retombe doucement, pour ne
+        // pas rester accrochee a un claquement isole.
+        property real peak: 0
+        onLevelChanged: {
+            if (level >= peak) { peak = level; holdTimer.restart() }
+        }
+        Timer {
+            id: holdTimer
+            interval: 1500
+            onTriggered: fallTimer.start()
+        }
+        Timer {
+            id: fallTimer
+            interval: 60
+            repeat: true
+            onTriggered: {
+                peak = Math.max(level, peak - 0.045)
+                if (peak <= level) { stop(); if (level >= peak) holdTimer.restart() }
+            }
+        }
+
+        onClippedChanged: if (clipped) clipTimer.restart()
+        property bool clipLatched: clipTimer.running
+        Timer { id: clipTimer; interval: 1200 }
+
+        Rectangle {
+            id: track
+            anchors { left: parent.left; right: clipLed.left; rightMargin: 6
+                      verticalCenter: parent.verticalCenter }
+            height: parent.height
+            radius: 3
+            color: Qt.darker(win.panel, 1.4)
+            border.width: 1
+            border.color: Qt.lighter(win.panel, 1.2)
+
+            // Vert, puis ambre, puis rouge : la zone haute se voit avant
+            // d'etre atteinte.
+            Rectangle {
+                anchors { left: parent.left; top: parent.top; bottom: parent.bottom
+                          leftMargin: 1; topMargin: 1; bottomMargin: 1 }
+                width: Math.max(0, (track.width - 2) * Math.min(level, 1))
+                radius: 2
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0.0;  color: "#3c9646" }
+                    GradientStop { position: 0.55; color: "#3c9646" }
+                    GradientStop { position: 0.75; color: "#c8a53c" }
+                    GradientStop { position: 1.0;  color: "#c83c32" }
+                }
+            }
+
+            Rectangle {
+                visible: peak > 0.01
+                width: 2
+                anchors { top: parent.top; bottom: parent.bottom; topMargin: 1; bottomMargin: 1 }
+                x: Math.min(track.width - 3, 1 + (track.width - 2) * peak)
+                color: win.pal.text
+            }
+        }
+
+        Rectangle {
+            id: clipLed
+            anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+            width: 12
+            height: parent.height
+            radius: 3
+            color: clipLatched ? "#dc2828" : Qt.darker(win.panel, 1.4)
+            border.width: 1
+            border.color: Qt.lighter(win.panel, 1.2)
+        }
+    }
+
+    // Point et trait : le pictogramme du morse, dessine comme les autres
+    // puisque les polices d'Android n'en ont aucun.
+    component MorseGlyph: Item {
+        property color glyphColor: win.dim
+        implicitWidth: 26
+        implicitHeight: 26
+        Row {
+            anchors.centerIn: parent
+            spacing: 5
+            Rectangle {
+                width: 6; height: 6; radius: 3
+                anchors.verticalCenter: parent.verticalCenter
+                color: parent.parent.glyphColor
+            }
+            Rectangle {
+                width: 17; height: 6; radius: 3
+                anchors.verticalCenter: parent.verticalCenter
+                color: parent.parent.glyphColor
+            }
+        }
+    }
+
     // Triangle plein, oriente a gauche ou a droite.
     component ArrowGlyph: Canvas {
         property bool pointsRight: true
@@ -169,13 +273,15 @@ ApplicationWindow {
                 Layout.preferredWidth: 76
                 Layout.preferredHeight: 34
                 radius: 6
-                color: (Station.ptt || Station.tuning) ? win.redTx
+                color: (Station.ptt || Station.tuning || Station.cwBusy) ? win.redTx
                                                        : (Station.connected ? win.greenTx : win.panel)
                 border.color: Qt.lighter(color, 1.3)
                 border.width: 1
                 Text {
                     anchors.centerIn: parent
-                    text: Station.tuning ? qsTr("TUNE") : (Station.ptt ? "TX" : "RX")
+                    text: Station.tuning ? qsTr("TUNE")
+                                         : (Station.cwBusy ? qsTr("CW")
+                                                           : (Station.ptt ? "TX" : "RX"))
                     color: Station.ptt ? "#ffffff" : (Station.connected ? win.pal.text : win.dim)
                     font.bold: true
                     font.pixelSize: 16
@@ -184,10 +290,25 @@ ApplicationWindow {
 
             Label {
                 Layout.fillWidth: true
-                text: Station.connected ? (Station.rigName !== "" ? Station.rigName : qsTr("Connected"))
-                                    : qsTr("Offline")
+                text: Station.connected
+                          ? (Station.rigName !== "" ? Station.rigName : qsTr("Connected"))
+                          : (Station.retrying ? Station.retryText : qsTr("Offline"))
                 color: win.dim
                 elide: Text.ElideRight
+            }
+
+            // Manipulateur : n'apparait que si le poste sait manipuler.
+            ToolButton {
+                id: cwButton
+                visible: Station.hasMorse && Station.hasCat
+                enabled: Station.connected
+                Layout.preferredWidth: 48
+                Layout.preferredHeight: 48
+                onClicked: cwSheet.visible ? cwSheet.close() : cwSheet.open()
+                contentItem: MorseGlyph {
+                    glyphColor: Station.cwBusy ? win.redTx
+                                               : (cwButton.enabled ? win.amber : win.dim)
+                }
             }
 
             // Les polices d'Android ne contiennent ni U+2630 ni les triangles
@@ -288,6 +409,32 @@ ApplicationWindow {
             }
         }
 
+        // ROS, dans le meme gabarit que le S-metre, juste en dessous.
+        // N'apparait que si le poste le rapporte.
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: win.gap
+            visible: Station.hasSwr && Station.hasCat
+
+            Label { text: qsTr("SWR"); color: win.dim; Layout.preferredWidth: 60 }
+            ProgressBar {
+                Layout.fillWidth: true
+                // L'echelle utile va de 1:1 a 3:1 ; au-dela, la barre est pleine
+                // et c'est le chiffre qui renseigne.
+                from: 1.0; to: 3.0
+                value: Math.max(1.0, Station.swr)
+                enabled: Station.swr >= 1.0
+            }
+            Label {
+                text: Station.swrText
+                // Au-dela de 2:1 on ne devrait plus emettre longtemps : le
+                // chiffre passe au rouge pour que cela saute aux yeux.
+                color: Station.swr >= 2.0 ? win.redTx : win.amber
+                Layout.preferredWidth: 62
+                horizontalAlignment: Text.AlignRight
+            }
+        }
+
         // Accord
         RowLayout {
             Layout.fillWidth: true
@@ -380,9 +527,17 @@ ApplicationWindow {
             Layout.fillWidth: true
             spacing: win.gap
             Label { text: qsTr("RX"); color: win.dim; Layout.preferredWidth: 28 }
-            ProgressBar { Layout.fillWidth: true; from: 0; to: 1; value: Station.rxLevel }
+            LevelMeter {
+                Layout.fillWidth: true
+                level: Station.rxLevel
+                clipped: Station.rxClipped
+            }
             Label { text: qsTr("TX"); color: win.dim; Layout.preferredWidth: 28 }
-            ProgressBar { Layout.fillWidth: true; from: 0; to: 1; value: Station.txLevel }
+            LevelMeter {
+                Layout.fillWidth: true
+                level: Station.txLevel
+                clipped: Station.txClipped
+            }
         }
 
         Label {
@@ -431,15 +586,18 @@ ApplicationWindow {
 
             Label {
                 anchors.centerIn: parent
-                text: Station.ptt ? qsTr("TRANSMITTING") : qsTr("HOLD TO TALK")
+                // « PTT » et « TX » se passent de traduction et tiennent dans
+                // le bouton quelle que soit la langue.
+                text: Station.ptt ? "TX" : (Station.txAllowed ? "PTT" : qsTr("OUT OF BAND"))
                 color: Station.connected ? (Station.ptt ? "#ffffff" : win.pal.text) : win.dim
-                font.pixelSize: 22
+                font.pixelSize: 34
                 font.bold: true
             }
 
             MultiPointTouchArea {
                 anchors.fill: parent
-                enabled: Station.connected && !Station.tuning
+                enabled: Station.connected && !Station.tuning && !Station.cwBusy
+                         && Station.txAllowed
                 // Maintien franc : l'emission suit le doigt, sans bascule.
                 onPressed: Station.setPtt(true)
                 onReleased: Station.setPtt(false)
@@ -447,14 +605,27 @@ ApplicationWindow {
             }
         }
 
-        Button {
-            visible: Station.hasTune
-            enabled: Station.connected && !Station.ptt && !Station.tuning
-            Layout.preferredWidth: 96
+        // Meme relief que le reste, et plus large : l'accord se declenche
+        // souvent sans quitter le poste des yeux.
+        ReliefButton {
+            // hasTune vient des capacites declarees par le backend Hamlib, qui
+            // restent valables meme si le poste ne repond plus. On exige donc
+            // aussi le CAT vivant : sans lui, rien a accorder.
+            visible: Station.hasTune && Station.hasCat
+            active: Station.connected && !Station.ptt && !Station.tuning
+            Layout.preferredWidth: 112
             Layout.preferredHeight: 130
-            font.capitalization: Font.MixedCase
+            radius: 16
+            fontSize: 17
             text: Station.tuning ? qsTr("Tuning…") : qsTr("Tune")
+            baseColor: Station.tuning ? win.redTx : win.panel
             onClicked: Station.startTune()
+
+            DropShadow {
+                anchors.fill: parent
+                radius: parent.radius
+                offset: 6
+            }
         }
         }
     }
@@ -502,6 +673,113 @@ ApplicationWindow {
                 horizontalAlignment: Text.AlignHCenter
                 inputMethodHints: Qt.ImhFormattedNumbersOnly
                 onAccepted: freqDialog.accept()
+            }
+        }
+    }
+
+    // ------------------------------------------------------ manipulateur CW
+    Drawer {
+        id: cwSheet
+        // Par le haut : en bas, le panneau tombait sur le PTT et sur les
+        // commandes du telephone, ou l'on appuie par megarde.
+        edge: Qt.TopEdge
+        width: win.width
+        height: Math.min(win.height * 0.72, 520)
+        dim: true
+        // Ouverture par le bouton seulement : aucun balayage accidentel.
+        interactive: false
+
+        background: Rectangle {
+            color: win.panel
+            border.width: 1
+            border.color: Qt.lighter(win.panel, 1.4)
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: win.gap
+            spacing: win.gap
+
+            RowLayout {
+                Layout.fillWidth: true
+                Label {
+                    text: qsTr("Keyer")
+                    color: win.amber
+                    font.bold: true
+                    font.pixelSize: 18
+                }
+                Item { Layout.fillWidth: true }
+                Label {
+                    text: qsTr("%1 WPM").arg(Station.wpm)
+                    color: win.pal.text
+                    font.pixelSize: 16
+                    font.bold: true
+                }
+            }
+
+            Slider {
+                Layout.fillWidth: true
+                from: Station.wpmMin
+                to: Station.wpmMax
+                stepSize: 1
+                value: Station.wpm
+                onMoved: Station.wpm = Math.round(value)
+            }
+
+            // Memoires : un appui envoie, le texte se regle dans les reglages.
+            GridLayout {
+                Layout.fillWidth: true
+                columns: 2
+                rowSpacing: 8
+                columnSpacing: 8
+
+                Repeater {
+                    model: Station.cwMacros
+                    delegate: ReliefButton {
+                        required property int index
+                        required property string modelData
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 48
+                        text: Station.expandMacro(modelData)
+                        active: Station.connected && Station.hasMorse
+                        onClicked: Station.sendCw(modelData)
+                    }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                TextField {
+                    id: cwField
+                    Layout.fillWidth: true
+                    placeholderText: qsTr("Text to send")
+                    inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                    onAccepted: if (text.length) { Station.sendCw(text); text = "" }
+                }
+
+                ReliefButton {
+                    Layout.preferredWidth: 96
+                    Layout.preferredHeight: 48
+                    text: qsTr("Send")
+                    baseColor: win.amber
+                    active: Station.connected && cwField.text.length > 0
+                    onClicked: { Station.sendCw(cwField.text); cwField.text = "" }
+                }
+            }
+
+            Item { Layout.fillHeight: true }
+
+            // Toujours atteignable : une memoire lancee par erreur doit pouvoir
+            // etre coupee sans chercher.
+            ReliefButton {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 56
+                text: Station.cwBusy ? qsTr("Stop sending") : qsTr("Stop")
+                baseColor: Station.cwBusy ? win.redTx : win.panel
+                active: Station.connected
+                onClicked: Station.stopCw()
             }
         }
     }
@@ -556,6 +834,13 @@ ApplicationWindow {
                     }
                 }
 
+                Switch {
+                    Layout.fillWidth: true
+                    text: qsTr("Auto-reconnect")
+                    checked: Station.autoReconnect
+                    onToggled: Station.autoReconnect = checked
+                }
+
                 Label { text: qsTr("UDP audio port, 0 to follow the server"); color: win.dim; font.pixelSize: 12 }
                 SpinBox {
                     Layout.fillWidth: true
@@ -579,9 +864,10 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 52
                     font.capitalization: Font.MixedCase
-                    text: Station.connected ? qsTr("Disconnect") : qsTr("Connect")
+                    text: Station.connected ? qsTr("Disconnect")
+                                            : (Station.retrying ? qsTr("Cancel") : qsTr("Connect"))
                     onClicked: {
-                        if (Station.connected) Station.disconnectFromStation()
+                        if (Station.connected || Station.retrying) Station.disconnectFromStation()
                         else Station.connectToStation()
                         drawer.close()
                     }
@@ -693,6 +979,38 @@ ApplicationWindow {
                     Label { text: qsTr("Reduction"); color: win.dim; Layout.preferredWidth: 90 }
                     ProgressBar { Layout.fillWidth: true; from: 0; to: 20; value: Station.gainReductionDb }
                     Label { text: Math.round(Station.gainReductionDb) + " dB"; color: win.dim; Layout.preferredWidth: 56 }
+                }
+
+                MenuSeparator { Layout.fillWidth: true }
+                Label { text: qsTr("CW"); color: win.amber; font.bold: true; font.pixelSize: 17 }
+
+                Label { text: qsTr("My callsign"); color: win.dim; font.pixelSize: 12 }
+                TextField {
+                    Layout.fillWidth: true
+                    text: Station.myCall
+                    placeholderText: qsTr("callsign")
+                    inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                    onEditingFinished: Station.myCall = text
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    text: qsTr("Memories — %c stands for your callsign.")
+                    color: win.dim
+                    font.pixelSize: 11
+                    wrapMode: Text.Wrap
+                }
+
+                Repeater {
+                    model: Station.cwMacros
+                    delegate: TextField {
+                        required property int index
+                        required property string modelData
+                        Layout.fillWidth: true
+                        text: modelData
+                        inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                        onEditingFinished: Station.setCwMacro(index, text)
+                    }
                 }
 
                 MenuSeparator { Layout.fillWidth: true }

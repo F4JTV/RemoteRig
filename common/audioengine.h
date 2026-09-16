@@ -106,6 +106,11 @@ public:
 
     float captureLevel();
     float playbackLevel();
+    // Vrai si des echantillons ont touche la butee depuis le dernier appel.
+    // Un niveau de 1,0 ne suffit pas a le dire : un seul echantillon en butee
+    // passe inapercu dans une crete lue toutes les 250 ms.
+    bool  captureClipped();
+    bool  playbackClipped();
 
     QString lastError() const { return m_lastError; }
 
@@ -153,6 +158,8 @@ private:
     std::atomic<float> m_outGain{1.0f};
     std::atomic<float> m_inPeak{0.0f};
     std::atomic<float> m_outPeak{0.0f};
+    std::atomic<bool>  m_inClip{false};
+    std::atomic<bool>  m_outClip{false};
     QString m_lastError;
 };
 

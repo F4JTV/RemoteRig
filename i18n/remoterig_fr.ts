@@ -1,6 +1,55 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <!DOCTYPE TS>
 <TS version="2.1" language="fr_FR">
+<context>
+    <name>About</name>
+    <message>
+        <source>&amp;Help</source>
+        <translation>&amp;Aide</translation>
+    </message>
+    <message>
+        <source>&amp;About %1</source>
+        <translation>&amp;À propos de %1</translation>
+    </message>
+    <message>
+        <source>About %1</source>
+        <translation>À propos de %1</translation>
+    </message>
+    <message>
+        <source>Version %1</source>
+        <translation>Version %1</translation>
+    </message>
+    <message>
+        <source>MIT licence — free to use, modify and redistribute.</source>
+        <translation>Licence MIT — libre d'usage, de modification et de redistribution.</translation>
+    </message>
+    <message>
+        <source>&amp;User manual</source>
+        <translation>&amp;Manuel d'utilisation</translation>
+    </message>
+    <message>
+        <source>fr</source>
+        <translation>fr</translation>
+    </message>
+    <message>
+        <source>User manual</source>
+        <translation>Manuel d'utilisation</translation>
+    </message>
+    <message>
+        <source>The manual is missing from this build.</source>
+        <translation>Le manuel est absent de cette compilation.</translation>
+    </message>
+    <message>
+        <source>Could not write the manual to %1.</source>
+        <translation>Impossible d'écrire le manuel dans %1.</translation>
+    </message>
+    <message>
+        <source>No browser could be started. The manual is at:
+%1</source>
+        <translation>Aucun navigateur n'a pu être lancé. Le manuel se trouve ici :
+%1</translation>
+    </message>
+</context>
 <context>
     <name>AudioEngine</name>
     <message>
@@ -9,7 +58,7 @@
     </message>
     <message>
         <source>This input device accepted no sample rate</source>
-        <translation>Aucun débit accepté par ce périphérique d&apos;entrée</translation>
+        <translation>Aucun débit accepté par ce périphérique d'entrée</translation>
     </message>
     <message>
         <source>This output device accepted no sample rate</source>
@@ -85,7 +134,7 @@
     <message>
         <source>The new language applies when the program starts again.
 Restart now?</source>
-        <translation>La nouvelle langue s&apos;applique au prochain démarrage du programme.
+        <translation>La nouvelle langue s'applique au prochain démarrage du programme.
 Redémarrer maintenant ?</translation>
     </message>
 </context>
@@ -118,14 +167,6 @@ Redémarrer maintenant ?</translation>
     <message>
         <source>Round trip %1 ms · buffer %2 ms · %3 lost</source>
         <translation>Aller-retour %1 ms · tampon %2 ms · %3 perdues</translation>
-    </message>
-    <message>
-        <source>TRANSMITTING</source>
-        <translation>ÉMISSION</translation>
-    </message>
-    <message>
-        <source>HOLD TO TALK</source>
-        <translation>MAINTENIR POUR PARLER</translation>
     </message>
     <message>
         <source>Station</source>
@@ -233,7 +274,7 @@ Redémarrer maintenant ?</translation>
     </message>
     <message>
         <source>The key no longer changes the volume while this is on.</source>
-        <translation>La touche ne règle plus le volume tant que c&apos;est activé.</translation>
+        <translation>La touche ne règle plus le volume tant que c'est activé.</translation>
     </message>
     <message>
         <source>Publish a rigctld interface</source>
@@ -287,6 +328,62 @@ Redémarrer maintenant ?</translation>
         <source>Tune</source>
         <translation>Accord</translation>
     </message>
+    <message>
+        <source>Auto-reconnect</source>
+        <translation>Reconnexion automatique</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Renoncer</translation>
+    </message>
+    <message>
+        <source>CW</source>
+        <translation>CW</translation>
+    </message>
+    <message>
+        <source>Keyer</source>
+        <translation>Manipulateur</translation>
+    </message>
+    <message>
+        <source>%1 WPM</source>
+        <translation>%1 MPM</translation>
+    </message>
+    <message>
+        <source>Text to send</source>
+        <translation>Texte à envoyer</translation>
+    </message>
+    <message>
+        <source>Send</source>
+        <translation>Envoyer</translation>
+    </message>
+    <message>
+        <source>Stop sending</source>
+        <translation>Arrêter l'envoi</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Arrêter</translation>
+    </message>
+    <message>
+        <source>My callsign</source>
+        <translation>Mon indicatif</translation>
+    </message>
+    <message>
+        <source>callsign</source>
+        <translation>indicatif</translation>
+    </message>
+    <message>
+        <source>Memories — %c stands for your callsign.</source>
+        <translation>Mémoires — %c désigne votre indicatif.</translation>
+    </message>
+    <message>
+        <source>SWR</source>
+        <translation>ROS</translation>
+    </message>
+    <message>
+        <source>OUT OF BAND</source>
+        <translation>HORS BANDE</translation>
+    </message>
 </context>
 <context>
     <name>rr::ClientBridge</name>
@@ -307,19 +404,43 @@ Redémarrer maintenant ?</translation>
         <translation>Fréquence incomprise : %1</translation>
     </message>
     <message>
-        <source>%1 bands, antenna tuner available</source>
-        <translation>%1 bandes, coupleur d&apos;antenne disponible</translation>
+        <source>Reconnecting in %1 s — attempt %2</source>
+        <translation>Reconnexion dans %1 s — tentative %2</translation>
     </message>
     <message>
-        <source>%1 bands, no antenna tuner</source>
-        <translation>%1 bandes, pas de coupleur d&apos;antenne</translation>
+        <source>CW: %1</source>
+        <translation>CW : %1</translation>
+    </message>
+    <message>
+        <source>tuner</source>
+        <translation>coupleur</translation>
+    </message>
+    <message>
+        <source>keyer</source>
+        <translation>manipulateur</translation>
+    </message>
+    <message>
+        <source>SWR</source>
+        <translation>ROS</translation>
+    </message>
+    <message>
+        <source>%1 bands · %2</source>
+        <translation>%1 bandes · %2</translation>
+    </message>
+    <message>
+        <source>no extra capability</source>
+        <translation>aucune capacité supplémentaire</translation>
+    </message>
+    <message>
+        <source>%1: %2 – %3 kHz</source>
+        <translation>%1 : %2 – %3 kHz</translation>
     </message>
 </context>
 <context>
     <name>rr::ClientCore</name>
     <message>
         <source>PortAudio failed to start</source>
-        <translation>PortAudio n&apos;a pas pu démarrer</translation>
+        <translation>PortAudio n'a pas pu démarrer</translation>
     </message>
     <message>
         <source>Audio output: %1</source>
@@ -367,7 +488,7 @@ Redémarrer maintenant ?</translation>
     </message>
     <message>
         <source>Receive only: no microphone, transmit is disabled</source>
-        <translation>Écoute seule : aucun micro, l&apos;émission est désactivée</translation>
+        <translation>Écoute seule : aucun micro, l'émission est désactivée</translation>
     </message>
     <message>
         <source>No microphone: receive only</source>
@@ -388,6 +509,14 @@ Redémarrer maintenant ?</translation>
     <message>
         <source>Playback switched</source>
         <translation>Sortie audio changée</translation>
+    </message>
+    <message>
+        <source>Link lost, retrying in %1 s (attempt %2)</source>
+        <translation>Liaison perdue, nouvel essai dans %1 s (tentative %2)</translation>
+    </message>
+    <message>
+        <source>Link restored after %1 attempt(s)</source>
+        <translation>Liaison rétablie après %1 tentative(s)</translation>
     </message>
 </context>
 <context>
@@ -446,7 +575,7 @@ Redémarrer maintenant ?</translation>
     </message>
     <message>
         <source>Transmit  (hold, or press space)</source>
-        <translation>Émettre  (maintenir, ou barre d&apos;espace)</translation>
+        <translation>Émettre  (maintenir, ou barre d'espace)</translation>
     </message>
     <message>
         <source>Offline</source>
@@ -520,17 +649,17 @@ En numérique (FT8, VARA, PSK), basculez sur PCM 16 bits : Opus déforme les ton
     </message>
     <message>
         <source>Also accept connections from other machines</source>
-        <translation>Accepter aussi les connexions d&apos;autres machines</translation>
+        <translation>Accepter aussi les connexions d'autres machines</translation>
     </message>
     <message>
-        <source>In WSJT-X / fldigi / JS8Call, set the radio to &quot;Hamlib NET rigctl&quot;, address 127.0.0.1:4532, PTT &quot;CAT&quot;.
+        <source>In WSJT-X / fldigi / JS8Call, set the radio to "Hamlib NET rigctl", address 127.0.0.1:4532, PTT "CAT".
 
 For audio, pick the virtual cable in the Audio tab (VB-Audio Cable on Windows, a PulseAudio or PipeWire null-sink module on Linux), and point the data-mode software at the other end of that same cable.
 
 VARA works the same way: its PTT goes through rigctld, its audio through the cable.</source>
         <translation>Réglage côté WSJT-X / fldigi / JS8Call : radio « Hamlib NET rigctl », adresse 127.0.0.1:4532, PTT « CAT ».
 
-Audio : choisissez le câble virtuel dans l&apos;onglet Audio (VB-Audio Cable sous Windows, un module null-sink PulseAudio ou PipeWire sous Linux), et pointez le logiciel numérique sur l&apos;autre extrémité du même câble.
+Audio : choisissez le câble virtuel dans l'onglet Audio (VB-Audio Cable sous Windows, un module null-sink PulseAudio ou PipeWire sous Linux), et pointez le logiciel numérique sur l'autre extrémité du même câble.
 
 VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le câble.</translation>
     </message>
@@ -580,7 +709,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>Needed after plugging in a USB sound card: the device list is read once at startup.</source>
-        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n&apos;est lue qu&apos;au démarrage.</translation>
+        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n'est lue qu'au démarrage.</translation>
     </message>
     <message>
         <source>No microphone found — receive only</source>
@@ -592,7 +721,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>Disconnect first: the device list cannot be reread while the audio streams are open.</source>
-        <translation>Déconnectez-vous d&apos;abord : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
+        <translation>Déconnectez-vous d'abord : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
     </message>
     <message>
         <source>Device list reread.</source>
@@ -608,7 +737,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>No playback device: nothing could be heard.</source>
-        <translation>Aucun périphérique de sortie : vous n&apos;entendriez rien.</translation>
+        <translation>Aucun périphérique de sortie : vous n'entendriez rien.</translation>
     </message>
     <message>
         <source>Microphone shaping</source>
@@ -719,20 +848,96 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
         <translation>Accord</translation>
     </message>
     <message>
-        <source>Start the radio&apos;s antenna tuner</source>
-        <translation>Lance le coupleur d&apos;antenne du poste</translation>
+        <source>Start the radio's antenna tuner</source>
+        <translation>Lance le coupleur d'antenne du poste</translation>
     </message>
     <message>
         <source>TUNE</source>
         <translation>ACCORD</translation>
     </message>
     <message>
-        <source>%1 bands, antenna tuner available</source>
-        <translation>%1 bandes, coupleur d&apos;antenne disponible</translation>
+        <source>Auto-reconnect</source>
+        <translation>Reconnexion automatique</translation>
     </message>
     <message>
-        <source>%1 bands, no antenna tuner</source>
-        <translation>%1 bandes, pas de coupleur d&apos;antenne</translation>
+        <source>Rebuild the link on its own after a drop, retrying after 1 s then doubling up to 30 s.</source>
+        <translation>Rétablit la liaison seule après une coupure, en réessayant après 1 s puis en doublant jusqu'à 30 s.</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Renoncer</translation>
+    </message>
+    <message>
+        <source>Reconnecting in %1 s — attempt %2</source>
+        <translation>Reconnexion dans %1 s — tentative %2</translation>
+    </message>
+    <message>
+        <source>CW</source>
+        <translation>CW</translation>
+    </message>
+    <message>
+        <source>My callsign</source>
+        <translation>Mon indicatif</translation>
+    </message>
+    <message>
+        <source>callsign</source>
+        <translation>indicatif</translation>
+    </message>
+    <message>
+        <source>Speed</source>
+        <translation>Vitesse</translation>
+    </message>
+    <message>
+        <source> WPM</source>
+        <translation> MPM</translation>
+    </message>
+    <message>
+        <source>Memories — %c stands for your callsign. Click to send, edit the text to change it.</source>
+        <translation>Mémoires — %c désigne votre indicatif. Cliquez pour envoyer, modifiez le texte pour le changer.</translation>
+    </message>
+    <message>
+        <source>Send</source>
+        <translation>Envoyer</translation>
+    </message>
+    <message>
+        <source>Text to send</source>
+        <translation>Texte à envoyer</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Arrêter</translation>
+    </message>
+    <message>
+        <source>CW: %1</source>
+        <translation>CW : %1</translation>
+    </message>
+    <message>
+        <source>SWR</source>
+        <translation>ROS</translation>
+    </message>
+    <message>
+        <source>tuner</source>
+        <translation>coupleur</translation>
+    </message>
+    <message>
+        <source>keyer</source>
+        <translation>manipulateur</translation>
+    </message>
+    <message>
+        <source>%1 bands · %2</source>
+        <translation>%1 bandes · %2</translation>
+    </message>
+    <message>
+        <source>no extra capability</source>
+        <translation>aucune capacité supplémentaire</translation>
+    </message>
+    <message>
+        <source>OUT OF BAND — %1 would span %2 – %3 kHz</source>
+        <translation>HORS BANDE — en %1 l'émission occuperait %2 – %3 kHz</translation>
+    </message>
+    <message>
+        <source>Operates an amateur radio station over the network: the rig's audio, its PTT, and when CAT is available its frequency, mode and bands. Low-latency Opus or 16-bit PCM, optional encryption, and a rigctld interface for data-mode software.</source>
+        <translation>Exploite une station radioamateur par le réseau : l'audio du poste, son PTT, et quand le CAT est disponible sa fréquence, son mode et ses bandes. Opus faible latence ou PCM 16 bits, chiffrement facultatif, et une interface rigctld pour les logiciels numériques.</translation>
     </message>
 </context>
 <context>
@@ -793,6 +998,42 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
         <source>Tuning started</source>
         <translation>Accord lancé</translation>
     </message>
+    <message>
+        <source>Morse refused: %1</source>
+        <translation>Morse refusé : %1</translation>
+    </message>
+    <message>
+        <source>Sending: %1</source>
+        <translation>Envoi : %1</translation>
+    </message>
+    <message>
+        <source>Morse stopped</source>
+        <translation>Morse interrompu</translation>
+    </message>
+    <message>
+        <source>Key speed refused: %1</source>
+        <translation>Vitesse de manipulation refusée : %1</translation>
+    </message>
+    <message>
+        <source>tuner</source>
+        <translation>coupleur</translation>
+    </message>
+    <message>
+        <source>keyer</source>
+        <translation>manipulateur</translation>
+    </message>
+    <message>
+        <source>SWR</source>
+        <translation>ROS</translation>
+    </message>
+    <message>
+        <source>Capabilities: %1 transmit range(s) · %2</source>
+        <translation>Capacités : %1 plage(s) d'émission · %2</translation>
+    </message>
+    <message>
+        <source>no extra capability</source>
+        <translation>aucune capacité supplémentaire</translation>
+    </message>
 </context>
 <context>
     <name>rr::RigctldServer</name>
@@ -813,7 +1054,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     <name>rr::ServerCore</name>
     <message>
         <source>PortAudio failed to start</source>
-        <translation>PortAudio n&apos;a pas pu démarrer</translation>
+        <translation>PortAudio n'a pas pu démarrer</translation>
     </message>
     <message>
         <source>Audio input: %1</source>
@@ -894,6 +1135,93 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     <message>
         <source>Tuning finished</source>
         <translation>Accord terminé</translation>
+    </message>
+    <message>
+        <source>Back inside a transmit range</source>
+        <translation>Retour dans une plage d'émission</translation>
+    </message>
+    <message>
+        <source>Transmission refused: out of band</source>
+        <translation>Émission refusée : hors bande</translation>
+    </message>
+    <message>
+        <source>Out of band in %1: emission would span %2 to %3 Hz</source>
+        <translation>Hors bande en %1 : l'émission occuperait %2 à %3 Hz</translation>
+    </message>
+</context>
+<context>
+    <name>rr::ServerDaemon</name>
+    <message>
+        <source>Nothing to serve, stopping.</source>
+        <translation>Rien à servir, arrêt.</translation>
+    </message>
+    <message>
+        <source>Continuing without radio control.</source>
+        <translation>Poursuite sans pilotage du poste.</translation>
+    </message>
+    <message>
+        <source>Client %1 connected (%2, %3)</source>
+        <translation>Client %1 connecté (%2, %3)</translation>
+    </message>
+    <message>
+        <source>encrypted</source>
+        <translation>chiffré</translation>
+    </message>
+    <message>
+        <source>clear</source>
+        <translation>clair</translation>
+    </message>
+    <message>
+        <source>TX</source>
+        <translation>TX</translation>
+    </message>
+    <message>
+        <source>RX</source>
+        <translation>RX</translation>
+    </message>
+    <message>
+        <source>Reachable at %1:%2 (%3)</source>
+        <translation>Joignable sur %1:%2 (%3)</translation>
+    </message>
+    <message>
+        <source>Configuration file not found: %1</source>
+        <translation>Fichier de configuration introuvable : %1</translation>
+    </message>
+    <message>
+        <source>Configuration: %1</source>
+        <translation>Configuration : %1</translation>
+    </message>
+    <message>
+        <source>PortAudio failed to start</source>
+        <translation>PortAudio n'a pas pu démarrer</translation>
+    </message>
+    <message>
+        <source>Warning: empty password, anyone reaching the port can key the rig.</source>
+        <translation>Attention : mot de passe vide, quiconque atteint le port peut faire émettre le poste.</translation>
+    </message>
+    <message>
+        <source>Audio input not found: %1</source>
+        <translation>Entrée audio introuvable : %1</translation>
+    </message>
+    <message>
+        <source>Audio output not found: %1</source>
+        <translation>Sortie audio introuvable : %1</translation>
+    </message>
+    <message>
+        <source>Audio in: %1</source>
+        <translation>Entrée audio : %1</translation>
+    </message>
+    <message>
+        <source>system default</source>
+        <translation>défaut du système</translation>
+    </message>
+    <message>
+        <source>Audio out: %1</source>
+        <translation>Sortie audio : %1</translation>
+    </message>
+    <message>
+        <source>Stopping.</source>
+        <translation>Arrêt.</translation>
     </message>
 </context>
 <context>
@@ -1028,7 +1356,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>PTT hold after transmit</source>
-        <translation>Maintien PTT en fin d&apos;émission</translation>
+        <translation>Maintien PTT en fin d'émission</translation>
     </message>
     <message>
         <source>RX level</source>
@@ -1114,7 +1442,7 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
     </message>
     <message>
         <source>Needed after plugging in a USB sound card: the device list is read once at startup.</source>
-        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n&apos;est lue qu&apos;au démarrage.</translation>
+        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n'est lue qu'au démarrage.</translation>
     </message>
     <message>
         <source>No capture device found</source>
@@ -1126,7 +1454,7 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
     </message>
     <message>
         <source>Stop the server first: the device list cannot be reread while the audio streams are open.</source>
-        <translation>Arrêtez d&apos;abord le serveur : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
+        <translation>Arrêtez d'abord le serveur : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
     </message>
     <message>
         <source>Device list reread.</source>
@@ -1138,7 +1466,19 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
     </message>
     <message>
         <source>The station needs one capture device and one playback device. A Raspberry Pi has no analogue input: use a USB sound card.</source>
-        <translation>La station a besoin d&apos;un périphérique de capture et d&apos;un de sortie. Un Raspberry Pi n&apos;a aucune entrée analogique : utilisez une carte son USB.</translation>
+        <translation>La station a besoin d'un périphérique de capture et d'un de sortie. Un Raspberry Pi n'a aucune entrée analogique : utilisez une carte son USB.</translation>
+    </message>
+    <message>
+        <source>Refuse transmission out of band</source>
+        <translation>Refuser l'émission hors bande</translation>
+    </message>
+    <message>
+        <source>Blocks the PTT when the frequency falls outside the transmit ranges the rig declares. Turn this off for a transverter, whose working range is not the rig's.</source>
+        <translation>Bloque le PTT quand la fréquence sort des plages d'émission que le poste déclare. À désactiver pour un transverter, dont la plage de travail n'est pas celle du poste.</translation>
+    </message>
+    <message>
+        <source>Runs next to the transceiver and shares it over the network: two-way audio, PTT, and CAT control through Hamlib or plain serial RTS/DTR keying. A client, on the desktop or on a phone, then operates the station from anywhere.</source>
+        <translation>Tourne à côté du transceiver et le partage sur le réseau : audio bidirectionnel, PTT, et pilotage CAT par Hamlib ou simple commutation RTS/DTR sur port série. Un client, sur bureau ou sur téléphone, exploite alors la station depuis n'importe où.</translation>
     </message>
 </context>
 </TS>

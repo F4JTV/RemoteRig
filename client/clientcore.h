@@ -36,6 +36,7 @@ struct ClientConfig {
     float   rxGain      = 1.0f;
     float   txGain      = 1.0f;
     SpeechSettings speech;   // mise en forme de la modulation
+    bool    autoReconnect = true;
 };
 
 class ClientCore : public QObject {
@@ -56,12 +57,16 @@ public slots:
     void setMode(const QString &mode, int passband);
     void setVfo(const QString &vfo);
     void startTune();
+    void sendMorse(const QString &text);
+    void stopMorse();
+    void setKeySpeed(int wpm);
     void setCodec(const QString &codec, int bitrate);
     void setGains(float rx, float tx);
     void setJitterMs(int ms);
     void setSpeechSettings(const rr::SpeechSettings &s);
     void setInputDevice(int deviceIndex);
     void setOutputDevice(int deviceIndex);
+    void setAutoReconnect(bool on);
 
 signals:
     void connectionChanged(bool up, const QString &message);
@@ -69,8 +74,12 @@ signals:
     void stateChanged(const rr::RigState &st);
     void capsChanged(const rr::RigCaps &caps);
     void logMessage(const QString &msg);
+    // Compte a rebours avant la prochaine tentative, et son rang.
+    void retryCountdown(int secondsLeft, int attempt);
+
     void statsUpdated(int rttMs, int lostPackets, int jitterQueueMs,
-                      float rxLevel, float txLevel, float gainReductionDb);
+                      float rxLevel, float txLevel, float gainReductionDb,
+                      bool rxClipped, bool txClipped);
 
 private slots:
     void onTcpConnected();
@@ -81,8 +90,13 @@ private slots:
     void onAudioTick();
     void onKeepalive();
     void onStatsTick();
+    void onRetryTick();
 
 private:
+    void openLink();
+    void shutdownLink();
+    void scheduleRetry();
+    void cancelRetry();
     void sendJson(const QJsonObject &o);
     void handleControl(const QJsonObject &o);
     void sendPttPacket(bool on);
@@ -94,6 +108,7 @@ private:
     QTimer *m_audioTimer = nullptr;
     QTimer *m_keepTimer  = nullptr;
     QTimer *m_statsTimer = nullptr;
+    QTimer *m_retryTimer = nullptr;
 
     AudioEngine m_audio;
     AudioCodec  m_encoder;   // micro -> station
@@ -113,6 +128,12 @@ private:
     int     m_rttMs = 0;
     qint64  m_pingSentAt = 0;
     bool    m_prefilled = false;
+    // Intention de l'operateur, distincte de l'etat du lien : c'est elle
+    // qui decide si une coupure doit etre rattrapee.
+    bool    m_wantConnected = false;
+    int     m_retrySeconds = 0;
+    int     m_retryDelay = 1;
+    int     m_retryAttempt = 0;
 
     QHostAddress m_serverAddr;
     quint16 m_serverUdpPort = 0;

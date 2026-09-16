@@ -28,6 +28,18 @@ class ClientBridge : public QObject, public VolumePttSink {
     Q_PROPERTY(bool ptt           READ ptt           NOTIFY pttChanged)
     Q_PROPERTY(bool tuning        READ tuning        NOTIFY stateChanged)
     Q_PROPERTY(bool hasTune       READ hasTune       NOTIFY capsChanged)
+    Q_PROPERTY(bool hasMorse      READ hasMorse      NOTIFY capsChanged)
+    Q_PROPERTY(bool hasSwr        READ hasSwr        NOTIFY capsChanged)
+    Q_PROPERTY(double swr         READ swr           NOTIFY stateChanged)
+    Q_PROPERTY(QString swrText    READ swrText       NOTIFY stateChanged)
+    Q_PROPERTY(int  wpmMin        READ wpmMin        NOTIFY capsChanged)
+    Q_PROPERTY(int  wpmMax        READ wpmMax        NOTIFY capsChanged)
+    Q_PROPERTY(bool cwBusy        READ cwBusy        NOTIFY stateChanged)
+    Q_PROPERTY(bool txAllowed     READ txAllowed     NOTIFY stateChanged)
+    Q_PROPERTY(QString emissionText READ emissionText NOTIFY stateChanged)
+    Q_PROPERTY(int  wpm           READ wpm    WRITE setWpm    NOTIFY cwChanged)
+    Q_PROPERTY(QString myCall     READ myCall WRITE setMyCall NOTIFY cwChanged)
+    Q_PROPERTY(QStringList cwMacros READ cwMacros    NOTIFY cwChanged)
     Q_PROPERTY(QStringList bands  READ bandNames     NOTIFY capsChanged)
     Q_PROPERTY(int sMeterDb       READ sMeterDb      NOTIFY stateChanged)
     Q_PROPERTY(QString sMeterText READ sMeterText    NOTIFY stateChanged)
@@ -36,6 +48,8 @@ class ClientBridge : public QObject, public VolumePttSink {
     Q_PROPERTY(int lostFrames     READ lostFrames    NOTIFY statsChanged)
     Q_PROPERTY(double rxLevel     READ rxLevel       NOTIFY statsChanged)
     Q_PROPERTY(double txLevel     READ txLevel       NOTIFY statsChanged)
+    Q_PROPERTY(bool rxClipped     READ rxClipped     NOTIFY statsChanged)
+    Q_PROPERTY(bool txClipped     READ txClipped     NOTIFY statsChanged)
     Q_PROPERTY(double gainReductionDb READ gainReductionDb NOTIFY statsChanged)
     Q_PROPERTY(QString logText    READ logText       NOTIFY logChanged)
     Q_PROPERTY(QString buildStamp READ buildStamp    CONSTANT)
@@ -55,6 +69,9 @@ class ClientBridge : public QObject, public VolumePttSink {
     Q_PROPERTY(int udpPort     READ udpPort WRITE setUdpPort NOTIFY settingsChanged)
     Q_PROPERTY(QString password READ password WRITE setPassword NOTIFY settingsChanged)
     Q_PROPERTY(bool encrypt    READ encrypt WRITE setEncrypt NOTIFY settingsChanged)
+    Q_PROPERTY(bool autoReconnect READ autoReconnect WRITE setAutoReconnect NOTIFY settingsChanged)
+    Q_PROPERTY(bool retrying   READ retrying   NOTIFY retryChanged)
+    Q_PROPERTY(QString retryText READ retryText NOTIFY retryChanged)
     Q_PROPERTY(QString codec   READ codec   WRITE setCodec   NOTIFY settingsChanged)
     Q_PROPERTY(int jitterTarget READ jitterTarget WRITE setJitterTarget NOTIFY settingsChanged)
     Q_PROPERTY(int speechPreset READ speechPreset WRITE setSpeechPreset NOTIFY settingsChanged)
@@ -76,6 +93,18 @@ public:
     bool ptt() const            { return m_ptt; }
     bool tuning() const         { return m_state.tuning; }
     bool hasTune() const        { return m_caps.hasTune; }
+    bool hasMorse() const       { return m_caps.hasMorse; }
+    bool hasSwr() const         { return m_caps.hasSwr; }
+    double swr() const          { return double(m_state.swr); }
+    QString swrText() const;
+    int  wpmMin() const         { return m_caps.wpmMin; }
+    int  wpmMax() const         { return m_caps.wpmMax; }
+    bool cwBusy() const         { return m_state.cw; }
+    bool txAllowed() const      { return m_state.txAllowed; }
+    QString emissionText() const;
+    int  wpm() const            { return m_wpm; }
+    QString myCall() const      { return m_myCall; }
+    QStringList cwMacros() const { return m_cwMacros; }
     int sMeterDb() const        { return m_state.strength; }
     QString sMeterText() const;
     int rttMs() const           { return m_rtt; }
@@ -83,6 +112,8 @@ public:
     int lostFrames() const      { return m_lost; }
     double rxLevel() const      { return m_rxLevel; }
     double txLevel() const      { return m_txLevel; }
+    bool rxClipped() const      { return m_rxClipped; }
+    bool txClipped() const      { return m_txClipped; }
     double gainReductionDb() const { return m_reduction; }
     QString logText() const     { return m_log; }
     QString buildStamp() const;
@@ -105,6 +136,9 @@ public:
     int udpPort() const         { return m_cfg.udpPort; }
     QString password() const    { return m_cfg.password; }
     bool encrypt() const        { return m_cfg.encrypt; }
+    bool autoReconnect() const  { return m_cfg.autoReconnect; }
+    bool retrying() const       { return m_retrySeconds > 0; }
+    QString retryText() const;
     QString codec() const       { return m_cfg.codec; }
     int jitterTarget() const    { return m_cfg.jitterMs; }
     int speechPreset() const    { return m_speechPreset; }
@@ -117,6 +151,7 @@ public:
     void setUdpPort(int v);
     void setPassword(const QString &v);
     void setEncrypt(bool v);
+    void setAutoReconnect(bool v);
     void setCodec(const QString &v);
     void setJitterTarget(int v);
     void setSpeechPreset(int v);
@@ -139,6 +174,13 @@ public slots:
     void setMode(const QString &mode);
     void setVfo(const QString &vfo);
     void startTune();
+    void setWpm(int v);
+    void setMyCall(const QString &call);
+    Q_INVOKABLE void setCwMacro(int index, const QString &text);
+    // Developpe %c en indicatif avant d'envoyer.
+    Q_INVOKABLE QString expandMacro(const QString &text) const;
+    Q_INVOKABLE void sendCw(const QString &text);
+    Q_INVOKABLE void stopCw();
     Q_INVOKABLE void refreshDevices();
     QStringList bandNames() const;
     double bandFrequency(int index) const;
@@ -159,6 +201,8 @@ signals:
     void themeChanged();
     void devicesChanged();
     void capsChanged();
+    void cwChanged();
+    void retryChanged();
 
 private:
     void loadSettings();
@@ -177,8 +221,14 @@ private:
     bool m_ptt = false;
     int  m_rtt = 0, m_jitter = 0, m_lost = 0;
     double m_rxLevel = 0, m_txLevel = 0, m_reduction = 0;
+    bool   m_rxClipped = false, m_txClipped = false;
     int  m_speechPreset = 1;
     int  m_theme = 0;
+    int  m_wpm = 20;
+    QString m_myCall;
+    QStringList m_cwMacros;
+    int  m_retrySeconds = 0;
+    int  m_retryAttempt = 0;
     bool m_pttOnVolumeKey = false;
     bool m_rigctldEnabled = false;
     RigctldServer *m_rigctld = nullptr;

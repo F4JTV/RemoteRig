@@ -1,4 +1,5 @@
 #include "clientwindow.h"
+#include "../common/about.h"
 #include "../common/i18n.h"
 
 #include <QApplication>
@@ -47,6 +48,12 @@ ClientWindow::ClientWindow(QWidget *parent) : QMainWindow(parent)
     setWindowTitle(tr("RemoteRig — Client"));
     resize(820, 720);
     addLanguageMenu(this, QStringLiteral("RemoteRigClient"));
+    addAboutMenu(this, QStringLiteral("RemoteRig Client"),
+                 QStringLiteral(":/icons/remoterig-client.png"),
+                 tr("Operates an amateur radio station over the network: the rig's "
+                    "audio, its PTT, and when CAT is available its frequency, mode "
+                    "and bands. Low-latency Opus or 16-bit PCM, optional encryption, "
+                    "and a rigctld interface for data-mode software."));
 
     m_core = new ClientCore;
     m_core->moveToThread(&m_netThread);
@@ -58,6 +65,7 @@ ClientWindow::ClientWindow(QWidget *parent) : QMainWindow(parent)
     connect(m_core, &ClientCore::stateChanged,      this, &ClientWindow::onStateChanged);
     connect(m_core, &ClientCore::capsChanged,       this, &ClientWindow::onCapsChanged);
     connect(m_core, &ClientCore::statsUpdated,      this, &ClientWindow::onStats);
+    connect(m_core, &ClientCore::retryCountdown,    this, &ClientWindow::onRetryCountdown);
     connect(m_core, &ClientCore::logMessage,        this, &ClientWindow::appendLog);
     connect(m_core, &ClientCore::receiveOnly,       this, &ClientWindow::onReceiveOnly);
 
@@ -86,6 +94,14 @@ ClientWindow::ClientWindow(QWidget *parent) : QMainWindow(parent)
     m_password = new QLineEdit; m_password->setEchoMode(QLineEdit::Password);
     m_password->setPlaceholderText(tr("password"));
     m_encrypt = new QCheckBox(tr("Encrypt"));
+    m_autoReconnect = new QCheckBox(tr("Auto-reconnect"));
+    m_autoReconnect->setChecked(true);
+    m_autoReconnect->setToolTip(tr("Rebuild the link on its own after a drop, "
+                                   "retrying after 1 s then doubling up to 30 s."));
+    connect(m_autoReconnect, &QCheckBox::toggled, this, [this](bool on) {
+        QMetaObject::invokeMethod(m_core, "setAutoReconnect", Qt::QueuedConnection,
+                                  Q_ARG(bool, on));
+    });
     m_codec = new QComboBox;
     m_codec->addItem(tr("Opus low latency"), "opus");
     m_codec->addItem(tr("16-bit PCM"), "pcm");
@@ -109,6 +125,7 @@ ClientWindow::ClientWindow(QWidget *parent) : QMainWindow(parent)
     cl->addWidget(new QLabel(tr("UDP")));    cl->addWidget(m_udpPort);
     cl->addWidget(m_password, 1);
     cl->addWidget(m_encrypt);
+    cl->addWidget(m_autoReconnect);
     cl->addWidget(m_codec);
     cl->addWidget(m_bitrate);
     cl->addWidget(m_connectBtn);
@@ -118,6 +135,8 @@ ClientWindow::ClientWindow(QWidget *parent) : QMainWindow(parent)
     tabs->addTab(buildStationPage(), tr("Station"));
     tabs->addTab(buildAudioPage(),   tr("Audio"));
     tabs->addTab(buildDataPage(),    tr("Data modes"));
+    m_cwPage = buildCwPage();
+    tabs->addTab(m_cwPage, tr("CW"));
     root->addWidget(tabs, 1);
 
     m_log = new QPlainTextEdit;
@@ -188,6 +207,25 @@ QWidget *ClientWindow::buildStationPage()
     sl->addWidget(m_sMeter, 1);
     sl->addWidget(m_sLabel);
     v->addLayout(sl);
+
+    // ROS, meme gabarit, juste en dessous. La ligne entiere disparait si le
+    // poste ne le rapporte pas : une jauge vide n'apprendrait rien.
+    m_swrRow = new QWidget;
+    auto *swl = new QHBoxLayout(m_swrRow);
+    swl->setContentsMargins(0, 0, 0, 0);
+    // Cent crans entre 1:1 et 3:1 : au-dela la barre sature et c'est le
+    // chiffre qui renseigne.
+    m_swrMeter = new QProgressBar;
+    m_swrMeter->setRange(100, 300);
+    m_swrMeter->setValue(100);
+    m_swrMeter->setTextVisible(false);
+    m_swrLabel = new QLabel(QStringLiteral("—"));
+    m_swrLabel->setMinimumWidth(70);
+    swl->addWidget(new QLabel(tr("SWR")));
+    swl->addWidget(m_swrMeter, 1);
+    swl->addWidget(m_swrLabel);
+    m_swrRow->setVisible(false);
+    v->addWidget(m_swrRow);
 
     // VFO, mode, pas
     auto *ctl = new QHBoxLayout;
@@ -333,8 +371,10 @@ QWidget *ClientWindow::buildAudioPage()
     f->addRow(tr("Receive volume"), m_rxGain);
     f->addRow(tr("Transmit level"), m_txGain);
 
-    m_rxMeter = new QProgressBar; m_rxMeter->setRange(0, 100); m_rxMeter->setTextVisible(false);
-    m_txMeter = new QProgressBar; m_txMeter->setRange(0, 100); m_txMeter->setTextVisible(false);
+    // Vumetres a maintien de crete : le trait montre jusqu'ou le niveau est
+    // monte, le carre a droite s'allume si un echantillon a touche la butee.
+    m_rxMeter = new LevelMeter;
+    m_txMeter = new LevelMeter;
     f->addRow(tr("Received level"), m_rxMeter);
     f->addRow(tr("Transmitted level"), m_txMeter);
 
@@ -398,6 +438,95 @@ QWidget *ClientWindow::buildAudioPage()
     f->addRow(hint);
 
     return w;
+}
+
+// Le poste manipule lui-meme : le texte part par le CAT, et c'est son
+// manipulateur electronique qui genere les elements. Envoyer du CW par le PTT
+// reseau serait inutilisable, la gigue detruirait l'espacement.
+QWidget *ClientWindow::buildCwPage()
+{
+    auto *page = new QWidget;
+    auto *v = new QVBoxLayout(page);
+
+    auto *top = new QHBoxLayout;
+    top->addWidget(new QLabel(tr("My callsign")));
+    m_myCall = new QLineEdit;
+    m_myCall->setMaximumWidth(120);
+    m_myCall->setPlaceholderText(tr("callsign"));
+    top->addWidget(m_myCall);
+    top->addSpacing(16);
+    top->addWidget(new QLabel(tr("Speed")));
+    m_wpm = new QSpinBox;
+    m_wpm->setRange(5, 60);
+    m_wpm->setValue(20);
+    m_wpm->setSuffix(tr(" WPM"));
+    connect(m_wpm, &QSpinBox::valueChanged, this, [this](int w) {
+        if (m_connected)
+            QMetaObject::invokeMethod(m_core, "setKeySpeed", Qt::QueuedConnection, Q_ARG(int, w));
+    });
+    top->addWidget(m_wpm);
+    top->addStretch();
+    v->addLayout(top);
+
+    v->addWidget(new QLabel(tr("Memories — %c stands for your callsign. "
+                               "Click to send, edit the text to change it.")));
+
+    auto *grid = new QGridLayout;
+    static const char *kDefaults[] = {"CQ CQ DE %c %c K", "%c", "RST 599 599",
+                                      "TU 73 E E", "AGN?", "QRZ? DE %c"};
+    for (int i = 0; i < 6; ++i) {
+        auto *edit = new QLineEdit(QString::fromLatin1(kDefaults[i]));
+        auto *send = new QPushButton(tr("Send"));
+        send->setMaximumWidth(80);
+        connect(send, &QPushButton::clicked, this, [this, edit] {
+            sendMorseText(edit->text());
+        });
+        grid->addWidget(edit, i / 2, (i % 2) * 2);
+        grid->addWidget(send, i / 2, (i % 2) * 2 + 1);
+        m_cwMacros << edit;
+        m_catWidgets << send;
+    }
+    v->addLayout(grid);
+
+    auto *row = new QHBoxLayout;
+    m_cwText = new QLineEdit;
+    m_cwText->setPlaceholderText(tr("Text to send"));
+    connect(m_cwText, &QLineEdit::returnPressed, this, [this] {
+        sendMorseText(m_cwText->text());
+        m_cwText->clear();
+    });
+    auto *sendBtn = new QPushButton(tr("Send"));
+    connect(sendBtn, &QPushButton::clicked, this, [this] {
+        sendMorseText(m_cwText->text());
+        m_cwText->clear();
+    });
+    auto *stopBtn = new QPushButton(tr("Stop"));
+    connect(stopBtn, &QPushButton::clicked, this, [this] {
+        QMetaObject::invokeMethod(m_core, "stopMorse", Qt::QueuedConnection);
+    });
+    row->addWidget(m_cwText, 1);
+    row->addWidget(sendBtn);
+    row->addWidget(stopBtn);
+    v->addLayout(row);
+    m_catWidgets << sendBtn << stopBtn;
+
+    v->addStretch();
+    return page;
+}
+
+// %c est remplace par l'indicatif : les memoires restent valables quel que soit
+// l'operateur qui utilise l'application.
+void ClientWindow::sendMorseText(const QString &text)
+{
+    QString payload = text;
+    payload.replace(QStringLiteral("%c"),
+                    m_myCall->text().isEmpty() ? QStringLiteral("?")
+                                               : m_myCall->text().toUpper());
+    payload = payload.trimmed().toUpper();
+    if (payload.isEmpty()) return;
+    QMetaObject::invokeMethod(m_core, "sendMorse", Qt::QueuedConnection,
+                              Q_ARG(QString, payload));
+    appendLog(tr("CW: %1").arg(payload));
 }
 
 QWidget *ClientWindow::buildDataPage()
@@ -562,7 +691,7 @@ void ClientWindow::updateRateLabel()
 
 void ClientWindow::onConnectClicked()
 {
-    if (m_connected) {
+    if (m_connected || m_retrying) {
         QMetaObject::invokeMethod(m_core, "disconnectFromStation", Qt::QueuedConnection);
         setConnectedUi(false);
         appendLog(tr("Disconnected"));
@@ -573,6 +702,7 @@ void ClientWindow::onConnectClicked()
     c.host     = m_host->text().trimmed();
     c.tcpPort  = quint16(m_port->value());
     c.udpPort  = quint16(m_udpPort->value());
+    c.autoReconnect = m_autoReconnect->isChecked();
     c.password = m_password->text();
     c.encrypt  = m_encrypt->isChecked();
     c.codec    = m_codec->currentData().toString();
@@ -593,17 +723,33 @@ void ClientWindow::onConnectClicked()
                               Q_ARG(rr::ClientConfig, c));
 }
 
+void ClientWindow::onRetryCountdown(int secondsLeft, int attempt)
+{
+    m_retrying = (secondsLeft > 0);
+    if (m_retrying) {
+        // Le bouton devient un renoncement : sans cela l'operateur n'aurait
+        // aucun moyen d'arreter les tentatives.
+        m_connectBtn->setText(tr("Cancel"));
+        m_statsLabel->setText(tr("Reconnecting in %1 s — attempt %2")
+                                  .arg(secondsLeft).arg(attempt));
+    } else if (!m_connected) {
+        m_connectBtn->setText(tr("Connect"));
+    }
+}
+
 void ClientWindow::setConnectedUi(bool up)
 {
     m_connected = up;
-    m_connectBtn->setText(up ? tr("Disconnect") : tr("Connect"));
+    if (up) m_retrying = false;
+    m_connectBtn->setText(up ? tr("Disconnect")
+                             : (m_retrying ? tr("Cancel") : tr("Connect")));
     m_pttBtn->setEnabled(up && !m_rxOnly);
     if (!up) {
         m_rxOnly = false;
         m_pttBtn->setText(tr("Transmit  (hold, or press space)"));
     }
     if (!up) {
-        m_statsLabel->setText(tr("Offline"));
+        if (!m_retrying) m_statsLabel->setText(tr("Offline"));
         m_txLed->setText("RX");
         m_txLed->setStyleSheet(kRxStyle);
         m_tuneBtn->setEnabled(false);
@@ -649,20 +795,33 @@ void ClientWindow::onStateChanged(const RigState &st)
     m_sLabel->setText(st.strength > 0 ? QString("S9+%1").arg(st.strength)
                                       : QString("S%1").arg(sUnits));
 
-    m_txLed->setText(st.tuning ? tr("TUNE") : (st.ptt ? "TX" : "RX"));
-    m_txLed->setStyleSheet(st.ptt || st.tuning ? kTxStyle : kRxStyle);
+    m_txLed->setText(st.tuning ? tr("TUNE") : (st.cw ? tr("CW") : (st.ptt ? "TX" : "RX")));
+    m_txLed->setStyleSheet(st.ptt || st.tuning || st.cw ? kTxStyle : kRxStyle);
 
     // Pendant l'accord le poste emet deja : le PTT reste inaccessible.
-    m_pttBtn->setEnabled(m_connected && !st.tuning);
-    m_tuneBtn->setEnabled(m_connected && m_core->caps().hasTune && !st.tuning && !st.ptt);
+    m_pttBtn->setEnabled(m_connected && !st.tuning && !st.cw && st.txAllowed);
+    if (st.txAllowed) {
+        m_pttBtn->setText(tr("Transmit  (hold, or press space)"));
+    } else {
+        // On montre le spectre calcule : l'operateur comprend alors pourquoi la
+        // meme frequence passe en LSB et pas en USB.
+        const quint64 hz = (st.vfo == QLatin1String("B")) ? st.freqB : st.freqA;
+        const EmissionSpan span = occupiedSpan(hz, st.mode, st.passband);
+        m_pttBtn->setText(tr("OUT OF BAND — %1 would span %2 – %3 kHz")
+                              .arg(st.mode)
+                              .arg(double(span.low) / 1000.0, 0, 'f', 1)
+                              .arg(double(span.high) / 1000.0, 0, 'f', 1));
+    }
+    m_tuneBtn->setEnabled(m_connected && m_core->caps().hasTune && st.hasCat
+                          && !st.tuning && !st.ptt);
 }
 
 void ClientWindow::onStats(int rttMs, int lost, int jitterMs, float rxLevel, float txLevel,
-                           float gainReductionDb)
+                           float gainReductionDb, bool rxClipped, bool txClipped)
 {
     m_compMeter->setValue(int(gainReductionDb + 0.5f));
-    m_rxMeter->setValue(int(rxLevel * 100));
-    m_txMeter->setValue(int(txLevel * 100));
+    m_rxMeter->setLevel(rxLevel, rxClipped);
+    m_txMeter->setLevel(txLevel, txClipped);
     m_statsLabel->setText(tr("Round trip %1 ms · buffer %2 ms · %3 frames lost")
                               .arg(rttMs).arg(jitterMs).arg(lost));
 }
@@ -716,9 +875,16 @@ void ClientWindow::rebuildBands(const QList<rr::Band> &bands)
 void ClientWindow::onCapsChanged(const rr::RigCaps &caps)
 {
     rebuildBands(bandsWithin(caps.txRanges));
-    m_tuneBtn->setEnabled(m_connected && caps.hasTune);
-    appendLog(caps.hasTune ? tr("%1 bands, antenna tuner available").arg(m_bandButtons.size())
-                           : tr("%1 bands, no antenna tuner").arg(m_bandButtons.size()));
+    m_tuneBtn->setEnabled(m_connected && caps.hasTune && m_state.hasCat);
+    m_cwPage->setEnabled(caps.hasMorse && m_state.hasCat);
+    m_swrRow->setVisible(caps.hasSwr && m_state.hasCat);
+    QStringList found;
+    if (caps.hasTune)  found << tr("tuner");
+    if (caps.hasMorse) found << tr("keyer");
+    if (caps.hasSwr)   found << tr("SWR");
+    appendLog(tr("%1 bands · %2").arg(m_bandButtons.size())
+                  .arg(found.isEmpty() ? tr("no extra capability")
+                                       : found.join(QStringLiteral(", "))));
 }
 
 void ClientWindow::setCatEnabled(bool on)
@@ -794,6 +960,12 @@ void ClientWindow::loadSettings()
     m_udpPort->setValue(s.value("udpPort", 0).toInt());
     m_password->setText(s.value("password").toString());
     m_encrypt->setChecked(s.value("encrypt", false).toBool());
+    m_autoReconnect->setChecked(s.value("autoReconnect", true).toBool());
+    m_myCall->setText(s.value("myCall").toString());
+    m_wpm->setValue(s.value("wpm", 20).toInt());
+    const QStringList macros = s.value("cwMacros").toStringList();
+    for (int i = 0; i < macros.size() && i < m_cwMacros.size(); ++i)
+        m_cwMacros[i]->setText(macros.at(i));
     const int ci = m_codec->findData(s.value("codec", "opus").toString());
     if (ci >= 0) m_codec->setCurrentIndex(ci);
     m_bitrate->setValue(s.value("bitrate", 48000).toInt());
@@ -830,6 +1002,12 @@ void ClientWindow::saveSettings()
     s.setValue("udpPort", m_udpPort->value());
     s.setValue("password", m_password->text());
     s.setValue("encrypt", m_encrypt->isChecked());
+    s.setValue("autoReconnect", m_autoReconnect->isChecked());
+    s.setValue("myCall", m_myCall->text());
+    s.setValue("wpm", m_wpm->value());
+    QStringList macros;
+    for (QLineEdit *e : std::as_const(m_cwMacros)) macros << e->text();
+    s.setValue("cwMacros", macros);
     s.setValue("codec", m_codec->currentData().toString());
     s.setValue("bitrate", m_bitrate->value());
     s.setValue("framesIdx", m_frames->currentIndex());

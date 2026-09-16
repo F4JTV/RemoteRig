@@ -15,6 +15,9 @@ QJsonObject RigState::toJson() const
     o["hasCat"]    = hasCat;
     o["ptt"]       = ptt;
     o["tuning"]    = tuning;
+    o["cw"]        = cw;
+    o["swr"]       = double(swr);
+    o["txAllowed"] = txAllowed;
     o["freqA"]     = double(freqA);
     o["freqB"]     = double(freqB);
     o["vfo"]       = vfo;
@@ -33,6 +36,9 @@ RigState RigState::fromJson(const QJsonObject &o)
     s.hasCat    = o["hasCat"].toBool();
     s.ptt       = o["ptt"].toBool();
     s.tuning    = o["tuning"].toBool();
+    s.cw        = o["cw"].toBool();
+    s.swr       = float(o["swr"].toDouble());
+    s.txAllowed = o.contains("txAllowed") ? o["txAllowed"].toBool() : true;
     s.freqA     = quint64(o["freqA"].toDouble());
     s.freqB     = quint64(o["freqB"].toDouble());
     s.vfo       = o["vfo"].toString(QStringLiteral("A"));
@@ -49,19 +55,67 @@ QJsonObject RigCaps::toJson() const
     QJsonArray ranges;
     for (const BandRange &r : txRanges)
         ranges.append(QJsonObject{{"s", double(r.start)}, {"e", double(r.end)}});
-    return QJsonObject{{"hasTune", hasTune}, {"tx", ranges}};
+    return QJsonObject{{"hasTune", hasTune}, {"hasMorse", hasMorse},
+                       {"hasSwr", hasSwr},
+                       {"wpmMin", wpmMin}, {"wpmMax", wpmMax}, {"tx", ranges}};
 }
 
 RigCaps RigCaps::fromJson(const QJsonObject &o)
 {
     RigCaps c;
-    c.hasTune = o["hasTune"].toBool();
+    c.hasTune  = o["hasTune"].toBool();
+    c.hasMorse = o["hasMorse"].toBool();
+    c.hasSwr   = o["hasSwr"].toBool();
+    c.wpmMin   = o.value("wpmMin").toInt(5);
+    c.wpmMax   = o.value("wpmMax").toInt(40);
     const QJsonArray ranges = o["tx"].toArray();
     for (const QJsonValue &v : ranges) {
         const QJsonObject r = v.toObject();
         c.txRanges.append({quint64(r["s"].toDouble()), quint64(r["e"].toDouble())});
     }
     return c;
+}
+
+EmissionSpan occupiedSpan(quint64 carrierHz, const QString &mode, int passbandHz)
+{
+    const QString m = mode.toUpper();
+
+    // Largeurs de repli quand le poste ne rapporte pas son filtre.
+    int width = passbandHz;
+    if (width <= 0) {
+        if (m.contains(QLatin1String("CW")))      width = 200;
+        else if (m.startsWith(QLatin1String("AM"))) width = 6000;
+        else if (m.startsWith(QLatin1String("FM"))) width = 12000;
+        else                                        width = 2700;
+    }
+
+    EmissionSpan s;
+
+    // Bande laterale superieure : l'emission est au-dessus de la porteuse.
+    // PKTUSB, DIGU et RTTYR sont batis sur la meme laterale.
+    const bool upper = m.contains(QLatin1String("USB")) || m.contains(QLatin1String("DIGU"))
+                       || m == QLatin1String("RTTYR") || m == QLatin1String("PKTUSB");
+    const bool lower = m.contains(QLatin1String("LSB")) || m.contains(QLatin1String("DIGL"))
+                       || m == QLatin1String("RTTY")  || m == QLatin1String("PKTLSB");
+
+    if (upper) {
+        s.low  = carrierHz;
+        s.high = carrierHz + quint64(width);
+    } else if (lower) {
+        s.low  = carrierHz > quint64(width) ? carrierHz - quint64(width) : 0;
+        s.high = carrierHz;
+    } else if (m.contains(QLatin1String("CW"))) {
+        // En telegraphie, le signal est centre sur la frequence affichee.
+        const quint64 half = quint64(width) / 2;
+        s.low  = carrierHz > half ? carrierHz - half : 0;
+        s.high = carrierHz + half;
+    } else {
+        // AM, FM et le reste : porteuse centree.
+        const quint64 half = quint64(width) / 2;
+        s.low  = carrierHz > half ? carrierHz - half : 0;
+        s.high = carrierHz + half;
+    }
+    return s;
 }
 
 // Bandes amateur, region 1. Les bornes servent a reconnaitre ce que le poste

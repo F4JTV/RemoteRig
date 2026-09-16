@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RemoteRig — Manuel d'utilisation</title>
+<style>
+/* Feuille commune aux deux langues du manuel.
+   Le bloc sombre est en dernier : a specificite egale, c'est la derniere regle
+   qui l'emporte. Place plus haut, il etait ecrase par les fonds clairs. */
+:root { color-scheme: light dark; }
+
+body {
+    font-family: system-ui, "Segoe UI", Cantarell, sans-serif;
+    line-height: 1.6; margin: 0 auto; max-width: 52rem; padding: 2rem 1.4rem 4rem;
+    color: #1c222c; background: #ffffff;
+}
+header { display: flex; align-items: center; gap: 1.2rem; margin-bottom: 1rem; }
+header img { width: 84px; height: 84px; }
+h1 { font-size: 1.9rem; margin: 0; }
+h2 { margin-top: 2.4rem; border-bottom: 2px solid #f0c674; padding-bottom: .3rem; }
+h3 { margin-top: 1.8rem; }
+
+code, pre { background: #f2f4f7; color: #1c222c; border-radius: 4px; }
+code { padding: .1rem .3rem; font-size: .92em; }
+pre { padding: .8rem 1rem; overflow-x: auto; }
+pre code { background: none; padding: 0; color: inherit; }
+
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+td, th { border: 1px solid #d4d9e0; padding: .45rem .6rem; text-align: left; vertical-align: top; }
+th { background: #f2f4f7; }
+
+aside {
+    background: #fbf6e8; color: #1c222c;
+    border-left: 4px solid #f0c674;
+    padding: .8rem 1rem; margin: 1.2rem 0; border-radius: 0 4px 4px 0;
+}
+aside code, aside pre { background: #eee6d2; color: #1c222c; }
+
+nav ol { padding-left: 1.2rem; }
+nav a { text-decoration: none; }
+nav a:hover { text-decoration: underline; }
+footer { margin-top: 3rem; font-size: .9em; opacity: .75; }
+
+/* ----------------------------------------------------------- mode sombre */
+@media (prefers-color-scheme: dark) {
+    body { color: #e6ebf2; background: #1c222c; }
+    a { color: #f0c674; }
+
+    code, pre { background: #10151d; color: #e6ebf2; }
+    pre code { background: none; color: inherit; }
+
+    td, th { border-color: #3a4250; }
+    th { background: #252c38; }
+
+    aside {
+        background: #252c38; color: #e6ebf2;
+        border-left-color: #f0c674;
+    }
+    aside code, aside pre { background: #10151d; color: #e6ebf2; }
+}
+
+</style>
+</head>
+<body>
+
+<header>
+  <img src="data:image/png;base64,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" alt="RemoteRig">
+  <div>
+    <h1>RemoteRig — Manuel d'utilisation</h1>
+    <p>Serveur de station et clients, version 1.0.0 — licence MIT</p>
+  </div>
+</header>
+
+<nav>
+  <h2 id="sommaire">Sommaire</h2>
+  <ol>
+    <li><a href="#principe">Principe</a></li>
+    <li><a href="#installation">Installation</a></li>
+    <li><a href="#serveur">Le serveur</a></li>
+    <li><a href="#client">Le client</a></li>
+    <li><a href="#exploitation">Exploitation</a></li>
+    <li><a href="#numerique">Modes numériques</a></li>
+    <li><a href="#securite">Sécurité et réseau</a></li>
+    <li><a href="#depannage">Dépannage</a></li>
+  </ol>
+</nav>
+
+<h2 id="principe">1. Principe</h2>
+
+<p>Deux programmes. Le <strong>serveur</strong> tourne à côté du transceiver :
+il partage son audio dans les deux sens, commande son PTT, et le pilote en CAT
+quand c'est possible. Le <strong>client</strong> tourne là où se trouve
+l'opérateur — sur un ordinateur ou sur un téléphone — et lui rend le poste.</p>
+
+<p>Deux canaux réseau les relient. Le <strong>contrôle</strong> passe en TCP,
+port 7300 par défaut : authentification, état du poste, commandes. L'<strong>audio
+et le PTT</strong> passent en UDP, port 7301 : un datagramme perdu est oublié
+plutôt que retransmis, ce qui convient à de la parole. Le PTT emprunte les deux
+à la fois, pour qu'une perte ne laisse jamais le poste en émission.</p>
+
+<aside>
+<strong>Latence.</strong> Sur un réseau local, comptez environ 65 ms de bout en
+bout en Opus à 10 ms de trame, un peu moins en PCM. C'est le tampon de gigue,
+réglable, qui domine ce budget.
+</aside>
+
+<h3>Ce qu'il faut côté station</h3>
+<ul>
+  <li>Une interface audio entre le poste et l'ordinateur : carte son USB,
+      interface numérique, ou l'audio intégré du transceiver.</li>
+  <li>Pour le CAT, un câble de commande et le modèle Hamlib correspondant.</li>
+  <li>À défaut de CAT, un simple port série dont le RTS ou le DTR commande le
+      PTT. Vous perdez la fréquence et le mode, pas la parole.</li>
+</ul>
+
+<h2 id="installation">2. Installation</h2>
+
+<h3>Linux — Ubuntu, Debian, Raspberry Pi OS</h3>
+<pre><code>sudo apt install ./remoterig_1.0.0_amd64.deb</code></pre>
+<p>Utilisez <code>apt</code> et non <code>dpkg -i</code> : les dépendances
+suivent. Le paquet installe le serveur, les deux clients, leurs raccourcis,
+les icônes et les pages de manuel.</p>
+<p>Un paquet vaut pour une architecture : <code>amd64</code> pour un PC,
+<code>arm64</code> pour un Raspberry Pi 64 bits. Pour construire le vôtre :</p>
+<pre><code>./make_deb.sh</code></pre>
+
+<aside>
+Pour piloter un poste en CAT, votre compte doit appartenir au groupe
+<code>dialout</code> :
+<pre><code>sudo usermod -a -G dialout $USER</code></pre>
+Déconnectez-vous puis reconnectez-vous pour que ce soit pris en compte.
+</aside>
+
+<h3>Windows</h3>
+<p>Lancez l'installateur et suivez les étapes. Il propose d'ouvrir les ports
+dans le pare-feu : acceptez, sinon aucun client ne joindra la station.</p>
+
+<h3>Android</h3>
+<p>Installez l'APK signé. Sur un téléphone Samsung, le <em>Bloqueur
+automatique</em> empêche l'installation hors boutique : désactivez-le le temps
+de l'installation, dans <em>Paramètres → Sécurité et confidentialité</em>.</p>
+
+<h2 id="serveur">3. Le serveur</h2>
+
+<h3>Onglet Poste</h3>
+<table>
+<tr><th>Réglage</th><th>Rôle</th></tr>
+<tr><td>Pilotage</td><td><em>Hamlib</em> pour un poste piloté en CAT,
+<em>PTT série seul</em> pour un simple RTS/DTR, <em>Aucun</em> pour partager
+uniquement l'audio.</td></tr>
+<tr><td>Modèle</td><td>Le modèle Hamlib de votre transceiver. La liste est celle
+que Hamlib connaît.</td></tr>
+<tr><td>Port CAT, vitesse</td><td>Le port série du câble de commande et son
+débit. Les deux doivent correspondre au réglage du poste.</td></tr>
+<tr><td>Port PTT, RTS ou DTR</td><td>Utilisés en mode <em>PTT série seul</em>.
+Certaines interfaces veulent le DTR maintenu en permanence : la case
+correspondante s'en charge.</td></tr>
+<tr><td>Période d'interrogation</td><td>Fréquence de lecture de l'état du poste,
+200 ms par défaut. L'allonger soulage un câble CAT lent.</td></tr>
+</table>
+
+<h3>Onglet Audio</h3>
+<p>Choisissez l'entrée — ce que le poste reçoit — et la sortie — ce qui part en
+émission. Le bouton <em>Rechercher les périphériques</em> prend en compte une
+carte branchée après le lancement.</p>
+<p>La taille de trame règle le compromis entre latence et robustesse. 480
+échantillons, soit 10 ms, convient à la plupart des cas ; descendez à 240 sur un
+réseau local rapide, montez à 960 si le son hache.</p>
+
+<h3>Onglet Réseau</h3>
+<p>Les ports TCP et UDP, le mot de passe, et deux garde-fous :</p>
+<ul>
+  <li><strong>Refuser les clients qui ne chiffrent pas</strong> — à activer dès
+      que la station est joignable depuis l'extérieur.</li>
+  <li><strong>Refuser l'émission hors bande</strong> — le serveur compare le
+      spectre émis aux plages d'émission que le poste déclare, et bloque le PTT
+      au-dehors. À désactiver pour un transverter, dont la plage de travail
+      n'est pas celle du poste.</li>
+</ul>
+
+<h3>Sans interface graphique</h3>
+<p>Une station déportée n'a pas besoin d'un bureau. Réglez une fois avec un
+écran, puis :</p>
+<pre><code>remoterig-server --headless
+remoterig-server --headless -v          # avec les changements de fréquence
+remoterig-server --config poste2.ini --headless</code></pre>
+<p>Le paquet installe une unité systemd utilisateur :</p>
+<pre><code>systemctl --user enable --now remoterig-server
+journalctl --user -u remoterig-server -f
+sudo loginctl enable-linger $USER       # tourner sans session ouverte</code></pre>
+<p>Au démarrage, le serveur affiche les adresses que l'opérateur distant devra
+saisir, et avertit si le mot de passe est vide.</p>
+
+<h2 id="client">4. Le client</h2>
+
+<h3>Se connecter</h3>
+<p>Saisissez l'adresse de la station, le port, le mot de passe, puis
+<em>Connecter</em>. Le champ <strong>UDP</strong> reste sur <em>auto</em> :
+le serveur annonce lui-même son port audio. Ne le forcez que derrière une
+redirection NAT qui change le numéro.</p>
+
+<p><strong>La reconnexion automatique</strong> rétablit la liaison seule après
+une coupure : première tentative après une seconde, puis le délai double
+jusqu'à trente. Pendant l'attente, le bouton devient <em>Renoncer</em>.</p>
+
+<h3>Audio</h3>
+<table>
+<tr><th>Réglage</th><th>Rôle</th></tr>
+<tr><td>Codec</td><td><em>Opus faible latence</em> pour la parole,
+<em>PCM 16 bits</em> pour les modes numériques, où toute compression nuit. Le
+changement se fait sans couper la liaison.</td></tr>
+<tr><td>Gigue</td><td>Tampon de réception. Augmentez-le si le son hache,
+diminuez-le pour gagner en latence.</td></tr>
+<tr><td>Volume, niveau micro</td><td>Réglables à chaud, même en pleine
+émission.</td></tr>
+</table>
+
+<h3>Mise en forme du micro</h3>
+<p>Quatre préréglages adaptent la modulation au micro employé. La chaîne coupe
+sous 300 Hz, relève la présence vers 2 kHz, coupe au-dessus de 3,2 kHz et
+compresse au rapport 3:1. Le vumètre d'émission indique la réduction de gain
+appliquée.</p>
+<p>Réglez le niveau micro de façon que le <strong>trait de crête</strong> monte
+dans la zone ambre sans que le témoin d'écrêtage, à droite du vumètre,
+s'allume.</p>
+
+<h2 id="exploitation">5. Exploitation</h2>
+
+<h3>Émettre</h3>
+<p>Maintenez le bouton d'émission, ou la barre d'espace sur le client bureau.
+Le relâchement coupe le PTT après un court maintien, réglable côté serveur, qui
+évite de hacher les fins de phrase.</p>
+<p>Le bouton se grise quand l'émission est impossible : liaison absente, accord
+en cours, manipulation en cours, ou fréquence hors bande.</p>
+
+<h3>Fréquence, bandes, VFO</h3>
+<p>Les boutons de bande sont construits à partir des plages d'émission que le
+poste déclare : chaque transceiver affiche donc les siennes. Un clic sur
+l'afficheur de fréquence ouvre une saisie qui accepte
+<code>14.074</code>, <code>14074</code> ou <code>14074000</code>.</p>
+
+<h3>Coupleur d'antenne</h3>
+<p>Le bouton <em>Accord</em> n'apparaît que si le poste accepte la commande et
+répond en CAT. Pendant le cycle, l'indicateur affiche <em>ACCORD</em> et le PTT
+est verrouillé : le poste émet déjà.</p>
+
+<h3>ROS</h3>
+<p>La jauge sous le S-mètre n'apparaît que si le poste rapporte son ROS. Il ne
+se mesure qu'en émission ; la dernière valeur est conservée au relâchement, le
+temps de la lire, et remise à zéro à l'émission suivante. Au-delà de 2:1, le
+chiffre passe au rouge.</p>
+
+<h3>Télégraphie</h3>
+<p>C'est le poste qui manipule : le texte part par le CAT et son manipulateur
+électronique génère les éléments. Le bouton point-trait ouvre le panneau —
+vitesse, six mémoires, champ libre, et un arrêt toujours à portée.</p>
+<p>Les mémoires utilisent <code>%c</code> pour votre indicatif, saisi une fois
+dans les réglages. <code>CQ CQ DE %c %c K</code> devient donc votre appel.</p>
+
+<h3>Garde-fou de bord de bande</h3>
+<p>Le serveur juge le <strong>spectre réellement émis</strong>, pas la porteuse.
+En USB l'émission se place au-dessus de la fréquence affichée, en LSB
+au-dessous. À 7,200 000 MHz exactement, la LSB reste dans le 40 m quand l'USB en
+sort. Quand l'émission est bloquée, le client affiche les bornes calculées.</p>
+
+<h2 id="numerique">6. Modes numériques</h2>
+
+<p>Le client publie une interface <strong>rigctld</strong> sur
+<code>127.0.0.1:4532</code>. WSJT-X, fldigi ou VARA pilotent alors le poste
+distant comme s'il était local.</p>
+
+<ol>
+  <li>Passez le codec en <strong>PCM 16 bits</strong> : Opus est fait pour la
+      voix et abîme les modulations numériques.</li>
+  <li>Activez l'interface rigctld — case à cocher sur le bureau, interrupteur
+      dans le tiroir sur téléphone.</li>
+  <li>Dans le logiciel numérique, choisissez le poste <em>Hamlib NET rigctl</em>
+      et l'adresse <code>127.0.0.1:4532</code>.</li>
+  <li>Routez l'audio entre le logiciel et le client : câble virtuel sous
+      Windows, module null-sink sous PipeWire ou PulseAudio.</li>
+</ol>
+
+<aside>
+Coupez la mise en forme du micro en numérique. Le compresseur et le filtre de
+présence sont faits pour la parole et dégraderaient un signal FT8.
+</aside>
+
+<h2 id="securite">7. Sécurité et réseau</h2>
+
+<p>Le mot de passe n'est jamais transmis : l'authentification se fait par
+défi-réponse, avec PBKDF2-HMAC-SHA256 et 60 000 tours. Le chiffrement facultatif
+protège ensuite le contrôle et l'audio par ChaCha20, avec un contrôle
+d'intégrité.</p>
+
+<p>Un jeton de session, dérivé du mot de passe, accompagne chaque commande de
+PTT : un tiers qui observerait le trafic UDP ne peut pas faire émettre la
+station en rejouant un datagramme.</p>
+
+<aside>
+<strong>Exposer une station sur Internet</strong> demande de la prudence.
+Préférez un tunnel — VPN ou WireGuard — à une redirection de ports. Si vous
+redirigez malgré tout, activez le chiffrement obligatoire et choisissez un mot
+de passe long.
+</aside>
+
+<h2 id="depannage">8. Dépannage</h2>
+
+<table>
+<tr><th>Symptôme</th><th>Cause et remède</th></tr>
+
+<tr><td>Le micro n'apparaît pas dans la liste</td>
+<td>Sous Linux, PortAudio écarte les cartes déjà prises par PipeWire. Déclarez
+un PCM nommé dans <code>~/.asoundrc</code> pointant sur
+<code>hw:x,0</code>. Utilisez <code>remoterig-server --list-audio</code> pour
+connaître les numéros.</td></tr>
+
+<tr><td>« pas de CAT » alors que le poste est allumé</td>
+<td>Port série, débit ou modèle Hamlib inexacts. Vérifiez aussi l'appartenance
+au groupe <code>dialout</code>.</td></tr>
+
+<tr><td>Le bouton d'accord ou le manipulateur n'apparaît pas</td>
+<td>Ils exigent un CAT qui répond, pas seulement un poste déclaré. Le journal
+affiche les capacités détectées juste après la connexion.</td></tr>
+
+<tr><td>Le son hache</td>
+<td>Augmentez le tampon de gigue, puis la taille de trame. Sur un réseau
+chargé, passez en Opus si vous étiez en PCM.</td></tr>
+
+<tr><td>Émission impossible, « hors bande »</td>
+<td>Le spectre émis sort des plages déclarées par le poste. Le message indique
+les bornes calculées. Pour un transverter, désactivez le garde-fou côté
+serveur.</td></tr>
+
+<tr><td>Des messages ALSA défilent au lancement</td>
+<td>PortAudio sonde tous les greffons déclarés par le système, dont ceux qui ne
+correspondent à rien. Sans conséquence.</td></tr>
+</table>
+
+<footer>
+<p>RemoteRig 1.0.0 — licence MIT. Ce manuel décrit les applications bureau ;
+le client tactile reprend les mêmes fonctions dans une disposition adaptée au
+doigt.</p>
+</footer>
+
+</body>
+</html>

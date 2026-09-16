@@ -15,6 +15,7 @@ void AudioEngine::ingestCapture(const int16_t *src, size_t frames)
 
     if (m_inMuted.load()) {
         m_inPeak.store(0.0f);
+        m_inClip.store(false);
         m_inResamp.reset();
         return;
     }
@@ -40,6 +41,9 @@ void AudioEngine::ingestCapture(const int16_t *src, size_t frames)
     }
 
     if (peak > m_inPeak.load()) m_inPeak.store(peak);
+    // 0,995 plutot que 1,0 : la conversion en entier 16 bits ramene deja
+    // les valeurs a la butee avant qu'on les voie ici.
+    if (peak >= 0.995f) m_inClip.store(true);
 }
 
 void AudioEngine::renderPlayback(int16_t *dst, size_t frames)
@@ -47,6 +51,7 @@ void AudioEngine::renderPlayback(int16_t *dst, size_t frames)
     if (m_outMuted.load()) {
         std::memset(dst, 0, frames * sizeof(int16_t));
         m_outPeak.store(0.0f);
+        m_outClip.store(false);
         m_outFifo.clear();
         m_outFifoPos = 0;
         m_outResamp.reset();
@@ -97,6 +102,7 @@ void AudioEngine::renderPlayback(int16_t *dst, size_t frames)
         if (a > peak) peak = a;
     }
     if (peak > m_outPeak.load()) m_outPeak.store(peak);
+    if (peak >= 0.995f) m_outClip.store(true);
 }
 
 size_t AudioEngine::readCaptured(int16_t *dst, size_t samples)
@@ -123,6 +129,8 @@ void AudioEngine::pushPlayback(const int16_t *src, size_t samples)
 
 float AudioEngine::captureLevel()  { return m_inPeak.exchange(0.0f); }
 float AudioEngine::playbackLevel() { return m_outPeak.exchange(0.0f); }
+bool  AudioEngine::captureClipped()  { return m_inClip.exchange(false); }
+bool  AudioEngine::playbackClipped() { return m_outClip.exchange(false); }
 
 
 } // namespace rr

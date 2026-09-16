@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/docs">
+        <file>manual-fr.html</file>
+        <file>manual-en.html</file>
+    </qresource>
+</RCC>

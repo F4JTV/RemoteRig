@@ -72,7 +72,11 @@ struct Band {
 };
 
 struct RigCaps {
-    bool hasTune = false;              // le poste accepte un cycle d'accord
+    bool hasTune  = false;             // le poste accepte un cycle d'accord
+    bool hasMorse = false;             // le poste sait manipuler lui-meme
+    bool hasSwr   = false;             // le poste rapporte son ROS
+    int  wpmMin = 5;
+    int  wpmMax = 40;
     QList<BandRange> txRanges;
 
     QJsonObject toJson() const;
@@ -81,6 +85,16 @@ struct RigCaps {
 
 // Plan de bandes de reference, puis son intersection avec ce que le poste sait
 // emettre. Sans plage declaree, la liste complete est rendue telle quelle.
+// Spectre reellement emis, deduit de la porteuse, du mode et de la largeur du
+// filtre. Le poste rapporte sa porteuse ; en USB l'emission est au-dessus, en
+// LSB au-dessous. Une meme frequence peut donc etre dans la bande dans un mode
+// et dehors dans l'autre.
+struct EmissionSpan {
+    quint64 low  = 0;
+    quint64 high = 0;
+};
+EmissionSpan occupiedSpan(quint64 carrierHz, const QString &mode, int passbandHz);
+
 QList<Band> standardBandPlan();
 QList<Band> bandsWithin(const QList<BandRange> &ranges);
 
@@ -90,6 +104,14 @@ struct RigState {
     bool     hasCat      = false;
     bool     ptt         = false;
     bool     tuning      = false;   // cycle d'accord en cours
+    bool     cw          = false;   // manipulation en cours
+    // Rapport d'ondes stationnaires, 0 tant que rien n'a ete mesure.
+    // La mesure n'a de sens qu'en emission : la derniere est conservee.
+    float    swr         = 0.0f;
+    // Faux quand la frequence courante sort des plages d'emission que le
+    // poste declare. Le client grise alors le PTT, plutot que de laisser
+    // l'operateur appuyer pour rien — ou pire, pour de bon.
+    bool     txAllowed   = true;
     quint64  freqA       = 0;
     quint64  freqB       = 0;
     QString  vfo         = QStringLiteral("A");
