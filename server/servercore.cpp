@@ -274,6 +274,22 @@ void ServerCore::handleControl(const QJsonObject &o)
         if      (c == "freq") emit requestFrequency(quint64(o["v"].toDouble()));
         else if (c == "mode") emit requestMode(o["v"].toString(), o["pb"].toInt());
         else if (c == "vfo")  emit requestVfo(o["v"].toString());
+        else if (c == "cw") {
+            const QString text = o["text"].toString().left(240);
+            if (m_tx || text.isEmpty()) return;
+            m_cw = true;
+            m_cwClock.start();
+            m_state.cw = true;
+            sendJson(QJsonObject{{"t", "state"}, {"s", m_state.toJson()}});
+            emit requestMorse(text);
+        }
+        else if (c == "cwstop") {
+            emit requestMorseStop();
+            m_cw = false;
+            m_state.cw = false;
+            sendJson(QJsonObject{{"t", "state"}, {"s", m_state.toJson()}});
+        }
+        else if (c == "keyspd") emit requestKeySpeed(o["wpm"].toInt());
         else if (c == "tune") {
             // Pas d'accord en pleine emission, et pas deux cycles a la fois.
             if (m_tx || m_tuning) return;
@@ -322,6 +338,42 @@ void ServerCore::onRigState(const RigState &st)
         }
     }
     m_state.tuning = m_tuning;
+
+    // Meme raisonnement pour la manipulation : le poste repose son PTT entre
+    // les mots, on laisse donc trois secondes de creux avant de conclure.
+    if (m_cw) {
+        const bool settled = !st.ptt && m_cwClock.elapsed() > 3000;
+        if (settled || m_cwClock.elapsed() > 180000) m_cw = false;
+    }
+    m_state.cw = m_cw;
+
+    // Bord de bande : la frequence courante doit tomber dans une plage
+    // d'emission declaree par le poste. Sans CAT ni plages connues, on ne peut
+    // rien juger, et on laisse passer.
+    if (!m_cfg.enforceBandEdges || !st.hasCat || m_caps.txRanges.isEmpty()) {
+        m_txAllowed = true;
+        m_state.txAllowed = true;
+    } else {
+        const quint64 hz = (st.vfo == QLatin1String("B")) ? st.freqB : st.freqA;
+        // On juge le spectre emis, pas la porteuse : en USB il s'etend au-dessus
+        // de la frequence affichee, en LSB au-dessous. A 7,200 MHz exactement,
+        // la LSB reste dans le 40 m quand l'USB en sort.
+        const EmissionSpan span = occupiedSpan(hz, st.mode, st.passband);
+        bool inside = false;
+        for (const BandRange &r : m_caps.txRanges)
+            if (span.low >= r.start && span.high <= r.end) { inside = true; break; }
+        // Journalise le franchissement, pas chaque scrutation : a cinq tours par
+        // seconde, la repetition noierait le reste.
+        if (inside != m_txAllowed)
+            emit logMessage(inside
+                ? tr("Back inside a transmit range")
+                : tr("Out of band in %1: emission would span %2 to %3 Hz")
+                      .arg(st.mode).arg(span.low).arg(span.high));
+        m_txAllowed = inside;
+        m_state.txAllowed = inside;
+        // Couper net si l'operateur etait deja en emission au franchissement.
+        if (!inside && m_tx) setTx(false);
+    }
     if (m_authenticated) sendJson(QJsonObject{{"t", "state"}, {"s", st.toJson()}});
 }
 
@@ -330,7 +382,14 @@ void ServerCore::setTx(bool on)
 {
     // Pendant un accord, le poste emet deja : lui superposer le PTT du client
     // le ferait osciller entre les deux.
-    if (on && m_tuning) return;
+    if (on && (m_tuning || m_cw)) return;
+
+    // Dernier rempart : le client grise deja son bouton, mais rien
+    // n'empeche un autre logiciel d'envoyer la commande.
+    if (on && !m_state.txAllowed) {
+        emit logMessage(tr("Transmission refused: out of band"));
+        return;
+    }
 
     if (on) {
         if (m_tailTimer) m_tailTimer->stop();

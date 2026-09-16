@@ -3,6 +3,7 @@
 remoterig\-server \- share an amateur radio transceiver over the network
 .SH SYNOPSIS
 .B remoterig\-server
+.RI [ --headless " [" --config " " FILE "] [" \-v ]]
 .RI [ --list-audio ]
 .SH DESCRIPTION
 Runs next to the transceiver and serves its audio, PTT and CAT control to a
@@ -12,6 +13,19 @@ toggling on a serial port for rigs without CAT.
 Audio travels over UDP, control over TCP. The PTT is sent on both at once, so a
 lost datagram never leaves the rig transmitting.
 .SH OPTIONS
+.TP
+.B \-\-headless
+Run without a desktop session, logging to standard output. The settings are the
+ones saved by the graphical interface: configure once with a display, then run
+without one.
+.TP
+.BI \-\-config " FILE"
+Read an .ini file instead of the saved settings. Lets one machine serve several
+rigs, each with its own file and ports.
+.TP
+.B \-v ", " \-\-verbose
+Also log frequency and mode changes. Without it, only transmit switches,
+connections and errors are logged.
 .TP
 .B \-\-list\-audio
 Print every audio interface and device PortAudio can see, with the sample rate
@@ -24,6 +38,11 @@ Settings: radio model, serial port, audio devices, network ports.
 Opening a serial port requires membership of the
 .B dialout
 group.
+.PP
+A systemd user unit is installed. Enable it with
+.RB "\(aq" "systemctl --user enable --now remoterig-server" "\(aq" ,
+and allow it to run without an open session with
+.RB "\(aq" "sudo loginctl enable-linger $USER" "\(aq" .
 .SH SEE ALSO
 .BR remoterig-client (1),
 .BR rigctl (1)

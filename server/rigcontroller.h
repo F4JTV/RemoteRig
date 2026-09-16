@@ -44,7 +44,10 @@ public:
     RigCaps caps() const;
 
 public slots:
-    void open(const RigConfig &cfg);
+    // Le type doit etre qualifie : moc enregistre la signature telle qu'elle
+    // est ecrite, et invokeMethod par nom compare ces chaines sur Qt 6.4.
+    // Sans « rr:: », l'appel echoue silencieusement sur Ubuntu 24.04.
+    void open(const rr::RigConfig &cfg);
     void close();
     void setPtt(bool on);
     void setFrequency(quint64 hz);
@@ -52,6 +55,9 @@ public slots:
     void setVfo(const QString &vfo);
     void poll();
     void startTune();
+    void sendMorse(const QString &text);
+    void stopMorse();
+    void setKeySpeed(int wpm);
 
 signals:
     void stateChanged(const rr::RigState &st);

@@ -141,6 +141,130 @@ clipper takes over as a last resort, gently — 0.97 % THD, still no hard edges.
 and VARA tones. The filters are also reset at each transition to transmit, so
 the first syllable is never coloured by leftover state.
 
+
+## Running the server without a desktop
+
+A remote station has no reason to run a desktop. The server takes a
+`--headless` switch: it reads the settings the graphical interface saved, opens
+the rig and the audio streams, and logs to standard output where systemd picks
+it up.
+
+```bash
+remoterig-server --headless           # the settings made in the interface
+remoterig-server --headless -v        # ... and log frequency changes
+remoterig-server --config rig2.ini --headless
+```
+
+Configure once with a display, then run without one. `--config` reads an `.ini`
+instead, so one machine can serve several rigs, each with its own file and
+ports. The keys are those the interface writes; `backendName` (`hamlib`,
+`serial`, `none`), `audioIn` and `audioOut` are clearer aliases for a
+hand-written file. Audio devices are matched **by name**, not by index, since an
+index moves when something is plugged in.
+
+The package installs a systemd user unit:
+
+```bash
+systemctl --user enable --now remoterig-server
+journalctl --user -u remoterig-server -f
+sudo loginctl enable-linger $USER     # run without an open session
+```
+
+Startup prints the addresses the remote operator should type, and warns when the
+password is empty. The log stays quiet after that: transmit switches,
+connections and errors only, unless `-v` is given.
+
+
+## Automatic reconnection
+
+A dropped link rebuilds itself. The client separates what the operator asked for
+from the state of the link: only a drop the operator did not ask for is chased.
+A first attempt comes after one second, then the delay doubles up to thirty —
+long enough not to hammer a station that is switched off, short enough to catch
+a Wi-Fi handover without the operator noticing.
+
+The delay resets on success, and the log says how many attempts it took. During
+the wait the connect button becomes **Cancel**, so the attempts can be stopped;
+without it the operator would have no way out. Transmit is released as soon as
+the link goes, so a rig never stays keyed.
+
+Opening failures count too: a station still booting, or an audio device not yet
+plugged in, is retried on the same schedule rather than giving up.
+
+The switch is on by default and sits next to the connection settings.
+
+
+## Sending CW
+
+The rig keys itself. The text goes out over CAT — `rig_send_morse` — and the
+rig's own electronic keyer generates the elements. Sending CW by toggling the
+network PTT would be unusable: jitter would destroy the spacing.
+
+The keyer appears only when the rig supports it. Hamlib has no capability flag
+for Morse, so the server checks whether the backend provides a `send_morse`
+function at all; on a rig without one, nothing is shown rather than a control
+that fails silently.
+
+On the phone, a dot-and-dash button sits in the top bar and opens a panel from
+the bottom edge: speed, six memories, a free-text field, and a stop button kept
+within reach at all times — a memory fired by mistake has to be stoppable
+without hunting for the control. On the desktop the same functions live in a
+**CW** tab.
+
+Memories use `%c` for the operator's callsign, so they stay valid whoever uses
+the application. Speed goes through `RIG_LEVEL_KEYSPD` and applies to the rig
+immediately.
+
+While the rig is keying, the indicator reads CW and the transmit button is
+locked, as during an antenna tuning cycle: the rig is already transmitting, and
+laying the network PTT on top of that would make it oscillate between the two.
+
+
+## SWR
+
+The rig reports its own standing-wave ratio through `RIG_LEVEL_SWR`, read on the
+same polling loop as the S-meter and shown in the same shape, right below it.
+The row appears only when the rig answers that level and CAT is live.
+
+Two decisions matter more than the display itself. SWR is only measurable while
+transmitting — there is no reflected wave to measure on receive — so it is read
+only under PTT. And the last reading is **held** after unkeying, the way a
+needle rests: without that, the figure would vanish the moment the operator let
+go of the button, just before they could read it. A fresh transmission clears
+it, so the previous QSO's reading never gets mistaken for the current antenna.
+
+The scale runs from 1:1 to 3:1; beyond that the bar saturates and the figure
+carries the information. It turns red at 2:1, past which transmitting for long
+is unwise.
+
+
+## Band-edge guard and level meters
+
+**The server refuses transmission out of band.** The rig already declares its
+transmit ranges — the same list the band buttons are built from — so the server
+compares them against the **emitted spectrum**, not the carrier. A rig reports
+the carrier; in USB the emission sits above it, in LSB below. At exactly
+7.200 000 MHz, LSB stays inside the 40 m band while USB runs past the edge —
+judging the carrier alone would be wrong in both directions. The span is
+derived from mode and filter width, with sane defaults when the rig does not
+report its filter, and the client shows the computed figures so the refusal is
+never mysterious. The
+client greys its transmit button and labels it OUT OF BAND, and the server
+refuses the command anyway: the client is not the only thing that can send it.
+Crossing the edge while already transmitting drops the PTT at once.
+
+It only applies when CAT is live and ranges are known; with no way to judge, it
+lets everything through. It can also be turned off on the server, for a
+transverter whose working range is not the rig's.
+
+**The level meters hold their peak and flag clipping.** A bar that only shows
+the instant is no good for setting a microphone level: what matters is how high
+it went, and whether it hit the stop. The peak mark holds for a second and a
+half, then falls back slowly rather than sticking to one isolated crack. The
+square on the right lights for more than a second when a sample reached full
+scale — a single clipped sample is invisible in a peak read four times a second,
+so the audio engine latches it in the callback itself.
+
 ## Bands and antenna tuner
 
 The band buttons are not a fixed list. On connection the server reads the rig's
@@ -150,13 +274,31 @@ with a reference band plan running from 2200 m to 23 cm. A rig therefore shows
 its own bands, with a preset frequency clamped inside what it can actually
 transmit. Without CAT, the full plan is shown as a reference.
 
-A **Tune** button appears when `rig_has_vfo_op` reports `RIG_OP_TUNE`; it stays
+A **Tune** button appears when `rig_has_vfo_op` reports `RIG_OP_TUNE` **and** the
+rig is answering on CAT — capabilities describe what a rig can do, `hasCat` what
+it is doing right now, and a rig opened but not replying would otherwise leave a
+button that does nothing. Capabilities are also cleared on every rig open, so
+switching from a CAT-controlled rig to plain serial PTT does not leave the
+previous rig's bands and buttons behind; it stays
 hidden on rigs that do not support it rather than failing silently. A tuning
 cycle puts the rig on air for several seconds, so the server locks the PTT for
 the duration: the indicator reads TUNE, the transmit button is disabled, and a
 PTT request arriving meanwhile is ignored. The lock clears when the rig drops
 its own PTT, with a 1.5 s grace so it is not released before the cycle starts,
 and a 15 s hard limit in case the rig never reports back.
+
+## User manual
+
+`docs/manual-fr.html` and `docs/manual-en.html` cover both desktop applications:
+principle, installation on the three systems, every setting of the server and
+the client, operating, data modes, security, and a troubleshooting table.
+
+They are single self-contained files — inline stylesheet, logo embedded as a
+data URI — and they are also **compiled into both desktop binaries**. The Help
+menu's **User manual** entry (F1) extracts the one matching the interface
+language to a temporary file and opens it in the system browser, so it is
+available whatever the installation, even when running from a build directory.
+The package also installs them under `share/doc/remoterig`.
 
 ## Security
 
@@ -1048,6 +1190,13 @@ package breaks its signature.
 - **`INSTALL_PARSE_FAILED_NO_CERTIFICATES`** — the APK is unsigned. See step 7.
 - **`androiddeployqt: No such file or directory`** in the Android Qt — it is a
   host tool. It lives in the desktop Qt: `~/Qt/6.11.2/gcc_64/bin/`.
+- **`The procedure entry point ?qResourceFeatureZstd@@YAXZ could not be
+  located`** on a machine other than the build one — `rcc` compresses resources
+  with zstd by default and then guards on a symbol that QtCore only exports when
+  it was itself built with zstd. A binary linked against a Qt that has it, run
+  against a Qt that does not, refuses to start. The project forces zlib
+  compression, which every Qt build supports. If you see this, your binaries
+  predate that change: rebuild.
 - **`Could not find Qt6Quick`** — the Android install is incomplete. Do not
   try to add `qtdeclarative` with `-m`; reinstall the base package instead.
 - **Undefined symbols at link time** — the NDK does not match the one Qt was

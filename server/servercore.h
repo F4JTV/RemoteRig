@@ -30,6 +30,9 @@ struct ServerConfig {
     float   rxGain       = 1.0f;
     float   txGain       = 1.0f;
     int     pttTailMs    = 120;
+    // Un transverter, ou un usage hors bande amateur, travaille en dehors des
+    // plages que le poste declare : le garde-fou doit pouvoir etre leve.
+    bool    enforceBandEdges = true;
 };
 
 class ServerCore : public QObject {
@@ -44,6 +47,11 @@ public slots:
     void start(const rr::ServerConfig &cfg);
     void stop();
     void onRigState(const rr::RigState &st);
+
+public:
+    RigState currentState() const { return m_state; }
+
+public slots:
     void onRigCaps(const rr::RigCaps &caps);
     void setGains(float rx, float tx);
 
@@ -60,6 +68,9 @@ signals:
     void requestMode(const QString &mode, int passband);
     void requestVfo(const QString &vfo);
     void requestTune();
+    void requestMorse(const QString &text);
+    void requestMorseStop();
+    void requestKeySpeed(int wpm);
 
 private slots:
     void onNewConnection();
@@ -107,6 +118,12 @@ private:
     RigState     m_state;
     RigCaps      m_caps;
     bool         m_tuning = false;
+    bool         m_cw = false;
+    // Etat precedent du garde-fou. Il ne peut pas etre relu dans m_state :
+    // celui-ci vient d'etre ecrase par l'etat recu du poste, qui ne porte
+    // pas cette information.
+    bool         m_txAllowed = true;
+    QElapsedTimer m_cwClock;
     QElapsedTimer m_tuneClock;
 };
 

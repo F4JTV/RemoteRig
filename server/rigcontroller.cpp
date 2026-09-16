@@ -101,6 +101,46 @@ RigCaps RigController::caps() const
     return m_caps;
 }
 
+// Le poste manipule lui-meme : le texte part par le CAT et c'est son manipulateur
+// electronique qui genere les elements. Passer du CW par le PTT reseau serait
+// inutilisable, la gigue detruirait l'espacement.
+void RigController::sendMorse(const QString &text)
+{
+#ifdef RR_HAVE_HAMLIB
+    if (!m_rig || text.isEmpty()) return;
+    const QByteArray latin = text.toLatin1();
+    const int r = rig_send_morse(RIGP(m_rig), RIG_VFO_CURR, latin.constData());
+    if (r != RIG_OK)
+        emit logMessage(tr("Morse refused: %1").arg(QString::fromLatin1(rigerror(r))));
+    else
+        emit logMessage(tr("Sending: %1").arg(text));
+#else
+    Q_UNUSED(text)
+#endif
+}
+
+void RigController::stopMorse()
+{
+#ifdef RR_HAVE_HAMLIB
+    if (!m_rig) return;
+    rig_stop_morse(RIGP(m_rig), RIG_VFO_CURR);
+    emit logMessage(tr("Morse stopped"));
+#endif
+}
+
+void RigController::setKeySpeed(int wpm)
+{
+#ifdef RR_HAVE_HAMLIB
+    if (!m_rig) return;
+    value_t v; v.i = wpm;
+    const int r = rig_set_level(RIGP(m_rig), RIG_VFO_CURR, RIG_LEVEL_KEYSPD, v);
+    if (r != RIG_OK)
+        emit logMessage(tr("Key speed refused: %1").arg(QString::fromLatin1(rigerror(r))));
+#else
+    Q_UNUSED(wpm)
+#endif
+}
+
 // Un cycle d'accord met le poste en emission plusieurs secondes. Le serveur
 // verrouille le PTT pendant ce temps ; ici on se contente de lancer.
 void RigController::startTune()
@@ -123,13 +163,24 @@ void RigController::emitState()
 }
 
 // ------------------------------------------------------------------ ouverture
-void RigController::open(const RigConfig &cfg)
+void RigController::open(const rr::RigConfig &cfg)
 {
     close();
     m_cfg = cfg;
 
     bool ok = false;
     QString msg;
+
+    // Les capacites repartent de zero a chaque ouverture. Sans cela, un client
+    // deja connecte garderait celles du poste precedent : passer d'un poste
+    // pilote en CAT a un simple PTT serie laisserait un bouton d'accord et une
+    // grille de bandes qui ne correspondent plus a rien.
+    {
+        QMutexLocker lock(&m_mutex);
+        m_caps = RigCaps();
+    }
+    if (cfg.backend != RigConfig::Hamlib)
+        emit capsChanged(RigCaps());
 
     switch (cfg.backend) {
     case RigConfig::Hamlib:
@@ -204,6 +255,10 @@ bool RigController::openHamlib()
     // Hamlib a l'ouverture, et disponibilite du cycle d'accord.
     RigCaps caps;
     caps.hasTune = (rig_has_vfo_op(rig, RIG_OP_TUNE) & RIG_OP_TUNE) != 0;
+    // Le manipulateur n'a pas de drapeau de capacite : c'est la presence du
+    // pointeur de fonction dans le backend qui fait foi.
+    caps.hasMorse = (rig->caps->send_morse != nullptr);
+    caps.hasSwr   = (rig_has_get_level(rig, RIG_LEVEL_SWR) & RIG_LEVEL_SWR) != 0;
     for (int i = 0; i < HAMLIB_FRQRANGESIZ; ++i) {
         const freq_range_t &fr = rig->state.tx_range_list[i];
         if (fr.startf == 0 && fr.endf == 0) break;      // fin de liste
@@ -213,6 +268,16 @@ bool RigController::openHamlib()
     {
         QMutexLocker lock(&m_mutex);
         m_caps = caps;
+    }
+    {
+        QStringList found;
+        if (caps.hasTune)  found << tr("tuner");
+        if (caps.hasMorse) found << tr("keyer");
+        if (caps.hasSwr)   found << tr("SWR");
+        emit logMessage(tr("Capabilities: %1 transmit range(s) · %2")
+                            .arg(caps.txRanges.size())
+                            .arg(found.isEmpty() ? tr("no extra capability")
+                                                 : found.join(QStringLiteral(", "))));
     }
     emit capsChanged(caps);
 
@@ -307,7 +372,9 @@ void RigController::setPtt(bool on)
         applySerialPtt(on);
     }
 
-    { QMutexLocker lock(&m_mutex); m_state.ptt = on; }
+    { QMutexLocker lock(&m_mutex);
+      if (on && !m_state.ptt) m_state.swr = 0.0f;
+      m_state.ptt = on; }
     emitState();
 }
 
@@ -389,11 +456,21 @@ void RigController::poll()
     if (!st.ptt && rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_STRENGTH, &lvl) == RIG_OK)
         st.strength = lvl.i;
 
+    // Le ROS, lui, ne se mesure qu'en emission : il n'y a pas d'onde reflechie
+    // a mesurer en reception. Hors emission, la derniere valeur est conservee,
+    // comme le fait l'aiguille d'un ROS-metre, sinon elle disparaitrait au
+    // relachement du PTT, juste avant qu'on ait eu le temps de la lire.
+    if (st.ptt && m_caps.hasSwr
+        && rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_SWR, &lvl) == RIG_OK
+        && lvl.f >= 1.0f)
+        st.swr = lvl.f;
+
     bool changed;
     { QMutexLocker lock(&m_mutex);
       changed = (st.freqA != m_state.freqA || st.freqB != m_state.freqB ||
                  st.mode != m_state.mode || st.vfo != m_state.vfo ||
-                 st.ptt != m_state.ptt || st.strength != m_state.strength);
+                 st.ptt != m_state.ptt || st.strength != m_state.strength ||
+                 !qFuzzyCompare(st.swr, m_state.swr));
       m_state = st; }
     if (changed) emit stateChanged(st);
 #endif

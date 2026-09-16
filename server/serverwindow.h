@@ -82,6 +82,7 @@ private:
     QSpinBox  *m_udpPort = nullptr;
     QLineEdit *m_password = nullptr;
     QCheckBox *m_forceEnc = nullptr;
+    QCheckBox *m_bandEdges = nullptr;
     QLabel    *m_addrLabel = nullptr;
 
     // etat

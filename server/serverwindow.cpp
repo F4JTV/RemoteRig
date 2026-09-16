@@ -1,4 +1,5 @@
 #include "serverwindow.h"
+#include "../common/about.h"
 #include "../common/i18n.h"
 
 #include <QApplication>
@@ -39,6 +40,12 @@ ServerWindow::ServerWindow(QWidget *parent) : QMainWindow(parent)
     setWindowTitle(tr("RemoteRig — Station server"));
     resize(760, 660);
     addLanguageMenu(this, QStringLiteral("RemoteRigServer"));
+    addAboutMenu(this, QStringLiteral("RemoteRig Server"),
+                 QStringLiteral(":/icons/remoterig-server.png"),
+                 tr("Runs next to the transceiver and shares it over the network: "
+                    "two-way audio, PTT, and CAT control through Hamlib or plain "
+                    "serial RTS/DTR keying. A client, on the desktop or on a phone, "
+                    "then operates the station from anywhere."));
 
     m_core = new ServerCore;
     m_rig  = new RigController;
@@ -51,6 +58,9 @@ ServerWindow::ServerWindow(QWidget *parent) : QMainWindow(parent)
     connect(m_core, &ServerCore::requestMode,      m_rig, &RigController::setMode);
     connect(m_core, &ServerCore::requestVfo,       m_rig, &RigController::setVfo);
     connect(m_core, &ServerCore::requestTune,      m_rig, &RigController::startTune);
+    connect(m_core, &ServerCore::requestMorse,     m_rig, &RigController::sendMorse);
+    connect(m_core, &ServerCore::requestMorseStop, m_rig, &RigController::stopMorse);
+    connect(m_core, &ServerCore::requestKeySpeed,  m_rig, &RigController::setKeySpeed);
     connect(m_rig,  &RigController::stateChanged,  m_core, &ServerCore::onRigState);
     connect(m_rig,  &RigController::capsChanged,   m_core, &ServerCore::onRigCaps);
 
@@ -293,6 +303,15 @@ QWidget *ServerWindow::buildNetworkPage()
     m_forceEnc = new QCheckBox(tr("Reject clients that do not encrypt"));
     f->addRow("", m_forceEnc);
 
+    // Garde-fou de bord de bande. Le poste declare ses plages d'emission :
+    // autant s'en servir pour refuser le PTT au-dehors.
+    m_bandEdges = new QCheckBox(tr("Refuse transmission out of band"));
+    m_bandEdges->setChecked(true);
+    m_bandEdges->setToolTip(tr("Blocks the PTT when the frequency falls outside the "
+                               "transmit ranges the rig declares. Turn this off for a "
+                               "transverter, whose working range is not the rig's."));
+    f->addRow("", m_bandEdges);
+
     // L'opérateur distant a besoin de cette adresse : autant la lui donner
     // ici plutôt que de le renvoyer vers ipconfig.
     m_addrLabel = new QLabel;
@@ -455,6 +474,7 @@ void ServerWindow::onStartStop()
     sc.rxGain = float(m_rxGain->value());
     sc.txGain = float(m_txGain->value());
     sc.pttTailMs = m_tailMs->value();
+    sc.enforceBandEdges = m_bandEdges->isChecked();
     QMetaObject::invokeMethod(m_core, "start", Qt::QueuedConnection, Q_ARG(rr::ServerConfig, sc));
 }
 
@@ -526,6 +546,7 @@ void ServerWindow::loadSettings()
     m_udpPort->setValue(s.value("udpPort", 7301).toInt());
     m_password->setText(s.value("password").toString());
     m_forceEnc->setChecked(s.value("forceEnc", false).toBool());
+    m_bandEdges->setChecked(s.value("bandEdges", true).toBool());
     m_frames->setCurrentIndex(s.value("framesIdx", 2).toInt());
     m_rxGain->setValue(s.value("rxGain", 1.0).toDouble());
     m_txGain->setValue(s.value("txGain", 1.0).toDouble());
@@ -552,6 +573,7 @@ void ServerWindow::saveSettings()
     s.setValue("udpPort", m_udpPort->value());
     s.setValue("password", m_password->text());
     s.setValue("forceEnc", m_forceEnc->isChecked());
+    s.setValue("bandEdges", m_bandEdges->isChecked());
     s.setValue("framesIdx", m_frames->currentIndex());
     s.setValue("rxGain", m_rxGain->value());
     s.setValue("txGain", m_txGain->value());

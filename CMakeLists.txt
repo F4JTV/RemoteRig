@@ -5,6 +5,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
+# rcc compresse en zstd par defaut et pose alors une garde sur
+# qResourceFeatureZstd, un symbole que QtCore n'exporte que s'il a ete compile
+# avec zstd. Un binaire lie a un Qt qui l'a, execute avec un Qt qui ne l'a pas,
+# refuse de demarrer sur « point d'entree introuvable ». zlib est present dans
+# toutes les compilations de Qt : la garde disparait.
+set(CMAKE_AUTORCC_OPTIONS "--compress-algo;zlib")
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
@@ -33,6 +39,9 @@ set(RR_TS ${CMAKE_CURRENT_SOURCE_DIR}/i18n/remoterig_fr.ts)
 set(RR_QM ${CMAKE_CURRENT_SOURCE_DIR}/i18n/remoterig_fr.qm)
 set(RR_QRC ${CMAKE_CURRENT_SOURCE_DIR}/i18n/translations.qrc)
 set(RR_ICONS_QRC ${CMAKE_CURRENT_SOURCE_DIR}/icons/icons.qrc)
+# Le manuel est embarque dans les deux interfaces Widgets : toujours
+# disponible, quelle que soit l'installation.
+set(RR_DOCS_QRC ${CMAKE_CURRENT_SOURCE_DIR}/docs/docs.qrc)
 
 # Executable icon and version metadata, Windows only.
 if(WIN32)
@@ -138,6 +147,7 @@ add_library(rr_common STATIC
     ${RR_AUDIO_SOURCES}
 )
 target_include_directories(rr_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_definitions(rr_common PUBLIC RR_VERSION="${PROJECT_VERSION}")
 target_link_libraries(rr_common PUBLIC Qt6::Core Qt6::Network)
 if(ANDROID)
     # Oboe 1.10.0 ne declare que la cible "oboe", sans alias oboe::oboe.
@@ -174,10 +184,13 @@ add_executable(remoterig-server WIN32
     server/serverwindow.cpp
     server/servercore.cpp
     server/rigcontroller.cpp
+    server/serverdaemon.cpp
     common/i18n.cpp
     common/i18n_menu.cpp
+    common/about.cpp
     ${RR_QRC}
     ${RR_ICONS_QRC}
+    ${RR_DOCS_QRC}
     ${RR_SERVER_RC}
 )
 add_dependencies(remoterig-server rr_translations)
@@ -205,12 +218,15 @@ if(RR_BUILD_WIDGETS)
     add_executable(remoterig-client WIN32
         client/main.cpp
         client/clientwindow.cpp
+        client/levelmeter.cpp
         client/clientcore.cpp
         client/rigctldserver.cpp
         common/i18n.cpp
         common/i18n_menu.cpp
+        common/about.cpp
         ${RR_QRC}
         ${RR_ICONS_QRC}
+        ${RR_DOCS_QRC}
         ${RR_CLIENT_RC}
     )
     add_dependencies(remoterig-client rr_translations)
@@ -298,8 +314,17 @@ if(NOT ANDROID)
     install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/icons/hicolor
             DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons)
 
+    # Unite systemd utilisateur : « systemctl --user enable remoterig-server ».
+    if(UNIX AND NOT APPLE AND RR_BUILD_SERVER)
+        # Chemin en dur, pas CMAKE_INSTALL_LIBDIR : celui-ci est qualifie par
+        # l'architecture sur Debian, or systemd ne regarde que lib/systemd/user.
+        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/packaging/systemd/remoterig-server.service
+                DESTINATION lib/systemd/user)
+    endif()
+
     # Debian attend le nom du paquet, en minuscules, pas celui du projet.
     install(FILES README.md README.fr.md LICENSE.txt
+                  docs/manual-fr.html docs/manual-en.html
             DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/doc/remoterig)
 
     # Debian reclame un fichier de droits et un journal des versions compresse.

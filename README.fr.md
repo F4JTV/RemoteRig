@@ -151,6 +151,135 @@ tonalités de FT8, PSK et VARA. Les filtres sont par ailleurs réinitialisés à
 chaque passage en émission, pour que la première syllabe ne soit jamais colorée
 par un état résiduel.
 
+
+## Faire tourner le serveur sans bureau
+
+Une station déportée n'a aucune raison de faire tourner un bureau. Le serveur
+accepte `--headless` : il lit la configuration établie par l'interface, ouvre le
+poste et les flux audio, et journalise sur la sortie standard, où systemd la
+ramasse.
+
+```bash
+remoterig-server --headless           # la configuration faite dans l'interface
+remoterig-server --headless -v        # ... et les changements de fréquence
+remoterig-server --config poste2.ini --headless
+```
+
+Réglez une fois avec un écran, puis faites tourner sans. `--config` lit un
+`.ini` à la place, ce qui permet à une machine de servir plusieurs postes, chacun
+avec son fichier et ses ports. Les clés sont celles qu'écrit l'interface ;
+`backendName` (`hamlib`, `serial`, `none`), `audioIn` et `audioOut` en sont des
+alias plus lisibles pour un fichier écrit à la main. Les périphériques audio sont
+retrouvés **par leur nom**, pas par un index, qui se décale au moindre
+branchement.
+
+Le paquet installe une unité systemd utilisateur :
+
+```bash
+systemctl --user enable --now remoterig-server
+journalctl --user -u remoterig-server -f
+sudo loginctl enable-linger $USER     # tourner sans session ouverte
+```
+
+Au démarrage, il affiche les adresses que l'opérateur distant doit saisir, et
+avertit si le mot de passe est vide. Le journal reste ensuite discret : bascules
+d'émission, connexions et erreurs seulement, sauf avec `-v`.
+
+
+## Reconnexion automatique
+
+Une liaison coupée se rétablit seule. Le client distingue ce que l'opérateur a
+demandé de l'état du lien : seule une coupure qu'il n'a pas voulue est
+poursuivie. Une première tentative suit d'une seconde, puis le délai double
+jusqu'à trente — assez long pour ne pas marteler une station éteinte, assez
+court pour rattraper une bascule Wi-Fi sans que l'opérateur s'en aperçoive.
+
+Le délai repart à zéro au succès, et le journal indique combien de tentatives
+ont été nécessaires. Pendant l'attente, le bouton de connexion devient
+**Renoncer**, pour pouvoir arrêter les essais ; sans cela l'opérateur n'aurait
+aucune issue. L'émission est relâchée dès la perte du lien, pour qu'un poste ne
+reste jamais en émission.
+
+Les échecs d'ouverture comptent aussi : une station encore en train de démarrer,
+ou un périphérique audio pas encore branché, sont réessayés au même rythme
+plutôt qu'abandonnés.
+
+L'interrupteur est actif par défaut, à côté des réglages de connexion.
+
+
+## Envoi du CW
+
+C'est le poste qui manipule. Le texte part par le CAT — `rig_send_morse` — et
+c'est son manipulateur électronique qui génère les éléments. Envoyer du CW en
+basculant le PTT réseau serait inutilisable : la gigue détruirait l'espacement.
+
+Le manipulateur n'apparaît que si le poste le gère. Hamlib n'expose aucun
+drapeau de capacité pour le morse : le serveur vérifie donc si le backend
+fournit une fonction `send_morse`. Sur un poste qui n'en a pas, rien ne
+s'affiche, plutôt qu'une commande qui échouerait en silence.
+
+Sur téléphone, un bouton point-trait siège dans le bandeau et ouvre un panneau
+par le bas : vitesse, six mémoires, un champ libre, et un bouton d'arrêt
+toujours à portée — une mémoire lancée par erreur doit pouvoir être coupée sans
+chercher. Sur le bureau, les mêmes fonctions occupent un onglet **CW**.
+
+Les mémoires utilisent `%c` pour l'indicatif de l'opérateur, ce qui les garde
+valables quel que soit celui qui utilise l'application. La vitesse passe par
+`RIG_LEVEL_KEYSPD` et s'applique immédiatement au poste.
+
+Pendant la manipulation, l'indicateur affiche CW et le bouton d'émission est
+verrouillé, comme pendant un cycle d'accord : le poste émet déjà, et lui
+superposer le PTT réseau le ferait osciller entre les deux.
+
+
+## ROS
+
+Le poste rapporte lui-même son rapport d'ondes stationnaires par
+`RIG_LEVEL_SWR`, lu sur la même boucle de scrutation que le S-mètre et affiché
+dans le même gabarit, juste en dessous. La ligne n'apparaît que si le poste
+répond à ce niveau et que le CAT est en direct.
+
+Deux décisions comptent plus que l'affichage lui-même. Le ROS ne se mesure qu'en
+émission — il n'y a pas d'onde réfléchie à mesurer en réception — il n'est donc
+lu que sous PTT. Et la dernière valeur est **conservée** au relâchement, comme
+une aiguille qui retombe : sans cela, le chiffre disparaîtrait à l'instant où
+l'opérateur lâche le bouton, juste avant qu'il ait pu le lire. Une nouvelle
+émission la remet à zéro, pour que le ROS du QSO précédent ne soit jamais pris
+pour celui de l'antenne en service.
+
+L'échelle va de 1:1 à 3:1 ; au-delà la barre sature et c'est le chiffre qui
+renseigne. Il passe au rouge à 2:1, seuil au-delà duquel il est imprudent
+d'émettre longtemps.
+
+
+## Garde-fou de bord de bande et vumètres
+
+**Le serveur refuse l'émission hors bande.** Le poste déclare déjà ses plages
+d'émission — la même liste qui sert à construire les boutons de bande — donc le
+serveur y compare le **spectre émis**, et non la porteuse. Le poste rapporte sa
+porteuse ; en USB l'émission se place au-dessus, en LSB au-dessous. À
+7,200 000 MHz exactement, la LSB reste dans le 40 m quand l'USB en sort — juger
+la porteuse seule serait faux dans les deux sens. Le spectre est déduit du mode
+et de la largeur du filtre, avec des valeurs de repli quand le poste ne rapporte
+pas son filtre, et le client affiche les bornes calculées pour que le refus ne
+soit jamais mystérieux. Le
+client grise son bouton d'émission et le libelle HORS BANDE, et le serveur
+refuse la commande de toute façon : le client n'est pas seul à pouvoir
+l'envoyer. Franchir le bord en pleine émission coupe le PTT immédiatement.
+
+Le garde-fou ne s'applique que si le CAT est en direct et les plages connues ;
+sans moyen de juger, il laisse passer. Il se désactive aussi côté serveur, pour
+un transverter dont la plage de travail n'est pas celle du poste.
+
+**Les vumètres maintiennent la crête et signalent l'écrêtage.** Une barre qui ne
+montre que l'instant ne permet pas de régler un niveau micro : ce qui compte est
+jusqu'où il est monté, et s'il a touché la butée. Le trait de crête tient une
+seconde et demie, puis retombe doucement plutôt que de rester accroché à un
+claquement isolé. Le carré de droite s'allume plus d'une seconde dès qu'un
+échantillon atteint la butée — un seul échantillon écrêté est invisible dans une
+crête lue quatre fois par seconde, le moteur audio le retient donc dans le
+callback lui-même.
+
 ## Bandes et coupleur d'antenne
 
 Les boutons de bande ne sont pas une liste figée. À la connexion, le serveur lit
@@ -161,7 +290,12 @@ Chaque poste affiche donc ses propres bandes, avec une fréquence proposée
 ramenée dans ce qu'il sait réellement émettre. Sans CAT, le plan complet est
 affiché à titre de repère.
 
-Un bouton **Accord** apparaît quand `rig_has_vfo_op` signale `RIG_OP_TUNE` ; il
+Un bouton **Accord** apparaît quand `rig_has_vfo_op` signale `RIG_OP_TUNE` **et**
+que le poste répond en CAT — les capacités décrivent ce qu'un poste sait faire,
+`hasCat` ce qu'il fait à l'instant, et un poste ouvert mais muet laisserait sinon
+un bouton sans effet. Les capacités sont par ailleurs remises à zéro à chaque
+ouverture : passer d'un poste piloté en CAT à un simple PTT série ne laisse plus
+traîner les bandes et les boutons du précédent. Il
 reste caché sur les postes qui ne le gèrent pas, plutôt que d'échouer en
 silence. Un cycle d'accord met le poste en émission plusieurs secondes : le
 serveur verrouille donc le PTT pendant ce temps — l'indicateur affiche ACCORD,
@@ -169,6 +303,21 @@ le bouton d'émission est désactivé, et une demande de PTT qui arriverait entr
 temps est ignorée. Le verrou tombe quand le poste repose son propre PTT, avec
 1,5 s de grâce pour ne pas conclure avant que le cycle ne démarre, et une limite
 dure de 15 s si le poste ne rend jamais la main.
+
+## Manuel d'utilisation
+
+`docs/manual-fr.html` et `docs/manual-en.html` couvrent les deux applications
+bureau : principe, installation sur les trois systèmes, chaque réglage du
+serveur et du client, exploitation, modes numériques, sécurité, et un tableau de
+dépannage.
+
+Ce sont des fichiers uniques et autonomes — feuille de style incluse, logo
+encodé en base64 — et ils sont en outre **compilés dans les deux exécutables**.
+L'entrée **Manuel d'utilisation** du menu Aide, touche F1, extrait celui qui
+correspond à la langue de l'interface dans un fichier temporaire et l'ouvre dans
+le navigateur du système : il est donc disponible quelle que soit
+l'installation, même en lançant depuis un dossier de compilation. Le paquet les
+installe aussi dans `share/doc/remoterig`.
 
 ## Sécurité
 
@@ -1095,6 +1244,14 @@ signé casse sa signature.
 - **`androiddeployqt : Aucun fichier ou dossier de ce nom`** dans le Qt
   Android — c'est un outil hôte. Il se trouve dans le Qt bureau :
   `~/Qt/6.11.2/gcc_64/bin/`.
+- **`Le point d'entrée de procédure ?qResourceFeatureZstd@@YAXZ est
+  introuvable`** sur une machine autre que celle de compilation — `rcc`
+  compresse les ressources en zstd par défaut, et pose alors une garde sur un
+  symbole que QtCore n'exporte que s'il a lui-même été compilé avec zstd. Un
+  binaire lié à un Qt qui l'a, exécuté avec un Qt qui ne l'a pas, refuse de
+  démarrer. Le projet force la compression zlib, présente dans toutes les
+  compilations de Qt. Si le message apparaît, vos binaires sont antérieurs à ce
+  changement : recompilez.
 - **`Could not find Qt6Quick`** — l'installation Android est incomplète.
   N'essayez pas d'ajouter `qtdeclarative` par `-m` : réinstallez le paquet de
   base.

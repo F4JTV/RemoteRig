@@ -1,0 +1,27 @@
+# Unite utilisateur : la station demarre avec la session, sans droits root et
+# avec la configuration du compte qui l'a reglee.
+#
+#   systemctl --user enable --now remoterig-server
+#   journalctl --user -u remoterig-server -f
+#
+# Pour qu'elle tourne sans ouverture de session, une seule fois :
+#   sudo loginctl enable-linger $USER
+
+[Unit]
+Description=RemoteRig station server
+Documentation=man:remoterig-server(1)
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/remoterig-server --headless
+Restart=on-failure
+RestartSec=5
+
+# L'audio temps reel supporte mal d'etre repousse par le reste du systeme.
+Nice=-5
+IOSchedulingClass=realtime
+
+[Install]
+WantedBy=default.target
