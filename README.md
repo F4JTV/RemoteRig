@@ -962,6 +962,12 @@ Nothing here comes from the distribution: Ubuntu packages Qt for the desktop
 only. Everything below installs into your home directory and touches nothing
 system-wide except the JDK.
 
+The APK is named after the version — `remoterig_v1.0.0.apk` — taken from the
+`project()` line of `CMakeLists.txt`. The Android `versionCode` is derived from
+the same place: 1.0.0 gives 10000, 1.2.3 gives 10203. Bump the version in one
+place and both follow; a fixed `versionCode` of 1 would block every later
+update.
+
 ### Everything at once
 
 `build_android.sh` chains the whole thing and checks each prerequisite before
@@ -1151,9 +1157,9 @@ OUT=build-android/android-build/build/outputs/apk/release
 
 $BT/zipalign -p -f 4 $OUT/android-build-release-unsigned.apk /tmp/aligned.apk
 $BT/apksigner sign --ks ~/remoterig.keystore --ks-key-alias remoterig \
-    --out ~/remoterig-1.0.0.apk /tmp/aligned.apk
+    --out ~/remoterig_v1.0.0.apk /tmp/aligned.apk
 
-adb install -r ~/remoterig-1.0.0.apk
+adb install -r ~/remoterig_v1.0.0.apk
 ```
 
 `zipalign` must run before `apksigner`, never after: realigning a signed

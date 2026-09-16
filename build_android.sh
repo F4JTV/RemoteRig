@@ -33,6 +33,12 @@ BUILD_TOOLS="${BUILD_TOOLS:-36.0.0}"
 KEYSTORE="${KEYSTORE:-$HOME/remoterig.keystore}"
 KEY_ALIAS="${KEY_ALIAS:-remoterig}"
 
+# La version vient du CMakeLists : un seul endroit a mettre a jour, et le nom
+# de l'APK suit. Sans cela, deux compilations successives portent le meme nom.
+VERSION="$(sed -n 's/^project(RemoteRig VERSION \([0-9.]*\).*/\1/p' \
+           "$SRC_DIR/CMakeLists.txt" | head -1)"
+[ -n "$VERSION" ] || VERSION="0.0.0"
+
 DO_CLEAN=0
 DO_BUILD=1
 DO_SIGN=1
@@ -85,6 +91,7 @@ done
 step "Checking prerequisites"
 
 [ -f "$SRC_DIR/CMakeLists.txt" ] || die "Run this from the project directory."
+say "Version       $VERSION"
 
 command -v cmake >/dev/null 2>&1 || die "cmake not found: sudo apt install cmake"
 command -v java  >/dev/null 2>&1 || die "No JDK: sudo apt install openjdk-21-jdk"
@@ -197,11 +204,14 @@ SIGNED="$(ls "$APK_DIR"/*.apk 2>/dev/null | grep -v -- '-unsigned\.apk$' | head 
 # ================================================================== signing
 FINAL=""
 if [ -n "$SIGNED" ]; then
-    FINAL="$SIGNED"
+    # Qt a signe pendant la compilation : on renomme pour que le fichier porte
+    # sa version, comme dans l'autre branche.
+    FINAL="$SRC_DIR/remoterig_v${VERSION}.apk"
+    cp -f "$SIGNED" "$FINAL" || die "Could not copy the signed APK."
 elif [ "$DO_SIGN" -eq 1 ] && [ -n "$UNSIGNED" ]; then
     step "Signing"
     [ -x "$BT_DIR/apksigner" ] || die "apksigner missing: sdkmanager \"build-tools;$BUILD_TOOLS\""
-    FINAL="$SRC_DIR/remoterig-client-signed.apk"
+    FINAL="$SRC_DIR/remoterig_v${VERSION}.apk"
     # zipalign first, always: realigning a signed package breaks its signature.
     "$BT_DIR/zipalign" -p -f 4 "$UNSIGNED" "$BUILD_DIR/aligned.apk" \
         || die "zipalign failed."
@@ -209,7 +219,8 @@ elif [ "$DO_SIGN" -eq 1 ] && [ -n "$UNSIGNED" ]; then
         --out "$FINAL" "$BUILD_DIR/aligned.apk" || die "apksigner failed."
     say "$(basename "$FINAL")"
 else
-    FINAL="$UNSIGNED"
+    FINAL="$SRC_DIR/remoterig_v${VERSION}-unsigned.apk"
+    cp -f "$UNSIGNED" "$FINAL" 2>/dev/null || FINAL="$UNSIGNED"
     say "Unsigned APK. Android will refuse to install it:"
     say "  INSTALL_PARSE_FAILED_NO_CERTIFICATES"
 fi

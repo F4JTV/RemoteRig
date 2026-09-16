@@ -261,8 +261,17 @@ if(WITH_QML_CLIENT)
         # venir d'ici, sinon l'application herite du nom par defaut de Qt.
         set_property(TARGET remoterig-client PROPERTY
             QT_ANDROID_PACKAGE_NAME "org.remoterig.client")
-        set_property(TARGET remoterig-client PROPERTY QT_ANDROID_VERSION_NAME "1.0.0")
-        set_property(TARGET remoterig-client PROPERTY QT_ANDROID_VERSION_CODE 1)
+        set_property(TARGET remoterig-client PROPERTY
+            QT_ANDROID_VERSION_NAME "${PROJECT_VERSION}")
+        # Android exige un entier croissant. On le derive de la version pour
+        # n'avoir qu'un seul endroit a mettre a jour : 1.0.0 donne 10000,
+        # 1.2.3 donne 10203. Un versionCode fige a 1 interdirait toute mise a
+        # jour ulterieure.
+        math(EXPR RR_ANDROID_VERSION_CODE
+             "${PROJECT_VERSION_MAJOR} * 10000 + ${PROJECT_VERSION_MINOR} * 100 + ${PROJECT_VERSION_PATCH}")
+        set_property(TARGET remoterig-client PROPERTY
+            QT_ANDROID_VERSION_CODE ${RR_ANDROID_VERSION_CODE})
+        message(STATUS "Android version ${PROJECT_VERSION} (code ${RR_ANDROID_VERSION_CODE})")
         # androiddeployqt scrute les imports QML pour savoir quels greffons
         # embarquer. Sans ce chemin il peut ne rien trouver, et l'application
         # demarre alors sur « module QtQuick.Controls plugin not found ».
