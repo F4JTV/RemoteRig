@@ -280,6 +280,25 @@ claquement isolé. Le carré de droite s'allume plus d'une seconde dès qu'un
 crête lue quatre fois par seconde, le moteur audio le retient donc dans le
 callback lui-même.
 
+
+## Modes et largeur de filtre
+
+Aucune des deux listes n'est figée. Le poste déclare ses modes par le masque
+`mode_list` de Hamlib ; le serveur en parcourt les bits et envoie les noms : un
+bibande FM n'a que faire de PKTLSB, un HF le réclame. Hors connexion, les
+clients affichent une liste de repère, PKTLSB compris.
+
+Le filtre vient de `rig_passband_wide`, `_normal` et `_narrow`, calculés pour le
+**mode courant** — c'est pourquoi les trois largeurs voyagent avec l'état du
+poste et non avec les capacités, envoyées une seule fois. En choisir une appelle
+`rig_set_mode` avec le même mode et la nouvelle largeur ; le poste répond ce
+qu'il a réellement appliqué, et la liste suit.
+
+Le bureau affiche le nom et la largeur, « Normale 2,4 k ». Le téléphone affiche
+la largeur seule, « 2,4 k » : elle tient à côté du mode et du VFO, et c'est
+ainsi que les postes étiquettent leurs propres filtres. Les trois sont rangées
+de la plus large à la plus étroite, l'ordre porte le sens.
+
 ## Bandes et coupleur d'antenne
 
 Les boutons de bande ne sont pas une liste figée. À la connexion, le serveur lit
@@ -318,6 +337,30 @@ correspond à la langue de l'interface dans un fichier temporaire et l'ouvre dan
 le navigateur du système : il est donc disponible quelle que soit
 l'installation, même en lançant depuis un dossier de compilation. Le paquet les
 installe aussi dans `share/doc/remoterig`.
+
+
+## Surveillance du client
+
+Un client qui disparaît sans fermer sa connexion — téléphone éteint, Wi-Fi
+coupé — laisserait sinon le poste en émission. TCP ne s'aperçoit d'une
+disparition silencieuse qu'au bout de dizaines de minutes, et le PTT est envoyé
+comme un événement, non comme un flux continu.
+
+Le serveur date donc tout ce qu'il reçoit du client, aussi bien sur la voie de
+contrôle que sur le flux audio. Deux seuils :
+
+- **deux secondes** de silence, PTT enfoncé, coupent l'émission ;
+- **quinze secondes** libèrent la station, pour qu'un autre client puisse
+  reprendre.
+
+Les deux sont confortables : un client en émission envoie un datagramme audio
+toutes les dix millisecondes, et interroge la voie de contrôle plusieurs fois
+par seconde.
+
+`test/protocol_probe.py` et `test/deadman_probe.py` parlent le protocole à la
+main et vérifient tout cela, ainsi que les mots de passe faux, les signatures
+forgées, les trames malformées, les longueurs aberrantes, les paquets de PTT
+contrefaits et un second client qui tenterait de prendre la station.
 
 ## Sécurité
 
@@ -1257,6 +1300,24 @@ signé casse sa signature.
   démarrer. Le projet force la compression zlib, présente dans toutes les
   compilations de Qt. Si le message apparaît, vos binaires sont antérieurs à ce
   changement : recompilez.
+- **`rig_open failed … Invalid configuration`**, avec
+  `network_open: cannot get host "ttyUSB3"` dans le journal — Hamlib considère
+  qu'un chemin est une adresse réseau dès qu'il ne ressemble pas à un fichier de
+  périphérique. Qt nomme les ports série `ttyUSB3`, sans le répertoire ; Hamlib
+  attend `/dev/ttyUSB3`. Le serveur convertit donc le nom avant de le
+  transmettre, en demandant son chemin système à Qt pour que les liens du type
+  `/dev/serial/by-id/...` continuent de fonctionner. Windows ne montrait rien,
+  `COM3` étant déjà acceptable.
+- **Le journal est noyé sous `rig_get_vfo: no get_vfo` et consorts** — c'est la
+  trace de Hamlib, répétée à chaque scrutation pour des commandes que le poste
+  n'a pas. Elle est muette par défaut ; `RR_HAMLIB_DEBUG=1` la rétablit pour
+  diagnostiquer un problème de CAT.
+- **`write_block failed … Aucun périphérique de ce type`, puis des erreurs
+  d'entrée/sortie sur tout** — le fichier de périphérique a disparu :
+  l'adaptateur USB s'est détaché du bus. Ce n'est pas un défaut logiciel. Cela
+  survient typiquement en émission, de la puissance revenant dans le câble USB.
+  Le serveur signale désormais la perte une fois et repasse en « pas de CAT »,
+  au lieu d'afficher une fréquence figée.
 - **`Could not find Qt6Quick`** — l'installation Android est incomplète.
   N'essayez pas d'ajouter `qtdeclarative` par `-m` : réinstallez le paquet de
   base.

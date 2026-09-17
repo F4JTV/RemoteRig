@@ -30,6 +30,14 @@ connections and errors are logged.
 .B \-\-list\-audio
 Print every audio interface and device PortAudio can see, with the sample rate
 each one accepts, then exit. Use this when a device is missing from the lists.
+.SH ENVIRONMENT
+.TP
+.B RR_HAMLIB_DEBUG
+Set to 1 to let Hamlib print its own debug trace. It is silenced by default:
+Hamlib repeats messages such as
+.RB \(aq "no get_vfo" \(aq
+on every poll, which buries the server's own log. Raise it only to diagnose a
+CAT problem.
 .SH FILES
 .TP
 .I ~/.config/F4JTV/RemoteRigServer.conf

@@ -53,6 +53,11 @@ public:
 
 public slots:
     void onRigCaps(const rr::RigCaps &caps);
+
+private slots:
+    void checkClientAlive();
+
+public slots:
     void setGains(float rx, float tx);
 
 signals:
@@ -123,6 +128,12 @@ private:
     // celui-ci vient d'etre ecrase par l'etat recu du poste, qui ne porte
     // pas cette information.
     bool         m_txAllowed = true;
+
+    // Surveillance du client. Un client qui disparait sans fermer sa connexion
+    // — coupure de courant, telephone qui s'eteint — laisserait sinon le poste
+    // en emission indefiniment, et garderait la station verrouillee.
+    QElapsedTimer m_lastHeard;
+    QTimer       *m_watchdog = nullptr;
     QElapsedTimer m_cwClock;
     QElapsedTimer m_tuneClock;
 };

@@ -77,6 +77,15 @@ void ServerCore::start(const ServerConfig &cfg)
     });
     m_statsTimer->start(150);
 
+    // Homme mort. Le client emet en permanence pendant qu'il transmet — un
+    // datagramme audio toutes les dix millisecondes — et envoie un ping chaque
+    // fois qu'il releve ses statistiques. Un silence de deux secondes signifie
+    // donc qu'il n'est plus la, et le poste ne doit pas rester en emission.
+    m_lastHeard.start();
+    m_watchdog = new QTimer(this);
+    connect(m_watchdog, &QTimer::timeout, this, &ServerCore::checkClientAlive);
+    m_watchdog->start(500);
+
     emit started(true, tr("Listening on TCP %1 / UDP %2").arg(cfg.tcpPort).arg(cfg.udpPort));
 }
 
@@ -217,6 +226,9 @@ void ServerCore::onTcpReadyRead()
 
 void ServerCore::handleControl(const QJsonObject &o)
 {
+    // Toute trame recue vaut signe de vie, quelle qu'en soit la nature.
+    m_lastHeard.restart();
+
     const QString t = o["t"].toString();
 
     if (t == "auth") {
@@ -378,6 +390,27 @@ void ServerCore::onRigState(const RigState &st)
 }
 
 // ------------------------------------------------------------------- bascule TX
+// Appelee deux fois par seconde tant qu'un client est connecte.
+void ServerCore::checkClientAlive()
+{
+    if (!m_sock || !m_authenticated) return;
+    const qint64 silent = m_lastHeard.elapsed();
+
+    // D'abord couper l'emission : c'est le risque immediat.
+    if (m_tx && silent > 2000) {
+        emit logMessage(tr("Client silent for %1 s — transmission stopped")
+                            .arg(silent / 1000.0, 0, 'f', 1));
+        setTx(false);
+    }
+
+    // Puis rendre la station, pour qu'un autre client puisse reprendre.
+    if (silent > 15000) {
+        emit logMessage(tr("Client silent for %1 s — station released")
+                            .arg(silent / 1000.0, 0, 'f', 0));
+        dropClient(tr("No news from the client"));
+    }
+}
+
 void ServerCore::setTx(bool on)
 {
     // Pendant un accord, le poste emet deja : lui superposer le PTT du client
@@ -434,6 +467,11 @@ void ServerCore::onUdpReadyRead()
         const QByteArray key = m_encrypted ? m_udpKey : QByteArray();
         if (!parsePacket(dg, key, &h, &payload)) continue;
         if (h.session != m_session) continue;
+
+        // Datagramme valide de la bonne session : le client est bien vivant.
+        // C'est ce qui porte la surveillance pendant une emission, ou l'audio
+        // arrive toutes les dix millisecondes.
+        m_lastHeard.restart();
 
         // On mémorise l'adresse réelle du client (traversée de NAT).
         if (m_clientUdpPort != fromPort || m_clientAddr != from) {

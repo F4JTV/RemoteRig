@@ -265,6 +265,25 @@ square on the right lights for more than a second when a sample reached full
 scale — a single clipped sample is invisible in a peak read four times a second,
 so the audio engine latches it in the callback itself.
 
+
+## Modes and filter width
+
+Neither list is fixed. The rig declares its modes through Hamlib's `mode_list`
+bitmask, and the server walks the bits and sends the names: a dual-band FM set
+has no use for PKTLSB, an HF rig wants it. Without a connection the clients show
+a reference list, PKTLSB included.
+
+The filter comes from `rig_passband_wide`, `_normal` and `_narrow`, computed for
+the **current mode** — which is why the three widths travel with the rig state
+and not with the capabilities, sent once. Picking one calls `rig_set_mode` with
+the same mode and the new width; the rig answers with what it actually applied,
+and the list follows.
+
+The desktop shows name and width, "Normal 2.4 k". The phone shows the width
+alone, "2.4 k": it fits beside the mode and the VFO, and it is how rigs label
+their own filters. The three are ordered widest to narrowest, so the order
+carries the meaning.
+
 ## Bands and antenna tuner
 
 The band buttons are not a fixed list. On connection the server reads the rig's
@@ -299,6 +318,28 @@ menu's **User manual** entry (F1) extracts the one matching the interface
 language to a temporary file and opens it in the system browser, so it is
 available whatever the installation, even when running from a build directory.
 The package also installs them under `share/doc/remoterig`.
+
+
+## Client watchdog
+
+A client that vanishes without closing its connection — a phone switched off, a
+Wi-Fi link that drops — would otherwise leave the rig transmitting. TCP does not
+notice a silent disappearance for tens of minutes, and the PTT is sent as an
+event, not as a continuous stream.
+
+The server therefore times everything it hears from the client, on both the
+control link and the audio stream. Two thresholds:
+
+- **two seconds** of silence with the PTT down stops the transmission;
+- **fifteen seconds** releases the station, so another client can take over.
+
+Both are safe: a transmitting client sends an audio datagram every ten
+milliseconds, and pings the control link several times a second.
+
+`test/protocol_probe.py` and `test/deadman_probe.py` speak the wire protocol by
+hand and check this, along with wrong passwords, forged MACs, malformed frames,
+absurd frame lengths, forged UDP PTT packets and a second client trying to take
+the station.
 
 ## Security
 
@@ -1203,6 +1244,22 @@ package breaks its signature.
   against a Qt that does not, refuses to start. The project forces zlib
   compression, which every Qt build supports. If you see this, your binaries
   predate that change: rebuild.
+- **`rig_open failed … Invalid configuration`**, with
+  `network_open: cannot get host "ttyUSB3"` in the log — Hamlib decides a path
+  is a network address as soon as it does not look like a device file. Qt
+  reports serial ports as `ttyUSB3`, without the directory; Hamlib needs
+  `/dev/ttyUSB3`. The server converts the name before handing it over, asking
+  Qt for the system path so that symlinks such as `/dev/serial/by-id/...` keep
+  working. Windows never showed this, `COM3` being already acceptable.
+- **The log is buried under `rig_get_vfo: no get_vfo` and similar** — that is
+  Hamlib's own trace, repeated on every poll for commands the rig does not
+  have. It is silenced by default; `RR_HAMLIB_DEBUG=1` brings it back when you
+  need to diagnose a CAT problem.
+- **`write_block failed … No such device`, then I/O errors on everything** — the
+  serial device node has disappeared: the USB adapter dropped off the bus. This
+  is not a software fault. It typically happens while transmitting, RF getting
+  into the USB cable. The server now reports the loss once and drops back to
+  "no CAT" instead of showing a frozen frequency.
 - **`Could not find Qt6Quick`** — the Android install is incomplete. Do not
   try to add `qtdeclarative` with `-m`; reinstall the base package instead.
 - **Undefined symbols at link time** — the NDK does not match the one Qt was

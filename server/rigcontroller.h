@@ -37,6 +37,9 @@ public:
 
     static QList<QPair<int, QString>> hamlibModels();   // (modele, "Marque Type")
     static QStringList serialPorts();
+    // Chemin que Hamlib attend : « /dev/ttyUSB0 » sous Unix, « COM3 » sous
+    // Windows. Un nom nu comme « ttyUSB0 » serait pris pour un nom d'hote.
+    static QString serialDevicePath(const QString &portName);
     static QStringList supportedModes();
     static bool hamlibAvailable();
 
@@ -54,6 +57,8 @@ public slots:
     void setMode(const QString &mode, int passband);
     void setVfo(const QString &vfo);
     void poll();
+
+public slots:
     void startTune();
     void sendMorse(const QString &text);
     void stopMorse();
@@ -76,6 +81,9 @@ private:
     RigCaps      m_caps;
     mutable QMutex m_mutex;
     QTimer      *m_timer  = nullptr;
+
+    int          m_wpm = 20;   // memorisee pour information
+    int          m_readFailures = 0;  // lectures consecutives en echec
     QSerialPort *m_serial = nullptr;
     void        *m_rig    = nullptr;   // RIG* de Hamlib
     bool         m_pttWanted = false;
