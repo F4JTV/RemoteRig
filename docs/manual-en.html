@@ -313,6 +313,11 @@ PCM in <code>~/.asoundrc</code> pointing at <code>hw:x,0</code>. Use
 <td>Both require CAT that answers, not merely a rig that was opened. The log
 lists the detected capabilities right after connecting.</td></tr>
 
+<tr><td>"Invalid configuration" when opening the rig</td>
+<td>If the log shows <code>cannot get host "ttyUSB3"</code>, Hamlib took the
+port name for a network address. Fixed since 1.0.0: the server now passes
+<code>/dev/ttyUSB3</code>. On an older build, type the full path.</td></tr>
+
 <tr><td>The audio breaks up</td>
 <td>Raise the jitter buffer, then the frame size. On a busy network, switch to
 Opus if you were on PCM.</td></tr>

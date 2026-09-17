@@ -378,9 +378,57 @@ double ClientBridge::bandFrequency(int index) const
     return double(m_bands.at(index).preset);
 }
 
+// Les modes viennent du poste. Hors connexion, une liste de repere, la meme
+// que celle du client bureau.
 QStringList ClientBridge::modeNames() const
 {
-    return {"USB", "LSB", "CW", "AM", "FM", "PKTUSB"};
+    if (!m_caps.modes.isEmpty()) return m_caps.modes;
+    return {"USB", "LSB", "CW", "CWR", "AM", "FM", "RTTY", "PKTUSB", "PKTLSB", "PKTFM"};
+}
+
+// Largeur abregee : « 2,4 k » plutot que « 2400 Hz ». La liste doit tenir a
+// cote du mode et du VFO sur un ecran de telephone.
+static QString shortWidth(int hz)
+{
+    if (hz >= 10000) return QStringLiteral("%1 k").arg(hz / 1000);
+    return QStringLiteral("%1 k").arg(double(hz) / 1000.0, 0, 'f', 1);
+}
+
+// Trois largeurs normalisees, annoncees avec leur valeur : l'operateur sait
+// ce qu'il choisit. Hamlib les calcule pour le mode courant.
+QStringList ClientBridge::filterNames() const
+{
+    // Sur un telephone, la largeur seule : elle tient dans la liste, et c'est
+    // ainsi que les postes etiquettent leurs filtres. Les trois valeurs sont
+    // rangees de la plus large a la plus etroite, l'ordre porte le sens.
+    QStringList l;
+    const int w[3] = {m_state.pbWide, m_state.pbNormal, m_state.pbNarrow};
+    for (int i = 0; i < 3; ++i)
+        if (w[i] > 0) l << shortWidth(w[i]);
+    return l;
+}
+
+int ClientBridge::filterIndex() const
+{
+    const int w[3] = {m_state.pbWide, m_state.pbNormal, m_state.pbNarrow};
+    int rank = 0;
+    for (int i = 0; i < 3; ++i) {
+        if (w[i] <= 0) continue;
+        if (w[i] == m_state.passband) return rank;
+        ++rank;
+    }
+    return -1;
+}
+
+void ClientBridge::setFilter(int index)
+{
+    const int w[3] = {m_state.pbWide, m_state.pbNormal, m_state.pbNarrow};
+    QList<int> avail;
+    for (int i = 0; i < 3; ++i) if (w[i] > 0) avail << w[i];
+    if (index < 0 || index >= avail.size()) return;
+    // Le mode ne change pas : seule la largeur suit.
+    QMetaObject::invokeMethod(m_core, "setMode", Qt::QueuedConnection,
+                              Q_ARG(QString, m_state.mode), Q_ARG(int, avail.at(index)));
 }
 
 QStringList ClientBridge::stepLabels() const

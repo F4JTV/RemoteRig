@@ -239,7 +239,19 @@ QWidget *ClientWindow::buildStationPage()
         QMetaObject::invokeMethod(m_core, "setVfo", Qt::QueuedConnection, Q_ARG(QString, "B")); });
 
     m_mode = new QComboBox;
+    // Liste de repere : elle sera remplacee par celle du poste des qu'il
+    // l'aura declaree.
     m_mode->addItems({"USB", "LSB", "CW", "CWR", "AM", "FM", "RTTY", "PKTUSB", "PKTLSB", "PKTFM"});
+
+    // Filtre : les trois largeurs que Hamlib normalise pour le mode courant.
+    m_filter = new QComboBox;
+    m_filter->setToolTip(tr("Receive filter width for the current mode"));
+    connect(m_filter, &QComboBox::activated, this, [this](int i) {
+        const int hz = m_filter->itemData(i).toInt();
+        if (hz <= 0 || !m_connected) return;
+        QMetaObject::invokeMethod(m_core, "setMode", Qt::QueuedConnection,
+                                  Q_ARG(QString, m_mode->currentText()), Q_ARG(int, hz));
+    });
     connect(m_mode, &QComboBox::activated, this, [this] {
         QMetaObject::invokeMethod(m_core, "setMode", Qt::QueuedConnection,
                                   Q_ARG(QString, m_mode->currentText()), Q_ARG(int, 0)); });
@@ -256,6 +268,7 @@ QWidget *ClientWindow::buildStationPage()
 
     ctl->addWidget(m_vfoA); ctl->addWidget(m_vfoB);
     ctl->addWidget(m_mode);
+    ctl->addWidget(m_filter);
     ctl->addWidget(down); ctl->addWidget(m_step); ctl->addWidget(up);
     v->addLayout(ctl);
 
@@ -443,6 +456,14 @@ QWidget *ClientWindow::buildAudioPage()
 // Le poste manipule lui-meme : le texte part par le CAT, et c'est son
 // manipulateur electronique qui genere les elements. Envoyer du CW par le PTT
 // reseau serait inutilisable, la gigue detruirait l'espacement.
+// Largeur abregee : « 2,4 k » plutot que « 2400 Hz ». La liste doit tenir a
+// cote du mode et du VFO sur un ecran de telephone.
+static QString shortWidth(int hz)
+{
+    if (hz >= 10000) return QStringLiteral("%1 k").arg(hz / 1000);
+    return QStringLiteral("%1 k").arg(double(hz) / 1000.0, 0, 'f', 1);
+}
+
 QWidget *ClientWindow::buildCwPage()
 {
     auto *page = new QWidget;
@@ -487,6 +508,24 @@ QWidget *ClientWindow::buildCwPage()
         m_catWidgets << send;
     }
     v->addLayout(grid);
+
+    // Memoires du poste. Certains transceivers, dont les Yaesu HF, n'acceptent
+    // pas de texte libre par le CAT : leur commande de manipulateur declenche
+    // la lecture d'une de leurs propres memoires, reglee sur le poste.
+    auto *memRow = new QHBoxLayout;
+    memRow->addWidget(new QLabel(tr("Rig's own keyer memories")));
+    for (int i = 1; i <= 5; ++i) {
+        auto *b = new QPushButton(QString::number(i));
+        b->setMaximumWidth(48);
+        connect(b, &QPushButton::clicked, this, [this, i] {
+            QMetaObject::invokeMethod(m_core, "sendMorse", Qt::QueuedConnection,
+                                      Q_ARG(QString, QString::number(i)));
+        });
+        memRow->addWidget(b);
+        m_catWidgets << b;
+    }
+    memRow->addStretch();
+    v->addLayout(memRow);
 
     auto *row = new QHBoxLayout;
     m_cwText = new QLineEdit;
@@ -795,6 +834,46 @@ void ClientWindow::onStateChanged(const RigState &st)
     m_sLabel->setText(st.strength > 0 ? QString("S9+%1").arg(st.strength)
                                       : QString("S%1").arg(sUnits));
 
+    // ROS : la ligne n'apparait que si le poste le rapporte et repond en CAT.
+    m_swrRow->setVisible(m_core->caps().hasSwr && st.hasCat);
+    if (st.swr >= 1.0f) {
+        m_swrMeter->setValue(int(qMin(st.swr, 3.0f) * 100));
+        m_swrLabel->setText(st.swr >= 9.9f
+                                ? tr("> 9:1")
+                                : QStringLiteral("%1:1").arg(double(st.swr), 0, 'f', 1));
+        // Au-dela de 2:1 on ne devrait plus emettre longtemps.
+        m_swrLabel->setStyleSheet(st.swr >= 2.0f ? "color:#c02020;font-weight:bold;" : QString());
+    } else {
+        m_swrMeter->setValue(100);
+        m_swrLabel->setText(QStringLiteral("—"));
+        m_swrLabel->setStyleSheet(QString());
+    }
+
+    // Filtres du mode courant. On ne reconstruit la liste que si les largeurs
+    // ont change, sinon elle se refermerait sous le doigt a chaque scrutation.
+    const int widths[3] = {st.pbWide, st.pbNormal, st.pbNarrow};
+    const QString filterKey = QStringLiteral("%1/%2/%3")
+                                  .arg(widths[0]).arg(widths[1]).arg(widths[2]);
+    if (filterKey != m_filterKey) {
+        m_filterKey = filterKey;
+        QSignalBlocker block(m_filter);
+        m_filter->clear();
+        const char *labels[3] = {QT_TR_NOOP("Wide"), QT_TR_NOOP("Normal"), QT_TR_NOOP("Narrow")};
+        for (int i = 0; i < 3; ++i)
+            if (widths[i] > 0)
+                m_filter->addItem(QStringLiteral("%1 %2").arg(tr(labels[i]),
+                                                              shortWidth(widths[i])),
+                                  widths[i]);
+    }
+    m_filter->setVisible(m_filter->count() > 0 && st.hasCat);
+    if (st.passband > 0) {
+        const int i = m_filter->findData(st.passband);
+        if (i >= 0 && i != m_filter->currentIndex()) {
+            QSignalBlocker block(m_filter);
+            m_filter->setCurrentIndex(i);
+        }
+    }
+
     m_txLed->setText(st.tuning ? tr("TUNE") : (st.cw ? tr("CW") : (st.ptt ? "TX" : "RX")));
     m_txLed->setStyleSheet(st.ptt || st.tuning || st.cw ? kTxStyle : kRxStyle);
 
@@ -875,9 +954,23 @@ void ClientWindow::rebuildBands(const QList<rr::Band> &bands)
 void ClientWindow::onCapsChanged(const rr::RigCaps &caps)
 {
     rebuildBands(bandsWithin(caps.txRanges));
+
+    // Modes reellement declares par le poste, plutot que la liste de repere.
+    if (!caps.modes.isEmpty()) {
+        const QString current = m_mode->currentText();
+        QSignalBlocker block(m_mode);
+        m_mode->clear();
+        m_mode->addItems(caps.modes);
+        const int i = m_mode->findText(current);
+        if (i >= 0) m_mode->setCurrentIndex(i);
+    }
     m_tuneBtn->setEnabled(m_connected && caps.hasTune && m_state.hasCat);
     m_cwPage->setEnabled(caps.hasMorse && m_state.hasCat);
+
     m_swrRow->setVisible(caps.hasSwr && m_state.hasCat);
+    // Poste sans changement de VFO par le CAT : on retire les boutons.
+    m_vfoA->setVisible(caps.hasVfoSet);
+    m_vfoB->setVisible(caps.hasVfoSet);
     QStringList found;
     if (caps.hasTune)  found << tr("tuner");
     if (caps.hasMorse) found << tr("keyer");

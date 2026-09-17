@@ -30,6 +30,7 @@ class ClientBridge : public QObject, public VolumePttSink {
     Q_PROPERTY(bool hasTune       READ hasTune       NOTIFY capsChanged)
     Q_PROPERTY(bool hasMorse      READ hasMorse      NOTIFY capsChanged)
     Q_PROPERTY(bool hasSwr        READ hasSwr        NOTIFY capsChanged)
+    Q_PROPERTY(bool hasVfoSet     READ hasVfoSet     NOTIFY capsChanged)
     Q_PROPERTY(double swr         READ swr           NOTIFY stateChanged)
     Q_PROPERTY(QString swrText    READ swrText       NOTIFY stateChanged)
     Q_PROPERTY(int  wpmMin        READ wpmMin        NOTIFY capsChanged)
@@ -41,6 +42,12 @@ class ClientBridge : public QObject, public VolumePttSink {
     Q_PROPERTY(QString myCall     READ myCall WRITE setMyCall NOTIFY cwChanged)
     Q_PROPERTY(QStringList cwMacros READ cwMacros    NOTIFY cwChanged)
     Q_PROPERTY(QStringList bands  READ bandNames     NOTIFY capsChanged)
+    Q_PROPERTY(QStringList modes  READ modeNames     NOTIFY capsChanged)
+    Q_PROPERTY(QStringList filters READ filterNames  NOTIFY stateChanged)
+    Q_PROPERTY(int passband       READ passband      NOTIFY stateChanged)
+    // Rang de la largeur courante dans la liste des filtres, -1 si elle n'y
+    // figure pas. Sert a recaler la liste deroulante sur l'etat du poste.
+    Q_PROPERTY(int filterIndex    READ filterIndex   NOTIFY stateChanged)
     Q_PROPERTY(int sMeterDb       READ sMeterDb      NOTIFY stateChanged)
     Q_PROPERTY(QString sMeterText READ sMeterText    NOTIFY stateChanged)
     Q_PROPERTY(int rttMs          READ rttMs         NOTIFY statsChanged)
@@ -95,6 +102,7 @@ public:
     bool hasTune() const        { return m_caps.hasTune; }
     bool hasMorse() const       { return m_caps.hasMorse; }
     bool hasSwr() const         { return m_caps.hasSwr; }
+    bool hasVfoSet() const      { return m_caps.hasVfoSet; }
     double swr() const          { return double(m_state.swr); }
     QString swrText() const;
     int  wpmMin() const         { return m_caps.wpmMin; }
@@ -185,6 +193,10 @@ public slots:
     QStringList bandNames() const;
     double bandFrequency(int index) const;
     QStringList modeNames() const;
+    QStringList filterNames() const;
+    int filterIndex() const;
+    int passband() const        { return m_state.passband; }
+    Q_INVOKABLE void setFilter(int index);
     QStringList stepLabels() const;
     int stepValue(int index) const;
     QString audioSummary() const;

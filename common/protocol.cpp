@@ -18,6 +18,9 @@ QJsonObject RigState::toJson() const
     o["cw"]        = cw;
     o["swr"]       = double(swr);
     o["txAllowed"] = txAllowed;
+    o["pbWide"]    = pbWide;
+    o["pbNormal"]  = pbNormal;
+    o["pbNarrow"]  = pbNarrow;
     o["freqA"]     = double(freqA);
     o["freqB"]     = double(freqB);
     o["vfo"]       = vfo;
@@ -39,6 +42,9 @@ RigState RigState::fromJson(const QJsonObject &o)
     s.cw        = o["cw"].toBool();
     s.swr       = float(o["swr"].toDouble());
     s.txAllowed = o.contains("txAllowed") ? o["txAllowed"].toBool() : true;
+    s.pbWide    = o["pbWide"].toInt();
+    s.pbNormal  = o["pbNormal"].toInt();
+    s.pbNarrow  = o["pbNarrow"].toInt();
     s.freqA     = quint64(o["freqA"].toDouble());
     s.freqB     = quint64(o["freqB"].toDouble());
     s.vfo       = o["vfo"].toString(QStringLiteral("A"));
@@ -56,7 +62,8 @@ QJsonObject RigCaps::toJson() const
     for (const BandRange &r : txRanges)
         ranges.append(QJsonObject{{"s", double(r.start)}, {"e", double(r.end)}});
     return QJsonObject{{"hasTune", hasTune}, {"hasMorse", hasMorse},
-                       {"hasSwr", hasSwr},
+                       {"hasSwr", hasSwr}, {"hasVfoSet", hasVfoSet},
+                       {"modes", QJsonArray::fromStringList(modes)},
                        {"wpmMin", wpmMin}, {"wpmMax", wpmMax}, {"tx", ranges}};
 }
 
@@ -66,6 +73,10 @@ RigCaps RigCaps::fromJson(const QJsonObject &o)
     c.hasTune  = o["hasTune"].toBool();
     c.hasMorse = o["hasMorse"].toBool();
     c.hasSwr   = o["hasSwr"].toBool();
+    c.hasVfoSet = o.contains("hasVfoSet") ? o["hasVfoSet"].toBool() : true;
+    const QJsonArray modes = o["modes"].toArray();
+    for (const QJsonValue &v : modes) c.modes << v.toString();
+
     c.wpmMin   = o.value("wpmMin").toInt(5);
     c.wpmMax   = o.value("wpmMax").toInt(40);
     const QJsonArray ranges = o["tx"].toArray();

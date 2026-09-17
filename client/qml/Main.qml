@@ -200,6 +200,25 @@ ApplicationWindow {
         }
     }
 
+    // Croix de fermeture, dessinee comme les autres pictogrammes.
+    component CloseGlyph: Item {
+        property color glyphColor: win.dim
+        implicitWidth: 26
+        implicitHeight: 26
+        Rectangle {
+            anchors.centerIn: parent
+            width: 20; height: 2.5; radius: 1.5
+            rotation: 45
+            color: parent.parent.glyphColor
+        }
+        Rectangle {
+            anchors.centerIn: parent
+            width: 20; height: 2.5; radius: 1.5
+            rotation: -45
+            color: parent.parent.glyphColor
+        }
+    }
+
     // Point et trait : le pictogramme du morse, dessine comme les autres
     // puisque les polices d'Android n'en ont aucun.
     component MorseGlyph: Item {
@@ -304,7 +323,7 @@ ApplicationWindow {
                 enabled: Station.connected
                 Layout.preferredWidth: 48
                 Layout.preferredHeight: 48
-                onClicked: cwSheet.visible ? cwSheet.close() : cwSheet.open()
+                onClicked: cwSheet.open()
                 contentItem: MorseGlyph {
                     glyphColor: Station.cwBusy ? win.redTx
                                                : (cwButton.enabled ? win.amber : win.dim)
@@ -482,14 +501,28 @@ ApplicationWindow {
                 id: modeBox
                 Layout.fillWidth: true
                 Layout.preferredHeight: 52
-                model: Station.modeNames()
+                model: Station.modes
+                // Liaison plutot qu'affectation unique : la liste se recale des
+                // que le poste repond, et pas seulement au demarrage, ou rien
+                // n'est encore connu. Le poste reste la source de verite.
+                currentIndex: Math.max(0, Station.modes.indexOf(Station.modeText))
                 onActivated: Station.setMode(currentText)
-                Component.onCompleted: {
-                    var i = model.indexOf(Station.modeText)
-                    if (i >= 0) currentIndex = i
-                }
             }
+            // Filtre : les trois largeurs que Hamlib normalise pour le mode
+            // courant. La ligne disparait si le poste n'en propose aucune.
+            ComboBox {
+                id: filterBox
+                visible: Station.filters.length > 0
+                Layout.preferredWidth: 104
+                Layout.preferredHeight: 52
+                model: Station.filters
+                currentIndex: Math.max(0, Station.filterIndex)
+                enabled: Station.connected && Station.hasCat
+                onActivated: Station.setFilter(currentIndex)
+            }
+
             Button {
+                visible: Station.hasVfoSet
                 text: "VFO " + (Station.vfoText === "B" ? "B" : "A")
                 font.capitalization: Font.MixedCase
                 Layout.preferredWidth: 110
@@ -684,9 +717,14 @@ ApplicationWindow {
         // commandes du telephone, ou l'on appuie par megarde.
         edge: Qt.TopEdge
         width: win.width
-        height: Math.min(win.height * 0.72, 520)
+        // La hauteur suit le contenu, plafonnee par l'ecran. Une valeur fixe
+        // rognait le bouton d'arret des qu'on ajoutait une rangee — celle des
+        // memoires du poste, par exemple.
+        height: Math.min(win.height * 0.92, cwLayout.implicitHeight + 2 * win.gap)
         dim: true
-        // Ouverture par le bouton seulement : aucun balayage accidentel.
+        // Ouverture par le bouton seulement : aucun balayage accidentel. En
+        // contrepartie, un appui a l'exterieur n'est pas recu non plus, d'ou
+        // la croix de fermeture dans le titre du panneau.
         interactive: false
 
         background: Rectangle {
@@ -696,6 +734,7 @@ ApplicationWindow {
         }
 
         ColumnLayout {
+            id: cwLayout
             anchors.fill: parent
             anchors.margins: win.gap
             spacing: win.gap
@@ -714,6 +753,13 @@ ApplicationWindow {
                     color: win.pal.text
                     font.pixelSize: 16
                     font.bold: true
+                }
+
+                ToolButton {
+                    Layout.preferredWidth: 44
+                    Layout.preferredHeight: 44
+                    onClicked: cwSheet.close()
+                    contentItem: CloseGlyph { glyphColor: win.pal.text }
                 }
             }
 
@@ -747,6 +793,32 @@ ApplicationWindow {
                 }
             }
 
+            // Memoires du poste. Certains transceivers, dont les Yaesu HF,
+            // n'acceptent pas de texte libre par le CAT : leur commande de
+            // manipulateur declenche la lecture d'une de leurs propres
+            // memoires. Ces boutons les appellent par leur numero.
+            Label {
+                text: qsTr("Rig's own keyer memories")
+                color: win.dim
+                font.pixelSize: 11
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Repeater {
+                    model: 5
+                    delegate: ReliefButton {
+                        required property int index
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 44
+                        text: String(index + 1)
+                        active: Station.connected && Station.hasMorse
+                        onClicked: Station.sendCw(String(index + 1))
+                    }
+                }
+            }
+
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
@@ -768,8 +840,6 @@ ApplicationWindow {
                     onClicked: { Station.sendCw(cwField.text); cwField.text = "" }
                 }
             }
-
-            Item { Layout.fillHeight: true }
 
             // Toujours atteignable : une memoire lancee par erreur doit pouvoir
             // etre coupee sans chercher.

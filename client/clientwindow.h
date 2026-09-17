@@ -95,6 +95,8 @@ private:
     QPushButton *m_vfoA = nullptr;
     QPushButton *m_vfoB = nullptr;
     QComboBox *m_mode = nullptr;
+    QComboBox *m_filter = nullptr;
+    QString m_filterKey;
     QComboBox *m_step = nullptr;
     QProgressBar *m_sMeter = nullptr;
     QLabel *m_sLabel = nullptr;

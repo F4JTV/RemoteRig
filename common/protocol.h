@@ -7,6 +7,7 @@
 #include <QJsonObject>
 #include <QList>
 #include <QJsonArray>
+#include <QStringList>
 #include <QMetaType>
 
 namespace rr {
@@ -75,6 +76,12 @@ struct RigCaps {
     bool hasTune  = false;             // le poste accepte un cycle d'accord
     bool hasMorse = false;             // le poste sait manipuler lui-meme
     bool hasSwr   = false;             // le poste rapporte son ROS
+    // Certains postes n'acceptent pas rig_set_vfo : inutile d'offrir le
+    // bouton si chaque appui doit finir en « Feature not available ».
+    bool hasVfoSet = true;
+    // Modes que le poste declare, et non une liste figee : un bibande FM
+    // n'a que faire de PKTLSB, un HF le reclame.
+    QStringList modes;
     int  wpmMin = 5;
     int  wpmMax = 40;
     QList<BandRange> txRanges;
@@ -112,6 +119,10 @@ struct RigState {
     // poste declare. Le client grise alors le PTT, plutot que de laisser
     // l'operateur appuyer pour rien — ou pire, pour de bon.
     bool     txAllowed   = true;
+    // Largeurs de filtre normalisees pour le mode courant, en hertz. Elles
+    // suivent le mode, donc elles voyagent avec l'etat et non avec les
+    // capacites, envoyees une seule fois.
+    int      pbWide = 0, pbNormal = 0, pbNarrow = 0;
     quint64  freqA       = 0;
     quint64  freqB       = 0;
     QString  vfo         = QStringLiteral("A");

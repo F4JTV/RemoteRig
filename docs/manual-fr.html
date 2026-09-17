@@ -323,6 +323,12 @@ au groupe <code>dialout</code>.</td></tr>
 <td>Ils exigent un CAT qui répond, pas seulement un poste déclaré. Le journal
 affiche les capacités détectées juste après la connexion.</td></tr>
 
+<tr><td>« Invalid configuration » à l'ouverture du poste</td>
+<td>Si le journal montre <code>cannot get host "ttyUSB3"</code>, Hamlib a pris
+le nom du port pour une adresse réseau. Corrigé depuis la version 1.0.0 : le
+serveur transmet désormais <code>/dev/ttyUSB3</code>. Sur une version
+antérieure, saisissez le chemin complet.</td></tr>
+
 <tr><td>Le son hache</td>
 <td>Augmentez le tampon de gigue, puis la taille de trame. Sur un réseau
 chargé, passez en Opus si vous étiez en PCM.</td></tr>
