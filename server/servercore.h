@@ -33,6 +33,9 @@ struct ServerConfig {
     // Un transverter, ou un usage hors bande amateur, travaille en dehors des
     // plages que le poste declare : le garde-fou doit pouvoir etre leve.
     bool    enforceBandEdges = true;
+    // Tonalite de PTT sur le canal droit de la sortie audio.
+    bool    pttTone      = false;
+    int     pttToneHz    = 2200;
 };
 
 class ServerCore : public QObject {

@@ -267,6 +267,10 @@ void RigController::open(const rr::RigConfig &cfg)
         ok = openSerialPtt();
         msg = ok ? tr("Serial PTT ready (no CAT)") : m_state.error;
         break;
+    case RigConfig::Cm108PttOnly:
+        ok = openCm108();
+        msg = ok ? tr("CM108 GPIO PTT ready (no CAT)") : m_state.error;
+        break;
     case RigConfig::None:
         { QMutexLocker lock(&m_mutex); m_state = RigState(); m_state.connected = true; }
         ok = true;
@@ -310,9 +314,19 @@ bool RigController::openHamlib()
     if (m_cfg.pttType == "RTS")       setConf("ptt_type", "RTS");
     else if (m_cfg.pttType == "DTR")  setConf("ptt_type", "DTR");
     else if (m_cfg.pttType == "NONE") setConf("ptt_type", "None");
+    else if (m_cfg.pttType == "CM108") {
+        // La puce audio de l'interface porte des lignes de commande ; GPIO3
+        // est celle qui attaque le PTT sur un Digirig ou une carte RA. Hamlib
+        // ecrit directement dans le peripherique HID, ce qui donne une
+        // commutation franche, sans passer par un port serie.
+        setConf("ptt_type", "CM108");
+        if (!m_cfg.cm108Path.isEmpty()) setConf("ptt_pathname", m_cfg.cm108Path);
+        setConf("ptt_bitnum", QString::number(m_cfg.cm108Gpio));
+    }
     else                              setConf("ptt_type", "RIG");
 
-    if (!m_cfg.pttPort.isEmpty() && m_cfg.pttPort != m_cfg.catPort)
+    if (m_cfg.pttType != "CM108"
+        && !m_cfg.pttPort.isEmpty() && m_cfg.pttPort != m_cfg.catPort)
         setConf("ptt_pathname", serialDevicePath(m_cfg.pttPort));
 
     if (m_cfg.dtrOnAlways && m_cfg.pttType != "DTR")
@@ -381,6 +395,71 @@ bool RigController::openHamlib()
 #else
     QMutexLocker lock(&m_mutex);
     m_state.error = tr("Built without Hamlib");
+    return false;
+#endif
+}
+
+// PTT par la ligne GPIO3 de la puce audio, sans CAT.
+//
+// On passe par Hamlib, dont le code CM108 est eprouve et fonctionne sur les
+// trois systemes. Le modele est le poste factice : il ne sert qu'a porter la
+// configuration du PTT, on ne l'interroge jamais et l'etat annonce reste « pas
+// de CAT ». Ecrire nous-memes dans le peripherique HID aurait demande du code
+// specifique a chaque systeme pour aucun gain.
+bool RigController::openCm108()
+{
+#ifdef RR_HAVE_HAMLIB
+#ifdef Q_OS_WIN
+    // Le code CM108 de Hamlib ouvre /dev/hidrawN : il n'a pas d'equivalent
+    // Windows. La bibliotheque livree pour Windows n'appelle aucune fonction
+    // de l'API HID, on le verifie a ses symboles. Mieux vaut le dire tout de
+    // suite que laisser l'operateur chercher un peripherique introuvable.
+    emit logMessage(tr("CM108 PTT is not available on Windows: Hamlib only "
+                       "implements it for Linux. Use the PTT tone instead."));
+#endif
+    applyHamlibDebugLevel();
+    rig_load_all_backends();
+
+    RIG *rig = rig_init(RIG_MODEL_DUMMY);
+    if (!rig) {
+        QMutexLocker lock(&m_mutex);
+        m_state.error = tr("Hamlib could not start");
+        return false;
+    }
+
+    auto setConf = [rig](const char *name, const QString &value) {
+        rig_set_conf(rig, rig_token_lookup(rig, name), value.toLatin1().constData());
+    };
+    setConf("ptt_type", "CM108");
+    if (!m_cfg.cm108Path.isEmpty()) setConf("ptt_pathname", m_cfg.cm108Path);
+    setConf("ptt_bitnum", QString::number(m_cfg.cm108Gpio));
+
+    const int r = rig_open(rig);
+    if (r != RIG_OK) {
+        QMutexLocker lock(&m_mutex);
+        // Le message generique parle de port serie : hors sujet pour un
+        // peripherique HID. On dit ce qu'il faut verifier.
+        m_state.error = (-r == RIG_EIO || -r == RIG_ENAVAIL)
+            ? tr("No CM108 device — check the path, and the permissions on "
+                 "/dev/hidraw* under Linux")
+            : tr("CM108 open failed: %1").arg(hamlibError(r));
+        rig_cleanup(rig);
+        return false;
+    }
+
+    m_rig = rig;
+    {
+        QMutexLocker lock(&m_mutex);
+        m_state = RigState();
+        m_state.connected = true;
+        m_state.hasCat    = false;   // aucune interrogation : ce n'est pas du CAT
+        m_caps = RigCaps();
+    }
+    emit capsChanged(RigCaps());
+    return true;
+#else
+    QMutexLocker lock(&m_mutex);
+    m_state.error = tr("This build has no Hamlib, CM108 PTT is unavailable");
     return false;
 #endif
 }

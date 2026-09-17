@@ -299,6 +299,46 @@ la largeur seule, « 2,4 k » : elle tient à côté du mode et du VFO, et c'est
 ainsi que les postes étiquettent leurs propres filtres. Les trois sont rangées
 de la plus large à la plus étroite, l'ordre porte le sens.
 
+
+## Formes de PTT
+
+Quatre manières de commuter le poste, au choix sur le serveur.
+
+**CAT** envoie la commande par la liaison de contrôle. Rien à câbler, mais
+l'instant de la commutation dépend de la réponse du poste.
+
+**RTS ou DTR** bascule une ligne du port série. Simple et répandu ; il faut
+indiquer au poste, dans ses propres menus, quelle ligne il doit surveiller.
+
+Une interface qui n'expose **aucun port série** — la Digirig Lite en est une —
+dispose de son propre pilotage, **PTT par GPIO CM108 seul** : pas de CAT, pas de
+port série, le PTT seul par GPIO3. Le choisir masque les champs de port et de
+vitesse, qui n'ont plus rien à piloter, et fait apparaître ceux du CM108.
+
+Sous Linux, la ligne de PTT se trouve derrière `/dev/hidraw*`, que seul root
+peut ouvrir par défaut. Une règle udev est livrée avec le projet et confie
+l'accès à l'utilisateur de la session graphique en cours. Le paquet Debian
+l'installe dans `/usr/lib/udev/rules.d` et recharge udev ; `install.sh` propose
+de la poser, le fait sans demander avec `--udev`, et la retire à
+`--uninstall`. Débranchez et rebranchez l'interface ensuite.
+
+**CM108 / GPIO3** attaque la ligne de commande d'une puce audio de la famille
+CM108 — Digirig, cartes RA, nombre de câbles maison. Hamlib écrit directement
+dans le périphérique HID : aucun port série dans le chemin. C'est la méthode la
+plus précise, et celle à préférer en numérique, où l'instant de la commutation
+compte. Laissez le champ du périphérique vide pour que Hamlib trouve la carte,
+ou donnez un chemin comme `/dev/hidraw0`. Le numéro de GPIO reste sur 3, sauf si
+votre interface en câble une autre. Sous Linux, écrire dans un périphérique HID
+demande généralement une règle udev, ou l'appartenance au groupe propriétaire de
+`/dev/hidraw*`.
+
+**La tonalité de PTT** convient aux interfaces qui commutent le poste dès
+qu'elles détectent un signal sur le canal droit. La sortie est ouverte en
+stéréo, la modulation reste à gauche, et une tonalité — 2200 Hz par défaut,
+réglable — part à droite exactement le temps de l'émission, en commençant un
+instant avant le premier échantillon utile. Vérifiez que le poste n'est alimenté
+que par le canal gauche, sans quoi la tonalité serait elle aussi transmise.
+
 ## Bandes et coupleur d'antenne
 
 Les boutons de bande ne sont pas une liste figée. À la connexion, le serveur lit

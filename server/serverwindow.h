@@ -83,6 +83,11 @@ private:
     QLineEdit *m_password = nullptr;
     QCheckBox *m_forceEnc = nullptr;
     QCheckBox *m_bandEdges = nullptr;
+    QLabel    *m_catPortLabel = nullptr;
+    QLineEdit *m_cm108Path = nullptr;
+    QSpinBox  *m_cm108Gpio = nullptr;
+    QCheckBox *m_pttTone = nullptr;
+    QSpinBox  *m_pttToneHz = nullptr;
     QLabel    *m_addrLabel = nullptr;
 
     // etat

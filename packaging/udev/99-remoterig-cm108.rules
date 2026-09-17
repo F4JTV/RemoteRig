@@ -1,0 +1,19 @@
+# Acces au peripherique HID des interfaces audio a puce C-Media, pour le PTT
+# par GPIO3 : Digirig Lite, Digirig Mobile, cartes RA, cables maison.
+#
+# Installation :
+#   sudo cp 99-remoterig-cm108.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+# puis debrancher et rebrancher l'interface.
+#
+# 0d8c est l'identifiant du fabricant C-Media, commun a toute la famille CM108.
+# Verifiez le votre avec « lsusb » si la regle reste sans effet.
+#
+# uaccess confie l'acces a l'utilisateur ayant la session graphique en cours,
+# ce qui evite d'avoir a gerer un groupe. Le mode et le groupe qui suivent
+# servent de repli sur les systemes sans logind.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0d8c", TAG+="uaccess", MODE="0660", GROUP="plugdev"
+
+# Meme chose pour l'acces direct au peripherique USB, que certains outils
+# empruntent au lieu de hidraw.
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0d8c", TAG+="uaccess", MODE="0660", GROUP="plugdev"

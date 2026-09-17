@@ -33,6 +33,8 @@ void ServerCore::start(const ServerConfig &cfg)
         emit started(false, tr("Audio input: %1").arg(m_audio.lastError()));
         return;
     }
+    // A declarer avant l'ouverture : la tonalite impose une sortie stereo.
+    m_audio.setPttTone(cfg.pttTone, cfg.pttToneHz);
     if (!m_audio.startPlayback(cfg.outputDevice, cfg.framesPerBuffer)) {
         m_audio.stopCapture();
         emit started(false, tr("Audio output: %1").arg(m_audio.lastError()));
@@ -431,6 +433,9 @@ void ServerCore::setTx(bool on)
         m_audio.setCaptureMuted(true);     // on coupe l'écoute RX
         m_audio.flushPlayback();
         m_audio.setPlaybackMuted(false);   // on ouvre la modulation vers le poste
+        // La tonalite precede la modulation : l'interface commute le poste
+        // avant que le premier echantillon utile n'arrive.
+        m_audio.setPttToneKeyed(true);
         emit requestPtt(true);
     } else {
         if (!m_tx) return;
@@ -444,6 +449,7 @@ void ServerCore::onPttTail()
 {
     m_tx = false;
     emit requestPtt(false);
+    m_audio.setPttToneKeyed(false);
     m_audio.setPlaybackMuted(true);
     m_audio.flushPlayback();
     m_audio.flushCapture();

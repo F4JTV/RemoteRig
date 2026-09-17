@@ -140,6 +140,14 @@ QWidget *ServerWindow::buildRigPage()
 
     m_backend = new QComboBox;
     m_backend->addItem(tr("Hamlib — full CAT"), int(RigConfig::Hamlib));
+    m_backend->addItem(tr("CM108 GPIO PTT only — no serial port"),
+                       int(RigConfig::Cm108PttOnly));
+#ifdef Q_OS_WIN
+    m_backend->setItemData(m_backend->count() - 1,
+        tr("Hamlib implements CM108 PTT for Linux only: it opens /dev/hidraw, "
+           "which has no Windows equivalent. On Windows, use the PTT tone on "
+           "the right audio channel instead."), Qt::ToolTipRole);
+#endif
     m_backend->addItem(tr("Serial port — PTT only"), int(RigConfig::SerialPttOnly));
     m_backend->addItem(tr("None — audio only"),    int(RigConfig::None));
     if (!RigController::hamlibAvailable()) {
@@ -185,7 +193,8 @@ QWidget *ServerWindow::buildRigPage()
     m_catPort = new QComboBox;
     m_catPort->setEditable(true);
     m_catPort->addItems(RigController::serialPorts());
-    f->addRow(tr("CAT port"), m_catPort);
+    m_catPortLabel = new QLabel(tr("CAT port"));
+    f->addRow(m_catPortLabel, m_catPort);
 
     m_catBaud = new QComboBox;
     m_catBaud->addItems({"1200", "4800", "9600", "19200", "38400", "57600", "115200"});
@@ -193,8 +202,44 @@ QWidget *ServerWindow::buildRigPage()
     f->addRow(tr("Speed"), m_catBaud);
 
     m_pttType = new QComboBox;
-    m_pttType->addItems({"CAT", "RTS", "DTR", "NONE"});
+    m_pttType->addItems({"CAT", "RTS", "DTR", "CM108", "NONE"});
+    m_pttType->setItemData(3, tr("PTT through the sound chip's GPIO3 line, as on a "
+                                 "Digirig or an RA board. The most precise method: no "
+                                 "serial port in the path."), Qt::ToolTipRole);
+
+    // Chemin du peripherique HID, et numero de broche. Vide, Hamlib cherche
+    // lui-meme la carte CM108 presente.
+    m_cm108Path = new QLineEdit;
+    m_cm108Path->setPlaceholderText(tr("auto — or /dev/hidraw0, \\\\?\\hid#..."));
+    m_cm108Gpio = new QSpinBox;
+    m_cm108Gpio->setRange(1, 4);
+    m_cm108Gpio->setValue(3);
+    m_cm108Gpio->setPrefix(tr("GPIO "));
     f->addRow(tr("PTT type"), m_pttType);
+
+    auto *cmRow = new QHBoxLayout;
+    cmRow->addWidget(m_cm108Path, 1);
+    cmRow->addWidget(m_cm108Gpio);
+    auto *cmWidget = new QWidget;
+    cmWidget->setLayout(cmRow);
+    cmRow->setContentsMargins(0, 0, 0, 0);
+    f->addRow(tr("CM108 device"), cmWidget);
+    // Ces deux champs n'ont de sens que pour le CM108.
+    connect(m_pttType, &QComboBox::currentTextChanged, this, [this, cmWidget](const QString &t) {
+        cmWidget->setVisible(t == QLatin1String("CM108")
+                             || m_backend->currentData().toInt() == int(RigConfig::Cm108PttOnly));
+    });
+    // Le pilotage par GPIO3 seul n'a ni port serie ni CAT : on montre les
+    // champs du CM108 et on cache ceux qui n'ont plus de sens.
+    connect(m_backend, &QComboBox::currentIndexChanged, this, [this, cmWidget] {
+        const int b = m_backend->currentData().toInt();
+        const bool cm108 = (b == int(RigConfig::Cm108PttOnly));
+        cmWidget->setVisible(cm108 || m_pttType->currentText() == QLatin1String("CM108"));
+        if (m_catPortLabel)
+            m_catPortLabel->setText(b == int(RigConfig::Hamlib) ? tr("CAT port")
+                                                                : tr("Serial port"));
+    });
+    cmWidget->setVisible(false);
 
     m_pttPort = new QComboBox;
     m_pttPort->setEditable(true);
@@ -278,6 +323,28 @@ QWidget *ServerWindow::buildAudioPage()
     m_tailMs->setRange(0, 800); m_tailMs->setValue(120); m_tailMs->setSuffix(" ms");
     f->addRow(tr("PTT hold after transmit"), m_tailMs);
 
+    // Tonalite de PTT : une porteuse sur le canal droit, que l'interface
+    // detecte pour commuter le poste.
+    m_pttTone = new QCheckBox(tr("PTT tone on the right audio channel"));
+    m_pttTone->setToolTip(tr("Sends a tone on the right channel while transmitting; "
+                             "the modulation stays on the left. Interfaces such as "
+                             "Digirig key the radio on that tone. The output device "
+                             "is opened in stereo."));
+    m_pttToneHz = new QSpinBox;
+    m_pttToneHz->setRange(300, 5000);
+    m_pttToneHz->setValue(2200);
+    m_pttToneHz->setSuffix(tr(" Hz"));
+
+    auto *toneRow = new QHBoxLayout;
+    toneRow->addWidget(m_pttTone, 1);
+    toneRow->addWidget(m_pttToneHz);
+    auto *toneWidget = new QWidget;
+    toneWidget->setLayout(toneRow);
+    toneRow->setContentsMargins(0, 0, 0, 0);
+    f->addRow("", toneWidget);
+    connect(m_pttTone, &QCheckBox::toggled, m_pttToneHz, &QWidget::setEnabled);
+    m_pttToneHz->setEnabled(false);
+
     m_rxMeter = new QProgressBar; m_rxMeter->setRange(0, 100); m_rxMeter->setTextVisible(false);
     m_txMeter = new QProgressBar; m_txMeter->setRange(0, 100); m_txMeter->setTextVisible(false);
     f->addRow(tr("RX level"), m_rxMeter);
@@ -336,28 +403,58 @@ QWidget *ServerWindow::buildNetworkPage()
 
 // -------------------------------------------------------------------- logique
 // Adresses IPv4 utilisables par un client, l'adresse de bouclage exclue.
+// Adresses IPv4 utilisables de cette machine.
+//
+// On juge les adresses plutot que les drapeaux de l'interface : Windows declare
+// quantite d'adaptateurs virtuels, et l'etat « up » n'y a pas exactement le meme
+// sens que sous Linux. Un repli par allAddresses garantit qu'on affiche quelque
+// chose meme si le parcours par interface ne donne rien.
+static QList<QPair<QString, QString>> localIPv4Addresses()
+{
+    QList<QPair<QString, QString>> out;   // adresse, nom de l'interface
+
+    const auto interfaces = QNetworkInterface::allInterfaces();
+    for (const QNetworkInterface &iface : interfaces) {
+        const auto flags = iface.flags();
+        if (!(flags & QNetworkInterface::IsUp) && !(flags & QNetworkInterface::IsRunning))
+            continue;
+        const auto entries = iface.addressEntries();
+        for (const QNetworkAddressEntry &e : entries) {
+            const QHostAddress a = e.ip();
+            if (a.protocol() != QAbstractSocket::IPv4Protocol) continue;
+            if (a.isLoopback()) continue;
+            // 169.254.x.x : adresse d'attente, attribuee faute de DHCP.
+            if (a.toString().startsWith(QLatin1String("169.254."))) continue;
+            out.append({a.toString(), iface.humanReadableName()});
+        }
+    }
+
+    if (out.isEmpty()) {
+        const auto all = QNetworkInterface::allAddresses();
+        for (const QHostAddress &a : all) {
+            if (a.protocol() != QAbstractSocket::IPv4Protocol) continue;
+            if (a.isLoopback()) continue;
+            out.append({a.toString(), QString()});
+        }
+    }
+    return out;
+}
+
 void ServerWindow::refreshLocalAddresses()
 {
     if (!m_addrLabel) return;
 
     QStringList lines;
-    const auto interfaces = QNetworkInterface::allInterfaces();
-    for (const QNetworkInterface &iface : interfaces) {
-        if (!(iface.flags() & QNetworkInterface::IsUp)) continue;
-        if (iface.flags() & QNetworkInterface::IsLoopBack) continue;
-        const auto entries = iface.addressEntries();
-        for (const QNetworkAddressEntry &e : entries) {
-            const QHostAddress a = e.ip();
-            if (a.protocol() != QAbstractSocket::IPv4Protocol) continue;
-            lines << QString("%1:%2   (%3)")
-                         .arg(a.toString())
-                         .arg(m_tcpPort->value())
-                         .arg(iface.humanReadableName());
-        }
+    const auto addresses = localIPv4Addresses();
+    for (const auto &a : addresses) {
+        lines << (a.second.isEmpty()
+                      ? QStringLiteral("%1:%2").arg(a.first).arg(m_tcpPort->value())
+                      : QStringLiteral("%1:%2   (%3)").arg(a.first)
+                            .arg(m_tcpPort->value()).arg(a.second));
     }
 
     m_addrLabel->setText(lines.isEmpty()
-        ? tr("No network interface found")
+        ? tr("No network address found — is this machine connected?")
         : lines.join('\n'));
 }
 
@@ -422,7 +519,11 @@ void ServerWindow::onBackendChanged()
 {
     const auto b = RigConfig::Backend(m_backend->currentData().toInt());
     const bool hamlib = (b == RigConfig::Hamlib);
-    const bool serial = (b != RigConfig::None);
+    const bool cm108  = (b == RigConfig::Cm108PttOnly);
+    // Le port serie ne sert que si le pilotage l'emploie. En GPIO3 seul, il n'y
+    // a aucun port : une interface comme la Digirig Lite n'en expose pas.
+    const bool serial = (b != RigConfig::None && !cm108);
+
     m_model->setEnabled(hamlib);
     m_modelFilter->setEnabled(hamlib);
     m_pollMs->setEnabled(hamlib);
@@ -430,6 +531,11 @@ void ServerWindow::onBackendChanged()
     m_catBaud->setEnabled(serial);
     m_pttType->setEnabled(serial);
     m_pttPort->setEnabled(serial);
+
+    // « Port CAT » quand le poste est interroge, « Port serie » quand seul le
+    // PTT y passe : le meme champ ne joue pas le meme role.
+    if (m_catPortLabel)
+        m_catPortLabel->setText(hamlib ? tr("CAT port") : tr("Serial port"));
 }
 
 static QString portNameOf(const QString &label)
@@ -454,6 +560,10 @@ void ServerWindow::onStartStop()
     rc.catBaud     = m_catBaud->currentText().toInt();
     rc.pttPort     = portNameOf(m_pttPort->currentText());
     rc.pttType     = m_pttType->currentText();
+
+    rc.cm108Path = m_cm108Path->text();
+
+    rc.cm108Gpio = m_cm108Gpio->value();
     rc.pollMs      = m_pollMs->value();
     rc.dtrOnAlways = m_dtrAlways->isChecked();
     QMetaObject::invokeMethod(m_rig, "open", Qt::QueuedConnection, Q_ARG(rr::RigConfig, rc));
@@ -474,6 +584,8 @@ void ServerWindow::onStartStop()
     sc.rxGain = float(m_rxGain->value());
     sc.txGain = float(m_txGain->value());
     sc.pttTailMs = m_tailMs->value();
+    sc.pttTone   = m_pttTone->isChecked();
+    sc.pttToneHz = m_pttToneHz->value();
     sc.enforceBandEdges = m_bandEdges->isChecked();
     QMetaObject::invokeMethod(m_core, "start", Qt::QueuedConnection, Q_ARG(rr::ServerConfig, sc));
 }
@@ -551,6 +663,10 @@ void ServerWindow::loadSettings()
     m_rxGain->setValue(s.value("rxGain", 1.0).toDouble());
     m_txGain->setValue(s.value("txGain", 1.0).toDouble());
     m_tailMs->setValue(s.value("tailMs", 120).toInt());
+    m_pttTone->setChecked(s.value("pttTone", false).toBool());
+    m_pttToneHz->setValue(s.value("pttToneHz", 2200).toInt());
+    m_cm108Path->setText(s.value("cm108Path").toString());
+    m_cm108Gpio->setValue(s.value("cm108Gpio", 3).toInt());
     const int in = m_inDev->findText(s.value("inDev").toString());
     if (in >= 0) m_inDev->setCurrentIndex(in);
     const int out = m_outDev->findText(s.value("outDev").toString());
@@ -578,6 +694,10 @@ void ServerWindow::saveSettings()
     s.setValue("rxGain", m_rxGain->value());
     s.setValue("txGain", m_txGain->value());
     s.setValue("tailMs", m_tailMs->value());
+    s.setValue("pttTone", m_pttTone->isChecked());
+    s.setValue("pttToneHz", m_pttToneHz->value());
+    s.setValue("cm108Path", m_cm108Path->text());
+    s.setValue("cm108Gpio", m_cm108Gpio->value());
     s.setValue("inDev", m_inDev->currentText());
     s.setValue("outDev", m_outDev->currentText());
     s.setValue("hostApi", m_hostApi->currentText());

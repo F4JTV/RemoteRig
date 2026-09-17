@@ -115,17 +115,25 @@ void ServerDaemon::onRigState(const rr::RigState &state)
 void ServerDaemon::reportAddresses(quint16 tcpPort) const
 {
     const auto interfaces = QNetworkInterface::allInterfaces();
+    bool found = false;
     for (const QNetworkInterface &iface : interfaces) {
-        if (!(iface.flags() & QNetworkInterface::IsUp)) continue;
-        if (iface.flags() & QNetworkInterface::IsLoopBack) continue;
+        const auto flags = iface.flags();
+        if (!(flags & QNetworkInterface::IsUp) && !(flags & QNetworkInterface::IsRunning))
+            continue;
         const auto entries = iface.addressEntries();
         for (const QNetworkAddressEntry &e : entries) {
-            if (e.ip().protocol() != QAbstractSocket::IPv4Protocol) continue;
+            const QHostAddress a = e.ip();
+            if (a.protocol() != QAbstractSocket::IPv4Protocol) continue;
+            if (a.isLoopback()) continue;
+            if (a.toString().startsWith(QLatin1String("169.254."))) continue;
+            found = true;
             report(tr("Reachable at %1:%2 (%3)")
-                       .arg(e.ip().toString()).arg(tcpPort, 0, 10)
+                       .arg(a.toString()).arg(tcpPort, 0, 10)
                        .arg(iface.humanReadableName()));
         }
     }
+    if (!found)
+        report(tr("No network address found — is this machine connected?"));
 }
 
 // ----------------------------------------------------------- configuration
@@ -180,6 +188,7 @@ bool ServerDaemon::start(const QString &configPath, bool verbose)
     if (backendName == QLatin1String("hamlib"))      rc.backend = RigConfig::Hamlib;
     else if (backendName == QLatin1String("serial")) rc.backend = RigConfig::SerialPttOnly;
     else if (backendName == QLatin1String("none"))   rc.backend = RigConfig::None;
+    else if (backendName == QLatin1String("cm108"))  rc.backend = RigConfig::Cm108PttOnly;
     else rc.backend = RigConfig::Backend(settings->value(QStringLiteral("backend"), 1).toInt());
 
     rc.hamlibModel = settings->value(QStringLiteral("model"), 0).toInt();
@@ -187,6 +196,8 @@ bool ServerDaemon::start(const QString &configPath, bool verbose)
     rc.catBaud     = settings->value(QStringLiteral("catBaud"), 38400).toInt();
     rc.pttPort     = portNameOf(settings->value(QStringLiteral("pttPort")).toString());
     rc.pttType     = settings->value(QStringLiteral("pttType"), "RTS").toString();
+    rc.cm108Path   = settings->value(QStringLiteral("cm108Path")).toString();
+    rc.cm108Gpio   = settings->value(QStringLiteral("cm108Gpio"), 3).toInt();
     rc.pollMs      = settings->value(QStringLiteral("pollMs"), 200).toInt();
     rc.dtrOnAlways = settings->value(QStringLiteral("dtrAlways"), false).toBool();
 
@@ -199,6 +210,8 @@ bool ServerDaemon::start(const QString &configPath, bool verbose)
     sc.txGain   = float(settings->value(QStringLiteral("txGain"), 1.0).toDouble());
     sc.pttTailMs = settings->value(QStringLiteral("tailMs"), 120).toInt();
     sc.enforceBandEdges = settings->value(QStringLiteral("bandEdges"), true).toBool();
+    sc.pttTone     = settings->value(QStringLiteral("pttTone"), false).toBool();
+    sc.pttToneHz   = settings->value(QStringLiteral("pttToneHz"), 2200).toInt();
 
     static const int kFrames[] = {120, 240, 480, 960};
     const int framesIdx = qBound(0, settings->value(QStringLiteral("framesIdx"), 2).toInt(), 3);

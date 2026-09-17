@@ -11,6 +11,13 @@ if [ "$1" = "configure" ]; then
         gtk-update-icon-cache -q -f -t /usr/share/icons/hicolor || true
     fi
 
+    # La regle du PTT par GPIO3 vient d'etre posee : udev doit la relire, et
+    # l'appliquer aux peripheriques deja branches.
+    if command -v udevadm >/dev/null 2>&1; then
+        udevadm control --reload-rules >/dev/null 2>&1 || true
+        udevadm trigger --subsystem-match=hidraw >/dev/null 2>&1 || true
+    fi
+
     # Hamlib ne peut pas ouvrir un port serie sans appartenance au groupe.
     echo "RemoteRig: pour piloter un poste en CAT, ajoutez votre utilisateur au"
     echo "           groupe dialout :  sudo usermod -a -G dialout \$USER"

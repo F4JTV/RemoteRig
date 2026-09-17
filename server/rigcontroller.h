@@ -16,14 +16,21 @@ class QSerialPort;
 namespace rr {
 
 struct RigConfig {
-    enum Backend { Hamlib, SerialPttOnly, None };
+    // Cm108PttOnly : pour une interface qui n'expose aucun port serie, comme
+    // la Digirig Lite. Le PTT passe par la ligne GPIO3 de la puce audio,
+    // et il n'y a pas de CAT du tout.
+    enum Backend { Hamlib, SerialPttOnly, None, Cm108PttOnly };
 
     Backend backend      = SerialPttOnly;
     int     hamlibModel  = 0;              // numero de modele Hamlib
     QString catPort;                       // ex. COM4 ou /dev/ttyUSB0
     int     catBaud      = 38400;
     QString pttPort;                       // vide = meme port que le CAT
-    QString pttType      = QStringLiteral("RTS");  // CAT | RTS | DTR | NONE
+    QString pttType      = QStringLiteral("RTS");
+    // Pour le CM108 : le peripherique HID et le numero de broche.
+    // GPIO3 est celui que cablent Digirig et les cartes RA.
+    QString cm108Path;
+    int     cm108Gpio    = 3;  // CAT | RTS | DTR | NONE
     int     pollMs       = 200;
     int     pttTailMs    = 120;            // maintien du PTT apres la fin de l'audio
     bool    dtrOnAlways  = false;          // alimentation d'interfaces type Digirig
@@ -73,6 +80,7 @@ signals:
 private:
     bool openHamlib();
     bool openSerialPtt();
+    bool openCm108();
     void applySerialPtt(bool on);
     void emitState();
 

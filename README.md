@@ -284,6 +284,45 @@ alone, "2.4 k": it fits beside the mode and the VFO, and it is how rigs label
 their own filters. The three are ordered widest to narrowest, so the order
 carries the meaning.
 
+
+## PTT methods
+
+Four ways to key the radio, chosen on the server.
+
+**CAT** sends the command over the control link. Nothing to wire, but the moment
+of keying depends on the rig answering.
+
+**RTS or DTR** toggles a serial line. Simple and widely used; the rig must be
+told which line, in its own menus.
+
+An interface that exposes **no serial port at all** — the Digirig Lite is one —
+has its own control mode, **CM108 GPIO PTT only**: no CAT, no serial port, the
+PTT alone through GPIO3. Choosing it hides the port and speed fields, which have
+nothing to control, and shows the CM108 ones.
+
+On Linux, the PTT line lives behind `/dev/hidraw*`, which only root may open by
+default. A udev rule ships with the project and hands access to whoever holds
+the current graphical session. The Debian package installs it in
+`/usr/lib/udev/rules.d` and reloads udev; `install.sh` offers to install it, or
+does so without asking with `--udev`, and removes it on `--uninstall`. Unplug
+and replug the interface afterwards.
+
+**CM108 / GPIO3** drives the general-purpose line of a CM108-family sound chip —
+Digirig, RA boards, many home-made cables. Hamlib writes straight to the HID
+device, so no serial port sits in the path: this is the most precise method, and
+the one to prefer for data modes, where the moment of keying matters. Leave the
+device field empty to let Hamlib find the card, or give a path such as
+`/dev/hidraw0`. The GPIO number stays on 3 unless your interface wires another
+line. On Linux, writing to a HID device usually needs a udev rule or membership
+of the group owning `/dev/hidraw*`.
+
+**PTT tone** suits interfaces that key the radio when they detect audio on the
+right channel. The output device is opened in stereo, the modulation stays on
+the left, and a tone — 2200 Hz by default, adjustable — is sent on the right for
+exactly as long as the transmission lasts, starting a moment before the first
+useful sample. Check that the radio is fed from the left channel only, otherwise
+the tone would be transmitted too.
+
 ## Bands and antenna tuner
 
 The band buttons are not a fixed list. On connection the server reads the rig's

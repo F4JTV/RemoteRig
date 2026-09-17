@@ -329,6 +329,15 @@ if(NOT ANDROID)
         # l'architecture sur Debian, or systemd ne regarde que lib/systemd/user.
         install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/packaging/systemd/remoterig-server.service
                 DESTINATION lib/systemd/user)
+
+        # Regle udev pour le PTT par GPIO3, posee la ou udev la lit. Un
+        # administrateur qui n'en veut pas la neutralise en deposant un fichier
+        # vide du meme nom dans /etc/udev/rules.d, qui a la priorite.
+        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/packaging/udev/99-remoterig-cm108.rules
+                DESTINATION lib/udev/rules.d)
+        # Et une copie sous la documentation, pour la retrouver facilement.
+        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/packaging/udev/99-remoterig-cm108.rules
+                DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/doc/remoterig)
     endif()
 
     # Debian attend le nom du paquet, en minuscules, pas celui du projet.

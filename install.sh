@@ -14,6 +14,8 @@
 #    --no-build        use the binaries already in build/
 #    --client-only     install the operator client alone
 #    --server-only     install the station server alone
+#    --udev            also install the CM108 udev rule (needs sudo)
+#    --no-udev         never install it, and do not ask
 #    --uninstall       remove what was installed
 #    -h, --help        this help
 # ============================================================================
@@ -27,6 +29,7 @@ BUILD_DIR="$SRC_DIR/build"
 PREFIX="$HOME/.local"
 DO_BUILD=1
 DO_UNINSTALL=0
+DO_UDEV=ask          # ask | yes | no
 WANT_SERVER=1
 WANT_CLIENT=1
 PREFIX_SET=0
@@ -45,6 +48,8 @@ while [ $# -gt 0 ]; do
         --no-build)    DO_BUILD=0 ;;
         --client-only) WANT_SERVER=0 ;;
         --server-only) WANT_CLIENT=0 ;;
+        --udev)        DO_UDEV=yes ;;
+        --no-udev)     DO_UDEV=no ;;
         --uninstall)   DO_UNINSTALL=1 ;;
         -h|--help)     usage ;;
         *)             die "Unknown option: $1  (try --help)" ;;
@@ -56,6 +61,8 @@ BINDIR="$PREFIX/bin"
 ICONDIR="$PREFIX/share/icons/hicolor"
 APPDIR="$PREFIX/share/applications"
 DOCDIR="$PREFIX/share/doc/remoterig"
+UDEV_RULE="$SRC_DIR/packaging/udev/99-remoterig-cm108.rules"
+UDEV_DEST=/etc/udev/rules.d/99-remoterig-cm108.rules
 
 # Writing outside the home directory needs root.
 case "$PREFIX" in
@@ -70,6 +77,37 @@ refresh_caches() {
         gtk-update-icon-cache -f -t "$ICONDIR" 2>/dev/null || true
 }
 
+# ---------------------------------------------------------------- regle udev
+# Le PTT par GPIO3 passe par /dev/hidraw*, que seul root peut ouvrir par
+# defaut. La regle confie l'acces a l'utilisateur de la session en cours.
+install_udev_rule() {
+    [ -f "$UDEV_RULE" ] || { say "Rule not found: $UDEV_RULE"; return 1; }
+
+    if [ "$(id -u)" -eq 0 ]; then
+        mkdir -p "$(dirname "$UDEV_DEST")" || return 1
+        cp "$UDEV_RULE" "$UDEV_DEST" || return 1
+    elif command -v sudo >/dev/null 2>&1; then
+        say "Installing the udev rule needs administrator rights."
+        sudo mkdir -p "$(dirname "$UDEV_DEST")" || return 1
+        sudo cp "$UDEV_RULE" "$UDEV_DEST" || return 1
+        sudo udevadm control --reload-rules 2>/dev/null || true
+        sudo udevadm trigger 2>/dev/null || true
+        say "$UDEV_DEST"
+        say "Unplug and replug the interface for it to take effect."
+        return 0
+    else
+        say "No sudo available. Install it yourself with:"
+        say "  sudo cp $UDEV_RULE $UDEV_DEST"
+        say "  sudo udevadm control --reload-rules && sudo udevadm trigger"
+        return 1
+    fi
+
+    udevadm control --reload-rules 2>/dev/null || true
+    udevadm trigger 2>/dev/null || true
+    say "$UDEV_DEST"
+    say "Unplug and replug the interface for it to take effect."
+}
+
 # ------------------------------------------------------------------ uninstall
 if [ "$DO_UNINSTALL" -eq 1 ]; then
     head_ "Removing from $PREFIX"
@@ -79,6 +117,15 @@ if [ "$DO_UNINSTALL" -eq 1 ]; then
         find "$ICONDIR" -name "$app.png" -delete 2>/dev/null || true
     done
     rm -rf "$DOCDIR"
+    if [ -f "$UDEV_DEST" ]; then
+        if [ "$(id -u)" -eq 0 ]; then
+            rm -f "$UDEV_DEST" && say "$UDEV_DEST"
+        elif command -v sudo >/dev/null 2>&1; then
+            sudo rm -f "$UDEV_DEST" && say "$UDEV_DEST"
+        else
+            say "Left behind, remove it yourself: $UDEV_DEST"
+        fi
+    fi
     refresh_caches
     say "Settings under ~/.config/F4JTV were left alone."
     head_ "Done."
@@ -137,8 +184,34 @@ if [ "$WANT_CLIENT" -eq 1 ]; then install_one remoterig-client; fi
 for doc in README.md README.fr.md LICENSE.txt; do
     if [ -f "$SRC_DIR/$doc" ]; then install -m 644 "$SRC_DIR/$doc" "$DOCDIR/$doc"; fi
 done
+# La regle est aussi deposee ici, pour la retrouver sans l'archive.
+if [ -f "$UDEV_RULE" ]; then install -m 644 "$UDEV_RULE" "$DOCDIR/"; fi
 
 refresh_caches
+
+# ------------------------------------------------------------ PTT par GPIO3
+if [ "$WANT_SERVER" -eq 1 ] && [ "$DO_UDEV" != "no" ]; then
+    if [ -f "$UDEV_DEST" ]; then
+        head_ "CM108 udev rule"
+        say "Already installed: $UDEV_DEST"
+    else
+        install_it=0
+        if [ "$DO_UDEV" = "yes" ]; then
+            install_it=1
+        elif [ -t 0 ]; then
+            # Seulement si l'on peut repondre : dans un script, on s'abstient.
+            head_ "CM108 udev rule"
+            say "PTT through a sound card's GPIO3 line needs access to /dev/hidraw*."
+            printf "  Install the rule now? [y/N] "
+            read -r reply
+            case "$reply" in [yYoO]*) install_it=1 ;; esac
+        fi
+        if [ "$install_it" -eq 1 ]; then
+            head_ "CM108 udev rule"
+            install_udev_rule || true
+        fi
+    fi
+fi
 
 # --------------------------------------------------------------------- report
 head_ "Done."
