@@ -112,11 +112,19 @@ ApplicationWindow {
 
     // Ombre portee sans effet graphique : un rectangle decale derriere.
     // Moins riche qu'un flou, mais disponible partout et gratuit a l'affichage.
+    // Ombre portee : un rectangle decale derriere. La geometrie est posee
+    // explicitement, jamais par anchors.fill : ancrer puis imposer y met les
+    // deux mecanismes en conflit, et l'element se retrouve avec une geometrie
+    // indeterminee.
     component DropShadow: Rectangle {
+        property Item target: parent
         property real offset: 4
+        x: 0
+        y: offset
+        width: target ? target.width : 0
+        height: target ? target.height : 0
         color: "#60000000"
         z: -1
-        y: offset
     }
 
     // Vumetre a maintien de crete. Une simple ProgressBar ne montre que
@@ -149,9 +157,13 @@ ApplicationWindow {
             }
         }
 
-        onClippedChanged: if (clipped) clipTimer.restart()
-        property bool clipLatched: clipTimer.running
-        Timer { id: clipTimer; interval: 1200 }
+        // Le temoin se verrouille sur un drapeau propre plutot que sur l'etat
+        // d'un minuteur : une valeur vraie des la creation ne declenche aucun
+        // changement, et le temoin serait reste eteint.
+        property bool clipLatched: false
+        onClippedChanged: if (clipped) { clipLatched = true; clipTimer.restart() }
+        Component.onCompleted: if (clipped) { clipLatched = true; clipTimer.restart() }
+        Timer { id: clipTimer; interval: 1200; onTriggered: clipLatched = false }
 
         Rectangle {
             id: track
@@ -163,19 +175,39 @@ ApplicationWindow {
             border.width: 1
             border.color: Qt.lighter(win.panel, 1.2)
 
-            // Vert, puis ambre, puis rouge : la zone haute se voit avant
-            // d'etre atteinte.
-            Rectangle {
-                anchors { left: parent.left; top: parent.top; bottom: parent.bottom
-                          leftMargin: 1; topMargin: 1; bottomMargin: 1 }
-                width: Math.max(0, (track.width - 2) * Math.min(level, 1))
-                radius: 2
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0;  color: "#3c9646" }
-                    GradientStop { position: 0.55; color: "#3c9646" }
-                    GradientStop { position: 0.75; color: "#c8a53c" }
-                    GradientStop { position: 1.0;  color: "#c83c32" }
+            // Trois segments de couleur unie, dont la position est celle de
+            // l'echelle et non celle du remplissage. Un degrade pose sur le
+            // rectangle de remplissage suivait sa largeur : a mi-niveau, la
+            // barre affichait deja tout le degrade jusqu'au rouge. Aucun
+            // degrade non plus, ce qui supprime un calcul que certains
+            // processeurs graphiques rendaient de travers.
+            Item {
+                anchors { fill: parent; margins: 1 }
+                clip: true
+
+                // Bornes des zones, en fraction de l'echelle.
+                readonly property real safeEnd: 0.55
+                readonly property real warnEnd: 0.80
+                readonly property real filled: Math.max(0, Math.min(level, 1)) * width
+
+                Rectangle {
+                    x: 0
+                    width: Math.min(parent.filled, parent.safeEnd * parent.width)
+                    height: parent.height
+                    color: "#3c9646"
+                }
+                Rectangle {
+                    x: parent.safeEnd * parent.width
+                    width: Math.max(0, Math.min(parent.filled, parent.warnEnd * parent.width)
+                                       - parent.safeEnd * parent.width)
+                    height: parent.height
+                    color: "#c8a53c"
+                }
+                Rectangle {
+                    x: parent.warnEnd * parent.width
+                    width: Math.max(0, parent.filled - parent.warnEnd * parent.width)
+                    height: parent.height
+                    color: "#c83c32"
                 }
             }
 
@@ -202,26 +234,32 @@ ApplicationWindow {
 
     // Croix de fermeture, dessinee comme les autres pictogrammes.
     component CloseGlyph: Item {
+        id: closeRoot
         property color glyphColor: win.dim
         implicitWidth: 26
         implicitHeight: 26
+        // On nomme la racine plutot que de remonter par parent.parent : ici les
+        // rectangles sont ses enfants directs, la chaine designait donc le
+        // conteneur exterieur, sans glyphColor. La couleur etait indefinie, et
+        // un pinceau non initialise dessine n'importe quoi.
         Rectangle {
             anchors.centerIn: parent
             width: 20; height: 2.5; radius: 1.5
             rotation: 45
-            color: parent.parent.glyphColor
+            color: closeRoot.glyphColor
         }
         Rectangle {
             anchors.centerIn: parent
             width: 20; height: 2.5; radius: 1.5
             rotation: -45
-            color: parent.parent.glyphColor
+            color: closeRoot.glyphColor
         }
     }
 
     // Point et trait : le pictogramme du morse, dessine comme les autres
     // puisque les polices d'Android n'en ont aucun.
     component MorseGlyph: Item {
+        id: morseRoot
         property color glyphColor: win.dim
         implicitWidth: 26
         implicitHeight: 26
@@ -231,12 +269,12 @@ ApplicationWindow {
             Rectangle {
                 width: 6; height: 6; radius: 3
                 anchors.verticalCenter: parent.verticalCenter
-                color: parent.parent.glyphColor
+                color: morseRoot.glyphColor
             }
             Rectangle {
                 width: 17; height: 6; radius: 3
                 anchors.verticalCenter: parent.verticalCenter
-                color: parent.parent.glyphColor
+                color: morseRoot.glyphColor
             }
         }
     }
@@ -376,10 +414,7 @@ ApplicationWindow {
                 GradientStop { position: 1.0; color: Qt.darker(win.panel, 1.10) }
             }
 
-            DropShadow {
-                anchors.fill: parent
-                radius: parent.radius
-            }
+            DropShadow { radius: parent.radius }
 
             // Un appui ouvre la saisie. Sans CAT il n'y a rien a regler.
             TapHandler {
@@ -611,7 +646,6 @@ ApplicationWindow {
             border.width: 2
 
             DropShadow {
-                anchors.fill: parent
                 radius: parent.radius
                 offset: 6
                 color: Station.ptt ? "#80ff0000" : "#70000000"
@@ -655,7 +689,6 @@ ApplicationWindow {
             onClicked: Station.startTune()
 
             DropShadow {
-                anchors.fill: parent
                 radius: parent.radius
                 offset: 6
             }

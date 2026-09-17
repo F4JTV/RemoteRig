@@ -61,11 +61,11 @@ struct ParamBuilder {
     ParamBuilder(const ParamBuilder &) = delete;
     ParamBuilder &operator=(const ParamBuilder &) = delete;
 
-    ParamBuilder(int dev, bool input)
+    ParamBuilder(int dev, bool input, int channels = 1)
     {
         const PaDeviceInfo *d = Pa_GetDeviceInfo(dev);
         p.device = dev;
-        p.channelCount = 1;
+        p.channelCount = channels;
         p.sampleFormat = paInt16;
         p.suggestedLatency = d ? (input ? d->defaultLowInputLatency
                                         : d->defaultLowOutputLatency)
@@ -225,10 +225,46 @@ int AudioEngine::inCallback(const void *in, void *, unsigned long frames,
 int AudioEngine::outCallback(const void *, void *out, unsigned long frames,
                              const PaStreamCallbackTimeInfo *, unsigned long, void *user)
 {
-    static_cast<AudioEngine *>(user)->renderPlayback(
-        static_cast<int16_t *>(out), size_t(frames));
+    auto *self = static_cast<AudioEngine *>(user);
+    int16_t *dst = static_cast<int16_t *>(out);
+
+    if (!self->m_toneEnabled) {
+        self->renderPlayback(dst, size_t(frames));
+        return paContinue;
+    }
+
+    // Sortie stereo : on rend la modulation en mono dans un tampon de travail,
+    // puis on entrelace avec la tonalite. Le tampon est dimensionne a
+    // l'ouverture du flux, jamais ici : allouer dans un callback audio est le
+    // moyen le plus sur de provoquer des coupures.
+    if (self->m_monoScratch.size() < frames)
+        self->m_monoScratch.assign(frames, 0);
+    self->renderPlayback(self->m_monoScratch.data(), size_t(frames));
+
+    const bool keyed = self->m_toneKeyed.load();
+    const double step = 2.0 * 3.14159265358979323846
+                        * double(self->m_toneHz) / double(kAudioRate);
+    for (unsigned long i = 0; i < frames; ++i) {
+        dst[2 * i] = self->m_monoScratch[i];          // gauche : la modulation
+        if (keyed) {
+            dst[2 * i + 1] = int16_t(22000.0 * std::sin(self->m_tonePhase));
+            self->m_tonePhase += step;
+            if (self->m_tonePhase > 6.283185307179586) self->m_tonePhase -= 6.283185307179586;
+        } else {
+            dst[2 * i + 1] = 0;
+            self->m_tonePhase = 0.0;
+        }
+    }
     return paContinue;
 }
+
+void AudioEngine::setPttTone(bool enabled, int hz)
+{
+    m_toneEnabled = enabled;
+    m_toneHz = hz > 0 ? hz : 2200;
+}
+
+void AudioEngine::setPttToneKeyed(bool keyed) { m_toneKeyed.store(keyed); }
 
 // ------------------------------------------------------------------ ouverture
 bool AudioEngine::startCapture(int deviceIndex, int framesPerBuffer)
@@ -303,7 +339,10 @@ bool AudioEngine::startPlayback(int deviceIndex, int framesPerBuffer)
     m_outFifo.reserve(m_outResamp.maxOutput(m_outPulled.size()) * 2 + 8192);
     m_outFifoPos = 0;
 
-    ParamBuilder pb(deviceIndex, false);
+    // Deux canaux si la tonalite de PTT est demandee, un seul sinon.
+    ParamBuilder pb(deviceIndex, false, m_toneEnabled ? 2 : 1);
+    if (m_toneEnabled)
+        m_monoScratch.assign(size_t(frames > 0 ? frames : 4096) + 1024, 0);
     m_outRing.reset();
     m_outResamp.reset();
 

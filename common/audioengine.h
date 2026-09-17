@@ -73,6 +73,14 @@ public:
 
     bool startCapture(int deviceIndex, int framesPerBuffer = 480);
     bool startPlayback(int deviceIndex, int framesPerBuffer = 480);
+
+    // Tonalite de PTT sur le canal droit. Certaines interfaces — Digirig entre
+    // autres — commutent le poste en detectant un signal sur ce canal, ce qui
+    // laisse au logiciel la maitrise de l'instant exact de la commutation. La
+    // sortie passe alors en stereo : modulation a gauche, tonalite a droite.
+    void setPttTone(bool enabled, int hz = 2200);
+    void setPttToneKeyed(bool keyed);
+    bool pttToneEnabled() const { return m_toneEnabled; }
     void stopCapture();
     void stopPlayback();
     void stopAll();
@@ -160,6 +168,13 @@ private:
     std::atomic<float> m_outPeak{0.0f};
     std::atomic<bool>  m_inClip{false};
     std::atomic<bool>  m_outClip{false};
+
+    // Tonalite de PTT. La phase n'est touchee que par le callback audio.
+    bool               m_toneEnabled = false;
+    int                m_toneHz = 2200;
+    std::atomic<bool>  m_toneKeyed{false};
+    double             m_tonePhase = 0.0;
+    std::vector<int16_t> m_monoScratch;
     QString m_lastError;
 };
 

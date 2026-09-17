@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <!DOCTYPE TS>
 <TS version="2.1" language="fr_FR">
 <context>
@@ -21,11 +21,11 @@
     </message>
     <message>
         <source>MIT licence — free to use, modify and redistribute.</source>
-        <translation>Licence MIT — libre d&apos;usage, de modification et de redistribution.</translation>
+        <translation>Licence MIT — libre d'usage, de modification et de redistribution.</translation>
     </message>
     <message>
         <source>&amp;User manual</source>
-        <translation>&amp;Manuel d&apos;utilisation</translation>
+        <translation>&amp;Manuel d'utilisation</translation>
     </message>
     <message>
         <source>fr</source>
@@ -33,7 +33,7 @@
     </message>
     <message>
         <source>User manual</source>
-        <translation>Manuel d&apos;utilisation</translation>
+        <translation>Manuel d'utilisation</translation>
     </message>
     <message>
         <source>The manual is missing from this build.</source>
@@ -41,12 +41,12 @@
     </message>
     <message>
         <source>Could not write the manual to %1.</source>
-        <translation>Impossible d&apos;écrire le manuel dans %1.</translation>
+        <translation>Impossible d'écrire le manuel dans %1.</translation>
     </message>
     <message>
         <source>No browser could be started. The manual is at:
 %1</source>
-        <translation>Aucun navigateur n&apos;a pu être lancé. Le manuel se trouve ici :
+        <translation>Aucun navigateur n'a pu être lancé. Le manuel se trouve ici :
 %1</translation>
     </message>
 </context>
@@ -58,7 +58,7 @@
     </message>
     <message>
         <source>This input device accepted no sample rate</source>
-        <translation>Aucun débit accepté par ce périphérique d&apos;entrée</translation>
+        <translation>Aucun débit accepté par ce périphérique d'entrée</translation>
     </message>
     <message>
         <source>This output device accepted no sample rate</source>
@@ -134,7 +134,7 @@
     <message>
         <source>The new language applies when the program starts again.
 Restart now?</source>
-        <translation>La nouvelle langue s&apos;applique au prochain démarrage du programme.
+        <translation>La nouvelle langue s'applique au prochain démarrage du programme.
 Redémarrer maintenant ?</translation>
     </message>
 </context>
@@ -274,7 +274,7 @@ Redémarrer maintenant ?</translation>
     </message>
     <message>
         <source>The key no longer changes the volume while this is on.</source>
-        <translation>La touche ne règle plus le volume tant que c&apos;est activé.</translation>
+        <translation>La touche ne règle plus le volume tant que c'est activé.</translation>
     </message>
     <message>
         <source>Publish a rigctld interface</source>
@@ -358,7 +358,7 @@ Redémarrer maintenant ?</translation>
     </message>
     <message>
         <source>Stop sending</source>
-        <translation>Arrêter l&apos;envoi</translation>
+        <translation>Arrêter l'envoi</translation>
     </message>
     <message>
         <source>Stop</source>
@@ -385,7 +385,7 @@ Redémarrer maintenant ?</translation>
         <translation>HORS BANDE</translation>
     </message>
     <message>
-        <source>Rig&apos;s own keyer memories</source>
+        <source>Rig's own keyer memories</source>
         <translation>Mémoires du manipulateur du poste</translation>
     </message>
 </context>
@@ -393,19 +393,19 @@ Redémarrer maintenant ?</translation>
     <name>RigController</name>
     <message>
         <source>I/O error — the serial port has disappeared; check the USB cable</source>
-        <translation>Erreur d&apos;entrée/sortie — le port série a disparu ; vérifiez le câble USB</translation>
+        <translation>Erreur d'entrée/sortie — le port série a disparu ; vérifiez le câble USB</translation>
     </message>
     <message>
         <source>no answer from the rig — check the port, the speed and that it is on</source>
-        <translation>Pas de réponse du poste — vérifiez le port, la vitesse, et qu&apos;il est allumé</translation>
+        <translation>Pas de réponse du poste — vérifiez le port, la vitesse, et qu'il est allumé</translation>
     </message>
     <message>
-        <source>this rig&apos;s Hamlib backend does not implement that command</source>
-        <translation>le pilote Hamlib de ce poste n&apos;implémente pas cette commande</translation>
+        <source>this rig's Hamlib backend does not implement that command</source>
+        <translation>le pilote Hamlib de ce poste n'implémente pas cette commande</translation>
     </message>
     <message>
         <source>this rig does not offer that function</source>
-        <translation>ce poste n&apos;offre pas cette fonction</translation>
+        <translation>ce poste n'offre pas cette fonction</translation>
     </message>
     <message>
         <source>the rig rejected the command</source>
@@ -475,7 +475,7 @@ Redémarrer maintenant ?</translation>
     <name>rr::ClientCore</name>
     <message>
         <source>PortAudio failed to start</source>
-        <translation>PortAudio n&apos;a pas pu démarrer</translation>
+        <translation>PortAudio n'a pas pu démarrer</translation>
     </message>
     <message>
         <source>Audio output: %1</source>
@@ -523,7 +523,7 @@ Redémarrer maintenant ?</translation>
     </message>
     <message>
         <source>Receive only: no microphone, transmit is disabled</source>
-        <translation>Écoute seule : aucun micro, l&apos;émission est désactivée</translation>
+        <translation>Écoute seule : aucun micro, l'émission est désactivée</translation>
     </message>
     <message>
         <source>No microphone: receive only</source>
@@ -610,7 +610,7 @@ Redémarrer maintenant ?</translation>
     </message>
     <message>
         <source>Transmit  (hold, or press space)</source>
-        <translation>Émettre  (maintenir, ou barre d&apos;espace)</translation>
+        <translation>Émettre  (maintenir, ou barre d'espace)</translation>
     </message>
     <message>
         <source>Offline</source>
@@ -684,17 +684,17 @@ En numérique (FT8, VARA, PSK), basculez sur PCM 16 bits : Opus déforme les ton
     </message>
     <message>
         <source>Also accept connections from other machines</source>
-        <translation>Accepter aussi les connexions d&apos;autres machines</translation>
+        <translation>Accepter aussi les connexions d'autres machines</translation>
     </message>
     <message>
-        <source>In WSJT-X / fldigi / JS8Call, set the radio to &quot;Hamlib NET rigctl&quot;, address 127.0.0.1:4532, PTT &quot;CAT&quot;.
+        <source>In WSJT-X / fldigi / JS8Call, set the radio to "Hamlib NET rigctl", address 127.0.0.1:4532, PTT "CAT".
 
 For audio, pick the virtual cable in the Audio tab (VB-Audio Cable on Windows, a PulseAudio or PipeWire null-sink module on Linux), and point the data-mode software at the other end of that same cable.
 
 VARA works the same way: its PTT goes through rigctld, its audio through the cable.</source>
         <translation>Réglage côté WSJT-X / fldigi / JS8Call : radio « Hamlib NET rigctl », adresse 127.0.0.1:4532, PTT « CAT ».
 
-Audio : choisissez le câble virtuel dans l&apos;onglet Audio (VB-Audio Cable sous Windows, un module null-sink PulseAudio ou PipeWire sous Linux), et pointez le logiciel numérique sur l&apos;autre extrémité du même câble.
+Audio : choisissez le câble virtuel dans l'onglet Audio (VB-Audio Cable sous Windows, un module null-sink PulseAudio ou PipeWire sous Linux), et pointez le logiciel numérique sur l'autre extrémité du même câble.
 
 VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le câble.</translation>
     </message>
@@ -744,7 +744,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>Needed after plugging in a USB sound card: the device list is read once at startup.</source>
-        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n&apos;est lue qu&apos;au démarrage.</translation>
+        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n'est lue qu'au démarrage.</translation>
     </message>
     <message>
         <source>No microphone found — receive only</source>
@@ -756,7 +756,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>Disconnect first: the device list cannot be reread while the audio streams are open.</source>
-        <translation>Déconnectez-vous d&apos;abord : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
+        <translation>Déconnectez-vous d'abord : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
     </message>
     <message>
         <source>Device list reread.</source>
@@ -772,7 +772,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>No playback device: nothing could be heard.</source>
-        <translation>Aucun périphérique de sortie : vous n&apos;entendriez rien.</translation>
+        <translation>Aucun périphérique de sortie : vous n'entendriez rien.</translation>
     </message>
     <message>
         <source>Microphone shaping</source>
@@ -883,8 +883,8 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
         <translation>Accord</translation>
     </message>
     <message>
-        <source>Start the radio&apos;s antenna tuner</source>
-        <translation>Lance le coupleur d&apos;antenne du poste</translation>
+        <source>Start the radio's antenna tuner</source>
+        <translation>Lance le coupleur d'antenne du poste</translation>
     </message>
     <message>
         <source>TUNE</source>
@@ -896,7 +896,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>Rebuild the link on its own after a drop, retrying after 1 s then doubling up to 30 s.</source>
-        <translation>Rétablit la liaison seule après une coupure, en réessayant après 1 s puis en doublant jusqu&apos;à 30 s.</translation>
+        <translation>Rétablit la liaison seule après une coupure, en réessayant après 1 s puis en doublant jusqu'à 30 s.</translation>
     </message>
     <message>
         <source>Cancel</source>
@@ -968,11 +968,11 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>OUT OF BAND — %1 would span %2 – %3 kHz</source>
-        <translation>HORS BANDE — en %1 l&apos;émission occuperait %2 – %3 kHz</translation>
+        <translation>HORS BANDE — en %1 l'émission occuperait %2 – %3 kHz</translation>
     </message>
     <message>
-        <source>Operates an amateur radio station over the network: the rig&apos;s audio, its PTT, and when CAT is available its frequency, mode and bands. Low-latency Opus or 16-bit PCM, optional encryption, and a rigctld interface for data-mode software.</source>
-        <translation>Exploite une station radioamateur par le réseau : l&apos;audio du poste, son PTT, et quand le CAT est disponible sa fréquence, son mode et ses bandes. Opus faible latence ou PCM 16 bits, chiffrement facultatif, et une interface rigctld pour les logiciels numériques.</translation>
+        <source>Operates an amateur radio station over the network: the rig's audio, its PTT, and when CAT is available its frequency, mode and bands. Low-latency Opus or 16-bit PCM, optional encryption, and a rigctld interface for data-mode software.</source>
+        <translation>Exploite une station radioamateur par le réseau : l'audio du poste, son PTT, et quand le CAT est disponible sa fréquence, son mode et ses bandes. Opus faible latence ou PCM 16 bits, chiffrement facultatif, et une interface rigctld pour les logiciels numériques.</translation>
     </message>
     <message>
         <source>Receive filter width for the current mode</source>
@@ -995,7 +995,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
         <translation>Étroite</translation>
     </message>
     <message>
-        <source>Rig&apos;s own keyer memories</source>
+        <source>Rig's own keyer memories</source>
         <translation>Mémoires du manipulateur du poste</translation>
     </message>
 </context>
@@ -1087,7 +1087,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>Capabilities: %1 transmit range(s) · %2</source>
-        <translation>Capacités : %1 plage(s) d&apos;émission · %2</translation>
+        <translation>Capacités : %1 plage(s) d'émission · %2</translation>
     </message>
     <message>
         <source>no extra capability</source>
@@ -1100,6 +1100,30 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     <message>
         <source>CAT link lost: %1</source>
         <translation>Liaison CAT perdue : %1</translation>
+    </message>
+    <message>
+        <source>CM108 GPIO PTT ready (no CAT)</source>
+        <translation>PTT par GPIO CM108 prêt (sans CAT)</translation>
+    </message>
+    <message>
+        <source>Hamlib could not start</source>
+        <translation>Hamlib n'a pas pu démarrer</translation>
+    </message>
+    <message>
+        <source>No CM108 device — check the path, and the permissions on /dev/hidraw* under Linux</source>
+        <translation>Aucun périphérique CM108 — vérifiez le chemin, et les droits sur /dev/hidraw* sous Linux</translation>
+    </message>
+    <message>
+        <source>CM108 open failed: %1</source>
+        <translation>Ouverture du CM108 impossible : %1</translation>
+    </message>
+    <message>
+        <source>This build has no Hamlib, CM108 PTT is unavailable</source>
+        <translation>Cette compilation est sans Hamlib, le PTT CM108 n'est pas disponible</translation>
+    </message>
+    <message>
+        <source>CM108 PTT is not available on Windows: Hamlib only implements it for Linux. Use the PTT tone instead.</source>
+        <translation>Le PTT CM108 n'est pas disponible sous Windows : Hamlib ne l'implémente que pour Linux. Utilisez la tonalité de PTT à la place.</translation>
     </message>
 </context>
 <context>
@@ -1121,7 +1145,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     <name>rr::ServerCore</name>
     <message>
         <source>PortAudio failed to start</source>
-        <translation>PortAudio n&apos;a pas pu démarrer</translation>
+        <translation>PortAudio n'a pas pu démarrer</translation>
     </message>
     <message>
         <source>Audio input: %1</source>
@@ -1205,7 +1229,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>Back inside a transmit range</source>
-        <translation>Retour dans une plage d&apos;émission</translation>
+        <translation>Retour dans une plage d'émission</translation>
     </message>
     <message>
         <source>Transmission refused: out of band</source>
@@ -1213,7 +1237,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>Out of band in %1: emission would span %2 to %3 Hz</source>
-        <translation>Hors bande en %1 : l&apos;émission occuperait %2 à %3 Hz</translation>
+        <translation>Hors bande en %1 : l'émission occuperait %2 à %3 Hz</translation>
     </message>
     <message>
         <source>Client silent for %1 s — transmission stopped</source>
@@ -1272,7 +1296,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>PortAudio failed to start</source>
-        <translation>PortAudio n&apos;a pas pu démarrer</translation>
+        <translation>PortAudio n'a pas pu démarrer</translation>
     </message>
     <message>
         <source>Warning: empty password, anyone reaching the port can key the rig.</source>
@@ -1301,6 +1325,10 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     <message>
         <source>Stopping.</source>
         <translation>Arrêt.</translation>
+    </message>
+    <message>
+        <source>No network address found — is this machine connected?</source>
+        <translation>Aucune adresse réseau trouvée — cette machine est-elle connectée ?</translation>
     </message>
 </context>
 <context>
@@ -1435,7 +1463,7 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     </message>
     <message>
         <source>PTT hold after transmit</source>
-        <translation>Maintien PTT en fin d&apos;émission</translation>
+        <translation>Maintien PTT en fin d'émission</translation>
     </message>
     <message>
         <source>RX level</source>
@@ -1512,16 +1540,12 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
         <translation>Actualiser les adresses</translation>
     </message>
     <message>
-        <source>No network interface found</source>
-        <translation>Aucune interface réseau trouvée</translation>
-    </message>
-    <message>
         <source>Look for devices again</source>
         <translation>Rechercher les périphériques</translation>
     </message>
     <message>
         <source>Needed after plugging in a USB sound card: the device list is read once at startup.</source>
-        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n&apos;est lue qu&apos;au démarrage.</translation>
+        <translation>Utile après avoir branché une carte son USB : la liste des périphériques n'est lue qu'au démarrage.</translation>
     </message>
     <message>
         <source>No capture device found</source>
@@ -1533,7 +1557,7 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
     </message>
     <message>
         <source>Stop the server first: the device list cannot be reread while the audio streams are open.</source>
-        <translation>Arrêtez d&apos;abord le serveur : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
+        <translation>Arrêtez d'abord le serveur : la liste ne peut pas être relue tant que les flux audio sont ouverts.</translation>
     </message>
     <message>
         <source>Device list reread.</source>
@@ -1545,19 +1569,63 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
     </message>
     <message>
         <source>The station needs one capture device and one playback device. A Raspberry Pi has no analogue input: use a USB sound card.</source>
-        <translation>La station a besoin d&apos;un périphérique de capture et d&apos;un de sortie. Un Raspberry Pi n&apos;a aucune entrée analogique : utilisez une carte son USB.</translation>
+        <translation>La station a besoin d'un périphérique de capture et d'un de sortie. Un Raspberry Pi n'a aucune entrée analogique : utilisez une carte son USB.</translation>
     </message>
     <message>
         <source>Refuse transmission out of band</source>
-        <translation>Refuser l&apos;émission hors bande</translation>
+        <translation>Refuser l'émission hors bande</translation>
     </message>
     <message>
-        <source>Blocks the PTT when the frequency falls outside the transmit ranges the rig declares. Turn this off for a transverter, whose working range is not the rig&apos;s.</source>
-        <translation>Bloque le PTT quand la fréquence sort des plages d&apos;émission que le poste déclare. À désactiver pour un transverter, dont la plage de travail n&apos;est pas celle du poste.</translation>
+        <source>Blocks the PTT when the frequency falls outside the transmit ranges the rig declares. Turn this off for a transverter, whose working range is not the rig's.</source>
+        <translation>Bloque le PTT quand la fréquence sort des plages d'émission que le poste déclare. À désactiver pour un transverter, dont la plage de travail n'est pas celle du poste.</translation>
     </message>
     <message>
         <source>Runs next to the transceiver and shares it over the network: two-way audio, PTT, and CAT control through Hamlib or plain serial RTS/DTR keying. A client, on the desktop or on a phone, then operates the station from anywhere.</source>
-        <translation>Tourne à côté du transceiver et le partage sur le réseau : audio bidirectionnel, PTT, et pilotage CAT par Hamlib ou simple commutation RTS/DTR sur port série. Un client, sur bureau ou sur téléphone, exploite alors la station depuis n&apos;importe où.</translation>
+        <translation>Tourne à côté du transceiver et le partage sur le réseau : audio bidirectionnel, PTT, et pilotage CAT par Hamlib ou simple commutation RTS/DTR sur port série. Un client, sur bureau ou sur téléphone, exploite alors la station depuis n'importe où.</translation>
+    </message>
+    <message>
+        <source>No network address found — is this machine connected?</source>
+        <translation>Aucune adresse réseau trouvée — cette machine est-elle connectée ?</translation>
+    </message>
+    <message>
+        <source>PTT through the sound chip's GPIO3 line, as on a Digirig or an RA board. The most precise method: no serial port in the path.</source>
+        <translation>PTT par la ligne GPIO3 de la puce audio, comme sur un Digirig ou une carte RA. La méthode la plus précise : aucun port série dans le chemin.</translation>
+    </message>
+    <message>
+        <source>auto — or /dev/hidraw0, \\?\hid#...</source>
+        <translation>auto — ou /dev/hidraw0, \\?\hid#…</translation>
+    </message>
+    <message>
+        <source>GPIO </source>
+        <translation>GPIO </translation>
+    </message>
+    <message>
+        <source>CM108 device</source>
+        <translation>Périphérique CM108</translation>
+    </message>
+    <message>
+        <source>PTT tone on the right audio channel</source>
+        <translation>Tonalité de PTT sur le canal audio droit</translation>
+    </message>
+    <message>
+        <source>Sends a tone on the right channel while transmitting; the modulation stays on the left. Interfaces such as Digirig key the radio on that tone. The output device is opened in stereo.</source>
+        <translation>Émet une tonalité sur le canal droit pendant l'émission ; la modulation reste à gauche. Les interfaces comme le Digirig commutent le poste sur cette tonalité. La sortie est alors ouverte en stéréo.</translation>
+    </message>
+    <message>
+        <source> Hz</source>
+        <translation> Hz</translation>
+    </message>
+    <message>
+        <source>CM108 GPIO PTT only — no serial port</source>
+        <translation>PTT par GPIO CM108 seul — sans port série</translation>
+    </message>
+    <message>
+        <source>Serial port</source>
+        <translation>Port série</translation>
+    </message>
+    <message>
+        <source>Hamlib implements CM108 PTT for Linux only: it opens /dev/hidraw, which has no Windows equivalent. On Windows, use the PTT tone on the right audio channel instead.</source>
+        <translation>Hamlib n'implémente le PTT CM108 que pour Linux : il ouvre /dev/hidraw, sans équivalent Windows. Sous Windows, utilisez plutôt la tonalité de PTT sur le canal audio droit.</translation>
     </message>
 </context>
 </TS>
