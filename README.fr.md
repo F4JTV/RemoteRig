@@ -12,6 +12,24 @@ C++17 / Qt6 / PortAudio / Opus / Hamlib. Windows, Linux et Android, même code.
 
 *English version: [README.md](README.md)*
 
+
+<p align="center">
+  <img src="docs/images/RemoteRig_Client_Android.png" alt="Client tactile" width="260">
+</p>
+
+<p align="center">
+  <img src="docs/images/RemoteRig_Client_Station.png" alt="Client bureau" width="680">
+</p>
+
+<p align="center">
+  <img src="docs/images/RemoteRig_Server_Radio.png" alt="Serveur de station" width="560">
+</p>
+
+*Le client tactile sur Android, le client bureau connecté à un FT-891, et le
+serveur de station. Les autres onglets sont détaillés dans le manuel
+d'utilisation, accessible par Aide → Manuel.*
+
+
 ---
 
 ## Architecture
@@ -360,11 +378,14 @@ que par le canal gauche, sans quoi la tonalité serait elle aussi transmise.
 
 ### CW généré par le serveur
 
-Certains postes n'acceptent pas de texte libre par le CAT : leur commande de
-manipulateur ne sait que rejouer leurs propres mémoires. Les Yaesu HF sont dans
-ce cas — envoyer `AGN?` déclenche la mémoire 1, quel que soit le texte. Pour
-ceux-là, le serveur peut produire les éléments lui-même et manipuler une ligne
-série câblée sur la prise KEY du poste.
+Certains postes n'acceptent pas de texte libre par le CAT : la commande est
+refusée, ou le poste manipule une de ses mémoires internes au lieu du texte.
+Pour ceux-là, le serveur peut produire les éléments lui-même et manipuler une
+ligne série câblée sur la prise KEY du poste.
+
+Essayez d'abord le manipulateur du poste : il ne demande aucun câblage, et sur
+un FT-891 piloté en CAT il transmet bien le texte. Ce qui suit est le recours
+lorsqu'il ne fonctionne pas.
 
 Cochez **Générer le CW ici et manipuler une ligne série**, choisissez le port et
 la ligne, DTR ou RTS. Elle peut être inversée pour les interfaces qui la
