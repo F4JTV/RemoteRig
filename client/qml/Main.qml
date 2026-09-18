@@ -1148,6 +1148,39 @@ ApplicationWindow {
                 }
 
                 MenuSeparator { Layout.fillWidth: true }
+                Label { text: qsTr("Raw CAT"); color: win.amber; font.bold: true; font.pixelSize: 17 }
+
+                Label {
+                    Layout.fillWidth: true
+                    // Une seule chaine : QML ne colle pas deux litteraux adjacents
+                    // comme le fait le C++, c'est une erreur de syntaxe.
+                    text: qsTr("Sent to the rig untouched, for what no driver covers. The answer appears in the log.")
+                    color: win.dim
+                    font.pixelSize: 11
+                    wrapMode: Text.Wrap
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    TextField {
+                        id: catField
+                        Layout.fillWidth: true
+                        enabled: Station.connected && Station.hasCat
+                        placeholderText: qsTr("for example IF;")
+                        inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                        onAccepted: if (text.length) { Station.sendCat(text); text = "" }
+                    }
+                    ReliefButton {
+                        Layout.preferredWidth: 96
+                        Layout.preferredHeight: 44
+                        text: qsTr("Send")
+                        active: Station.connected && Station.hasCat && catField.text.length > 0
+                        onClicked: { Station.sendCat(catField.text); catField.text = "" }
+                    }
+                }
+
+                MenuSeparator { Layout.fillWidth: true }
                 Label { text: qsTr("Appearance"); color: win.amber; font.bold: true; font.pixelSize: 17 }
 
                 ComboBox {

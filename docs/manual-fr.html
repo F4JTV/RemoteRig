@@ -153,17 +153,30 @@ uniquement l'audio.</td></tr>
 que Hamlib connaît.</td></tr>
 <tr><td>Port CAT, vitesse</td><td>Le port série du câble de commande et son
 débit. Les deux doivent correspondre au réglage du poste.</td></tr>
-<tr><td>Port PTT, RTS ou DTR</td><td>Utilisés en mode <em>PTT série seul</em>.
-Certaines interfaces veulent le DTR maintenu en permanence : la case
-correspondante s'en charge.</td></tr>
-<tr><td>Période d'interrogation</td><td>Fréquence de lecture de l'état du poste,
-200 ms par défaut. L'allonger soulage un câble CAT lent.</td></tr>
+<tr><td>Type de PTT</td><td><em>CAT</em> par commande, <em>RTS</em> ou
+<em>DTR</em> sur une ligne du port série, <em>CM108</em> par la ligne GPIO3 d'une
+puce audio, ou <em>NONE</em>.</td></tr>
+<tr><td>Port PTT</td><td>Utilisé en RTS ou DTR. Certaines interfaces veulent le
+DTR maintenu en permanence : la case correspondante s'en charge.</td></tr>
+<tr><td>Périphérique CM108</td><td>Apparaît pour le type CM108. Vide, Hamlib
+cherche la carte lui-même ; sinon un chemin, <code>/dev/hidraw0</code> sous
+Linux. Le numéro de GPIO reste sur 3 sauf câblage particulier.</td></tr>
+<tr><td>Manipulateur CW</td><td>Voir <a href="#telegraphie">Télégraphie</a> :
+le serveur peut générer lui-même les éléments et manipuler une ligne
+série.</td></tr>
 </table>
 
 <h3>Onglet Audio</h3>
 <p>Choisissez l'entrée — ce que le poste reçoit — et la sortie — ce qui part en
 émission. Le bouton <em>Rechercher les périphériques</em> prend en compte une
 carte branchée après le lancement.</p>
+<p><strong>La tonalité de PTT</strong> convient aux interfaces qui commutent le
+poste en détectant un signal sur le canal droit — les Digirig, notamment. La
+sortie passe alors en stéréo : la modulation reste à gauche, la tonalité part à
+droite, et elle précède le premier échantillon utile. La fréquence est réglable,
+2200 Hz par défaut. Vérifiez que le poste n'est alimenté que par le canal
+gauche, sans quoi la tonalité serait transmise.</p>
+
 <p>La taille de trame règle le compromis entre latence et robustesse. 480
 échantillons, soit 10 ms, convient à la plupart des cas ; descendez à 240 sur un
 réseau local rapide, montez à 960 si le son hache.</p>
@@ -223,7 +236,23 @@ compresse au rapport 3:1. Le vumètre d'émission indique la réduction de gain
 appliquée.</p>
 <p>Réglez le niveau micro de façon que le <strong>trait de crête</strong> monte
 dans la zone ambre sans que le témoin d'écrêtage, à droite du vumètre,
-s'allume.</p>
+s'allume. Les trois zones du vumètre — vert jusqu'à 55 %, ambre jusqu'à 80 %,
+rouge au-delà — sont fixes : leur position sur l'échelle a un sens absolu, et la
+crête tient une seconde et demie avant de retomber.</p>
+
+<h3>Commande CAT brute</h3>
+<p>Un champ envoie une séquence telle quelle au poste, pour les réglages
+qu'aucun pilote ne couvre. Le terminateur est ajouté s'il manque, rien d'autre
+n'est interprété, et la réponse revient dans le journal. Il dispose de son propre onglet
+<strong>CAT</strong> dans le client bureau, avec un mode d'emploi de la syntaxe
+et son journal propre ; sur téléphone il se trouve dans le tiroir.</p>
+
+<aside>
+Chaque changement de fréquence, de mode et de VFO est <strong>relu</strong>
+après avoir été écrit. Les postes arrondissent au pas de leur VFO ou refusent en
+silence ; quand ce qu'ils annoncent diffère de ce qui a été demandé, le journal
+dit les deux.
+</aside>
 
 <h2 id="exploitation">5. Exploitation</h2>
 
@@ -240,6 +269,13 @@ poste déclare : chaque transceiver affiche donc les siennes. Un clic sur
 l'afficheur de fréquence ouvre une saisie qui accepte
 <code>14.074</code>, <code>14074</code> ou <code>14074000</code>.</p>
 
+<h3>Modes et largeur de filtre</h3>
+<p>La liste des modes vient du poste : chacun affiche les siens. À côté, les
+trois largeurs de filtre que Hamlib normalise pour le mode courant — large,
+normale, étroite — exprimées en kilohertz. En choisir une applique la largeur
+sans changer de mode ; le poste répond ce qu'il a réellement retenu, et la liste
+se recale sur lui.</p>
+
 <h3>Coupleur d'antenne</h3>
 <p>Le bouton <em>Accord</em> n'apparaît que si le poste accepte la commande et
 répond en CAT. Pendant le cycle, l'indicateur affiche <em>ACCORD</em> et le PTT
@@ -251,12 +287,44 @@ se mesure qu'en émission ; la dernière valeur est conservée au relâchement, 
 temps de la lire, et remise à zéro à l'émission suivante. Au-delà de 2:1, le
 chiffre passe au rouge.</p>
 
-<h3>Télégraphie</h3>
-<p>C'est le poste qui manipule : le texte part par le CAT et son manipulateur
-électronique génère les éléments. Le bouton point-trait ouvre le panneau —
-vitesse, six mémoires, champ libre, et un arrêt toujours à portée.</p>
-<p>Les mémoires utilisent <code>%c</code> pour votre indicatif, saisi une fois
-dans les réglages. <code>CQ CQ DE %c %c K</code> devient donc votre appel.</p>
+<h3 id="telegraphie">Télégraphie</h3>
+
+<p>Deux voies, selon ce que le poste accepte.</p>
+
+<p><strong>Le poste manipule lui-même.</strong> Le texte part par le CAT et son
+manipulateur électronique génère les éléments. C'est la voie la plus simple
+quand elle fonctionne.</p>
+
+<p>Elle ne fonctionne pas partout. Sur les Yaesu HF, la commande de manipulateur
+ne sait que rejouer les mémoires internes du poste : envoyer <code>AGN?</code>
+déclenche la mémoire 1, quel que soit le texte. Cinq boutons appellent donc ces
+mémoires directement, numérotées de 1 à 5. Elles s'enregistrent sur le poste,
+dans les menus 04-07 à 04-11 sur un FT-891, et contiennent jusqu'à
+50 caractères chacune.</p>
+
+<p><strong>Le serveur génère les éléments.</strong> Cochez <em>Générer le CW ici
+et manipuler une ligne série</em> dans l'onglet Poste, choisissez le port et la
+ligne, DTR ou RTS, câblée sur la prise KEY. Le réseau n'intervient jamais dans
+l'espacement : seul le texte voyage, la cadence est produite à côté du
+poste.</p>
+
+<aside>
+Le port de manipulation doit être libre : un port série ne s'ouvre pas deux
+fois, donc ce ne peut pas être celui que tient déjà le pilotage du poste. Les
+transceivers qui exposent deux ports USB, et les interfaces comme la SCU-17,
+vous en laissent un pour cela.
+</aside>
+
+<p>La <strong>correction</strong> raccourcit chaque élément manipulé, jamais les
+silences, pour compenser le temps que met le poste à établir sa porteuse.
+Commencez à zéro et ne l'augmentez que si vos correspondants signalent des
+points écourtés. La ligne peut être inversée, et le PTT maintenu pendant tout le
+message sur les postes qui ne commutent pas seuls.</p>
+
+<p>Le panneau s'ouvre par le bouton point-trait du bandeau : vitesse, six
+mémoires logicielles, les cinq du poste, un champ libre, et un arrêt toujours à
+portée. Les mémoires logicielles utilisent <code>%c</code> pour votre indicatif,
+saisi une fois dans les réglages.</p>
 
 <h3>Garde-fou de bord de bande</h3>
 <p>Le serveur juge le <strong>spectre réellement émis</strong>, pas la porteuse.
@@ -267,7 +335,7 @@ sort. Quand l'émission est bloquée, le client affiche les bornes calculées.</
 <h2 id="numerique">6. Modes numériques</h2>
 
 <p>Le client publie une interface <strong>rigctld</strong> sur
-<code>127.0.0.1:4532</code>. WSJT-X, fldigi ou VARA pilotent alors le poste
+<code>127.0.0.1:4532</code>. WSJT-X, fldigi ou JS8Call pilotent alors le poste
 distant comme s'il était local.</p>
 
 <ol>
@@ -304,6 +372,13 @@ redirigez malgré tout, activez le chiffrement obligatoire et choisissez un mot
 de passe long.
 </aside>
 
+<h3>Surveillance du client</h3>
+<p>Un client qui disparaît sans fermer sa connexion — téléphone éteint, Wi-Fi
+coupé — laisserait sinon le poste en émission : TCP ne s'en aperçoit qu'au bout
+de dizaines de minutes. Le serveur date donc tout ce qu'il reçoit. Deux
+secondes de silence, PTT enfoncé, coupent l'émission ; quinze secondes libèrent
+la station pour un autre client.</p>
+
 <h2 id="depannage">8. Dépannage</h2>
 
 <table>
@@ -328,6 +403,19 @@ affiche les capacités détectées juste après la connexion.</td></tr>
 le nom du port pour une adresse réseau. Corrigé depuis la version 1.0.0 : le
 serveur transmet désormais <code>/dev/ttyUSB3</code>. Sur une version
 antérieure, saisissez le chemin complet.</td></tr>
+
+<tr><td>Le CW envoie autre chose que le texte</td>
+<td>Le poste rejoue une de ses mémoires internes au lieu de manipuler le texte.
+Utilisez les cinq boutons de mémoires, ou activez le manipulateur du
+serveur.</td></tr>
+
+<tr><td>Le PTT CM108 ne fonctionne pas sous Linux</td>
+<td>Droits sur <code>/dev/hidraw*</code>. Installez la règle udev livrée avec le
+projet, puis débranchez et rebranchez l'interface.</td></tr>
+
+<tr><td>Le PTT CM108 ne fonctionne pas sous Windows</td>
+<td>Hamlib ne l'implémente que pour Linux : il ouvre <code>/dev/hidraw</code>,
+sans équivalent Windows. Utilisez la tonalité de PTT.</td></tr>
 
 <tr><td>Le son hache</td>
 <td>Augmentez le tampon de gigue, puis la taille de trame. Sur un réseau

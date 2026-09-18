@@ -338,6 +338,12 @@ void ClientCore::handleControl(const QJsonObject &o)
         return;
     }
 
+    if (t == "catReply") {
+        const QString answer = o["s"].toString();
+        emit catReply(answer);
+        return;
+    }
+
     if (t == "caps") {
         m_caps = RigCaps::fromJson(o["c"].toObject());
         emit capsChanged(m_caps);
@@ -382,6 +388,12 @@ void ClientCore::sendMorse(const QString &text)
 void ClientCore::stopMorse()
 {
     if (m_authenticated) sendJson(QJsonObject{{"t", "cmd"}, {"c", "cwstop"}});
+}
+
+void ClientCore::sendCatString(const QString &command)
+{
+    if (m_authenticated)
+        sendJson(QJsonObject{{"t", "cmd"}, {"c", "cat"}, {"s", command}});
 }
 
 void ClientCore::setKeySpeed(int wpm)

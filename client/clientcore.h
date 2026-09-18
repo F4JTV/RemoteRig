@@ -60,6 +60,7 @@ public slots:
     void sendMorse(const QString &text);
     void stopMorse();
     void setKeySpeed(int wpm);
+    void sendCatString(const QString &command);
     void setCodec(const QString &codec, int bitrate);
     void setGains(float rx, float tx);
     void setJitterMs(int ms);
@@ -74,6 +75,8 @@ signals:
     void stateChanged(const rr::RigState &st);
     void capsChanged(const rr::RigCaps &caps);
     void logMessage(const QString &msg);
+    // Reponse du poste a une commande CAT brute, pour l'onglet dedie.
+    void catReply(const QString &reply);
     // Compte a rebours avant la prochaine tentative, et son rang.
     void retryCountdown(int secondsLeft, int attempt);
 

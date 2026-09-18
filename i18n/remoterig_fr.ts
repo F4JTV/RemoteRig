@@ -141,6 +141,14 @@ Redémarrer maintenant ?</translation>
 <context>
     <name>Main</name>
     <message>
+        <source>TUNE</source>
+        <translation>ACCORD</translation>
+    </message>
+    <message>
+        <source>CW</source>
+        <translation>CW</translation>
+    </message>
+    <message>
         <source>Connected</source>
         <translation>Connectée</translation>
     </message>
@@ -157,6 +165,10 @@ Redémarrer maintenant ?</translation>
         <translation>Signal</translation>
     </message>
     <message>
+        <source>SWR</source>
+        <translation>ROS</translation>
+    </message>
+    <message>
         <source>RX</source>
         <translation>RX</translation>
     </message>
@@ -167,6 +179,54 @@ Redémarrer maintenant ?</translation>
     <message>
         <source>Round trip %1 ms · buffer %2 ms · %3 lost</source>
         <translation>Aller-retour %1 ms · tampon %2 ms · %3 perdues</translation>
+    </message>
+    <message>
+        <source>OUT OF BAND</source>
+        <translation>HORS BANDE</translation>
+    </message>
+    <message>
+        <source>Tuning…</source>
+        <translation>Accord…</translation>
+    </message>
+    <message>
+        <source>Tune</source>
+        <translation>Accord</translation>
+    </message>
+    <message>
+        <source>Frequency</source>
+        <translation>Fréquence</translation>
+    </message>
+    <message>
+        <source>MHz, kHz or Hz — 14.074, 14074 and 14074000 all work.</source>
+        <translation>MHz, kHz ou Hz — 14.074, 14074 et 14074000 conviennent tous.</translation>
+    </message>
+    <message>
+        <source>Keyer</source>
+        <translation>Manipulateur</translation>
+    </message>
+    <message>
+        <source>%1 WPM</source>
+        <translation>%1 MPM</translation>
+    </message>
+    <message>
+        <source>Rig's own keyer memories</source>
+        <translation>Mémoires du manipulateur du poste</translation>
+    </message>
+    <message>
+        <source>Text to send</source>
+        <translation>Texte à envoyer</translation>
+    </message>
+    <message>
+        <source>Send</source>
+        <translation>Envoyer</translation>
+    </message>
+    <message>
+        <source>Stop sending</source>
+        <translation>Arrêter l'envoi</translation>
+    </message>
+    <message>
+        <source>Stop</source>
+        <translation>Arrêter</translation>
     </message>
     <message>
         <source>Station</source>
@@ -181,6 +241,18 @@ Redémarrer maintenant ?</translation>
         <translation>Chiffrer</translation>
     </message>
     <message>
+        <source>Auto-reconnect</source>
+        <translation>Reconnexion automatique</translation>
+    </message>
+    <message>
+        <source>UDP audio port, 0 to follow the server</source>
+        <translation>Port audio UDP, 0 pour suivre le serveur</translation>
+    </message>
+    <message>
+        <source>auto</source>
+        <translation>auto</translation>
+    </message>
+    <message>
         <source>Password</source>
         <translation>Mot de passe</translation>
     </message>
@@ -189,12 +261,28 @@ Redémarrer maintenant ?</translation>
         <translation>Déconnecter</translation>
     </message>
     <message>
+        <source>Cancel</source>
+        <translation>Renoncer</translation>
+    </message>
+    <message>
         <source>Connect</source>
         <translation>Connecter</translation>
     </message>
     <message>
         <source>Audio</source>
         <translation>Audio</translation>
+    </message>
+    <message>
+        <source>Microphone</source>
+        <translation>Micro</translation>
+    </message>
+    <message>
+        <source>Playback</source>
+        <translation>Écoute</translation>
+    </message>
+    <message>
+        <source>Rescan audio devices</source>
+        <translation>Rechercher les périphériques</translation>
     </message>
     <message>
         <source>Codec</source>
@@ -241,28 +329,16 @@ Redémarrer maintenant ?</translation>
         <translation>Réduction</translation>
     </message>
     <message>
-        <source>Log</source>
-        <translation>Journal</translation>
+        <source>My callsign</source>
+        <translation>Mon indicatif</translation>
     </message>
     <message>
-        <source>Appearance</source>
-        <translation>Apparence</translation>
+        <source>callsign</source>
+        <translation>indicatif</translation>
     </message>
     <message>
-        <source>Build of %1</source>
-        <translation>Compilé le %1</translation>
-    </message>
-    <message>
-        <source>Microphone</source>
-        <translation>Micro</translation>
-    </message>
-    <message>
-        <source>Playback</source>
-        <translation>Écoute</translation>
-    </message>
-    <message>
-        <source>Rescan audio devices</source>
-        <translation>Rechercher les périphériques</translation>
+        <source>Memories — %c stands for your callsign.</source>
+        <translation>Mémoires — %c désigne votre indicatif.</translation>
     </message>
     <message>
         <source>Controls</source>
@@ -285,6 +361,22 @@ Redémarrer maintenant ?</translation>
         <translation>Un logiciel numérique de cet appareil peut alors piloter le poste distant : Hamlib NET rigctl, 127.0.0.1:%1.</translation>
     </message>
     <message>
+        <source>Raw CAT</source>
+        <translation>CAT brute</translation>
+    </message>
+    <message>
+        <source>Sent to the rig untouched, for what no driver covers. The answer appears in the log.</source>
+        <translation>Envoyée telle quelle au poste, pour ce qu'aucun pilote ne couvre. La réponse apparaît dans le journal.</translation>
+    </message>
+    <message>
+        <source>for example IF;</source>
+        <translation>par exemple IF;</translation>
+    </message>
+    <message>
+        <source>Appearance</source>
+        <translation>Apparence</translation>
+    </message>
+    <message>
         <source>Dark</source>
         <translation>Sombre</translation>
     </message>
@@ -301,92 +393,12 @@ Redémarrer maintenant ?</translation>
         <translation>Clair</translation>
     </message>
     <message>
-        <source>Frequency</source>
-        <translation>Fréquence</translation>
+        <source>Build of %1</source>
+        <translation>Compilé le %1</translation>
     </message>
     <message>
-        <source>MHz, kHz or Hz — 14.074, 14074 and 14074000 all work.</source>
-        <translation>MHz, kHz ou Hz — 14.074, 14074 et 14074000 conviennent tous.</translation>
-    </message>
-    <message>
-        <source>UDP audio port, 0 to follow the server</source>
-        <translation>Port audio UDP, 0 pour suivre le serveur</translation>
-    </message>
-    <message>
-        <source>auto</source>
-        <translation>auto</translation>
-    </message>
-    <message>
-        <source>TUNE</source>
-        <translation>ACCORD</translation>
-    </message>
-    <message>
-        <source>Tuning…</source>
-        <translation>Accord…</translation>
-    </message>
-    <message>
-        <source>Tune</source>
-        <translation>Accord</translation>
-    </message>
-    <message>
-        <source>Auto-reconnect</source>
-        <translation>Reconnexion automatique</translation>
-    </message>
-    <message>
-        <source>Cancel</source>
-        <translation>Renoncer</translation>
-    </message>
-    <message>
-        <source>CW</source>
-        <translation>CW</translation>
-    </message>
-    <message>
-        <source>Keyer</source>
-        <translation>Manipulateur</translation>
-    </message>
-    <message>
-        <source>%1 WPM</source>
-        <translation>%1 MPM</translation>
-    </message>
-    <message>
-        <source>Text to send</source>
-        <translation>Texte à envoyer</translation>
-    </message>
-    <message>
-        <source>Send</source>
-        <translation>Envoyer</translation>
-    </message>
-    <message>
-        <source>Stop sending</source>
-        <translation>Arrêter l'envoi</translation>
-    </message>
-    <message>
-        <source>Stop</source>
-        <translation>Arrêter</translation>
-    </message>
-    <message>
-        <source>My callsign</source>
-        <translation>Mon indicatif</translation>
-    </message>
-    <message>
-        <source>callsign</source>
-        <translation>indicatif</translation>
-    </message>
-    <message>
-        <source>Memories — %c stands for your callsign.</source>
-        <translation>Mémoires — %c désigne votre indicatif.</translation>
-    </message>
-    <message>
-        <source>SWR</source>
-        <translation>ROS</translation>
-    </message>
-    <message>
-        <source>OUT OF BAND</source>
-        <translation>HORS BANDE</translation>
-    </message>
-    <message>
-        <source>Rig's own keyer memories</source>
-        <translation>Mémoires du manipulateur du poste</translation>
+        <source>Log</source>
+        <translation>Journal</translation>
     </message>
 </context>
 <context>
@@ -685,18 +697,6 @@ En numérique (FT8, VARA, PSK), basculez sur PCM 16 bits : Opus déforme les ton
     <message>
         <source>Also accept connections from other machines</source>
         <translation>Accepter aussi les connexions d'autres machines</translation>
-    </message>
-    <message>
-        <source>In WSJT-X / fldigi / JS8Call, set the radio to "Hamlib NET rigctl", address 127.0.0.1:4532, PTT "CAT".
-
-For audio, pick the virtual cable in the Audio tab (VB-Audio Cable on Windows, a PulseAudio or PipeWire null-sink module on Linux), and point the data-mode software at the other end of that same cable.
-
-VARA works the same way: its PTT goes through rigctld, its audio through the cable.</source>
-        <translation>Réglage côté WSJT-X / fldigi / JS8Call : radio « Hamlib NET rigctl », adresse 127.0.0.1:4532, PTT « CAT ».
-
-Audio : choisissez le câble virtuel dans l'onglet Audio (VB-Audio Cable sous Windows, un module null-sink PulseAudio ou PipeWire sous Linux), et pointez le logiciel numérique sur l'autre extrémité du même câble.
-
-VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le câble.</translation>
     </message>
     <message>
         <source>rejected</source>
@@ -998,6 +998,49 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
         <source>Rig's own keyer memories</source>
         <translation>Mémoires du manipulateur du poste</translation>
     </message>
+    <message>
+        <source>CAT</source>
+        <translation>CAT</translation>
+    </message>
+    <message>
+        <source>Sends a command straight to the radio, for settings no driver covers: a menu peculiar to one model, a rare function. Nothing is interpreted here — what you type is what the radio receives.</source>
+        <translation>Envoie une commande directement au poste, pour les réglages qu'aucun pilote ne couvre : un menu propre à un modèle, une fonction rare. Rien n'est interprété ici — ce que vous tapez est ce que le poste reçoit.</translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;How to use it.&lt;/b&gt; Look up the command in your radio's CAT manual, type it, press Enter. The terminator is added if you leave it out. Commands ending in a question mark ask the radio something and its answer appears below; the others change a setting and usually answer nothing.&lt;br&gt;&lt;br&gt;&lt;b&gt;Yaesu, Kenwood, Elecraft&lt;/b&gt; use readable text ending in a semicolon: &lt;code&gt;IF;&lt;/code&gt; reports the whole state of the radio, &lt;code&gt;FA;&lt;/code&gt; the frequency of VFO A, &lt;code&gt;FA014074000;&lt;/code&gt; sets it to 14.074 MHz, &lt;code&gt;MD0;&lt;/code&gt; reports the mode.&lt;br&gt;&lt;b&gt;Icom&lt;/b&gt; use binary frames, which cannot be typed here.&lt;br&gt;&lt;br&gt;&lt;b&gt;Careful.&lt;/b&gt; A wrong command is at best ignored, at worst it changes a setting you did not intend. Nothing checks what you send, and the band-edge guard does not apply: a frequency written this way can put the radio out of band.</source>
+        <translation>&lt;b&gt;Comment s'en servir.&lt;/b&gt; Cherchez la commande dans le manuel CAT de votre poste, tapez-la, appuyez sur Entrée. Le terminateur est ajouté si vous l'omettez. Les commandes qui finissent par un point d'interrogation interrogent le poste et sa réponse s'affiche ci-dessous ; les autres modifient un réglage et ne répondent généralement rien.&lt;br&gt;&lt;br&gt;&lt;b&gt;Yaesu, Kenwood, Elecraft&lt;/b&gt; emploient du texte lisible terminé par un point-virgule : &lt;code&gt;IF;&lt;/code&gt; donne tout l'état du poste, &lt;code&gt;FA;&lt;/code&gt; la fréquence du VFO A, &lt;code&gt;FA014074000;&lt;/code&gt; la règle à 14,074 MHz, &lt;code&gt;MD0;&lt;/code&gt; donne le mode.&lt;br&gt;&lt;b&gt;Icom&lt;/b&gt; emploient des trames binaires, qui ne peuvent pas se taper ici.&lt;br&gt;&lt;br&gt;&lt;b&gt;Attention.&lt;/b&gt; Une commande erronée est au mieux ignorée, au pire elle modifie un réglage que vous ne vouliez pas toucher. Rien ne vérifie ce que vous envoyez, et le garde-fou de bord de bande ne s'applique pas : une fréquence écrite ainsi peut mettre le poste hors bande.</translation>
+    </message>
+    <message>
+        <source>IF;</source>
+        <translation>IF;</translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation>Effacer</translation>
+    </message>
+    <message>
+        <source>In WSJT-X / fldigi / JS8Call, set the radio to "Hamlib NET rigctl", address 127.0.0.1:4532, PTT "CAT".
+
+For audio, pick the virtual cable in the Audio tab (VB-Audio Cable on Windows, a PulseAudio or PipeWire null-sink module on Linux), and point the data-mode software at the other end of that same cable.</source>
+        <translation>Dans WSJT-X / fldigi / JS8Call, réglez la radio sur « Hamlib NET rigctl », adresse 127.0.0.1:4532, PTT « CAT ».
+
+Pour l'audio, choisissez le câble virtuel dans l'onglet Audio (VB-Audio Cable sous Windows, un module null-sink PulseAudio ou PipeWire sous Linux), et pointez le logiciel de modes numériques sur l'autre extrémité de ce même câble.</translation>
+    </message>
+</context>
+<context>
+    <name>rr::CwKeyer</name>
+    <message>
+        <source>CW keyer: cannot open %1 — %2</source>
+        <translation>Manipulateur CW : impossible d'ouvrir %1 — %2</translation>
+    </message>
+    <message>
+        <source>CW keyer on %1, %2 line, %3 WPM</source>
+        <translation>Manipulateur CW sur %1, ligne %2, %3 MPM</translation>
+    </message>
+    <message>
+        <source>CW keyer: no port open</source>
+        <translation>Manipulateur CW : aucun port ouvert</translation>
+    </message>
 </context>
 <context>
     <name>rr::RigController</name>
@@ -1125,6 +1168,30 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
         <source>CM108 PTT is not available on Windows: Hamlib only implements it for Linux. Use the PTT tone instead.</source>
         <translation>Le PTT CM108 n'est pas disponible sous Windows : Hamlib ne l'implémente que pour Linux. Utilisez la tonalité de PTT à la place.</translation>
     </message>
+    <message>
+        <source>CAT command refused: %1</source>
+        <translation>Commande CAT refusée : %1</translation>
+    </message>
+    <message>
+        <source>CAT %1 sent, no answer</source>
+        <translation>CAT %1 envoyée, sans réponse</translation>
+    </message>
+    <message>
+        <source>CAT %1 → %2</source>
+        <translation>CAT %1 → %2</translation>
+    </message>
+    <message>
+        <source>Frequency set to %1 Hz, rig reports %2</source>
+        <translation>Fréquence réglée à %1 Hz, le poste annonce %2</translation>
+    </message>
+    <message>
+        <source>Mode set to %1, rig reports %2</source>
+        <translation>Mode réglé sur %1, le poste annonce %2</translation>
+    </message>
+    <message>
+        <source>VFO set to %1, rig reports %2</source>
+        <translation>VFO réglé sur %1, le poste annonce %2</translation>
+    </message>
 </context>
 <context>
     <name>rr::RigctldServer</name>
@@ -1250,6 +1317,10 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     <message>
         <source>No news from the client</source>
         <translation>Plus de nouvelles du client</translation>
+    </message>
+    <message>
+        <source>Raw CAT from client: %1</source>
+        <translation>CAT brute reçue du client : %1</translation>
     </message>
 </context>
 <context>
@@ -1412,10 +1483,6 @@ VARA se pilote de la même façon : son PTT passe par rigctld, son audio par le 
     <message>
         <source>CAT polling</source>
         <translation>Relecture CAT</translation>
-    </message>
-    <message>
-        <source>Keep DTR asserted (powers Digirig-style interfaces)</source>
-        <translation>Maintenir DTR actif (alimente les interfaces type Digirig)</translation>
     </message>
     <message>
         <source>Audio interface</source>
@@ -1626,6 +1693,42 @@ Exposé sur Internet, activez-le et ouvrez les deux ports vers cette machine.</t
     <message>
         <source>Hamlib implements CM108 PTT for Linux only: it opens /dev/hidraw, which has no Windows equivalent. On Windows, use the PTT tone on the right audio channel instead.</source>
         <translation>Hamlib n'implémente le PTT CM108 que pour Linux : il ouvre /dev/hidraw, sans équivalent Windows. Sous Windows, utilisez plutôt la tonalité de PTT sur le canal audio droit.</translation>
+    </message>
+    <message>
+        <source>Generate CW here and key a serial line</source>
+        <translation>Générer le CW ici et manipuler une ligne série</translation>
+    </message>
+    <message>
+        <source>For rigs whose CAT keyer can only replay their own memories — Yaesu HF sets among them. The elements are produced next to the radio, so the network never takes part in the spacing.</source>
+        <translation>Pour les postes dont le manipulateur CAT ne sait que rejouer leurs propres mémoires — les Yaesu HF en font partie. Les éléments sont produits à côté du poste : le réseau n'intervient jamais dans l'espacement.</translation>
+    </message>
+    <message>
+        <source>Key port</source>
+        <translation>Port de manipulation</translation>
+    </message>
+    <message>
+        <source>Invert the line</source>
+        <translation>Inverser la ligne</translation>
+    </message>
+    <message>
+        <source>Hold PTT during the message</source>
+        <translation>Maintenir le PTT pendant le message</translation>
+    </message>
+    <message>
+        <source> ms</source>
+        <translation> ms</translation>
+    </message>
+    <message>
+        <source>Shortens every keyed element, never the silences, to make up for the time the rig takes to raise its carrier.</source>
+        <translation>Raccourcit chaque élément manipulé, jamais les silences, pour compenser le temps que met le poste à établir sa porteuse.</translation>
+    </message>
+    <message>
+        <source>Correction</source>
+        <translation>Correction</translation>
+    </message>
+    <message>
+        <source>Keep DTR asserted</source>
+        <translation>Maintenir le DTR actif</translation>
     </message>
 </context>
 </TS>

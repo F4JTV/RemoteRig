@@ -137,6 +137,7 @@ ClientWindow::ClientWindow(QWidget *parent) : QMainWindow(parent)
     tabs->addTab(buildDataPage(),    tr("Data modes"));
     m_cwPage = buildCwPage();
     tabs->addTab(m_cwPage, tr("CW"));
+    tabs->addTab(buildCatPage(), tr("CAT"));
     root->addWidget(tabs, 1);
 
     m_log = new QPlainTextEdit;
@@ -568,6 +569,76 @@ void ClientWindow::sendMorseText(const QString &text)
     appendLog(tr("CW: %1").arg(payload));
 }
 
+// Commande CAT brute. Un onglet a part : rien a voir avec la telegraphie, et
+// c'est un outil de mise au point, a tenir a l'ecart des commandes de trafic.
+QWidget *ClientWindow::buildCatPage()
+{
+    auto *page = new QWidget;
+    auto *v = new QVBoxLayout(page);
+
+    auto *intro = new QLabel(tr(
+        "Sends a command straight to the radio, for settings no driver covers: "
+        "a menu peculiar to one model, a rare function. Nothing is interpreted "
+        "here — what you type is what the radio receives."));
+    intro->setWordWrap(true);
+    v->addWidget(intro);
+
+    auto *how = new QLabel(tr(
+        "<b>How to use it.</b> Look up the command in your radio's CAT manual, "
+        "type it, press Enter. The terminator is added if you leave it out. "
+        "Commands ending in a question mark ask the radio something and its "
+        "answer appears below; the others change a setting and usually answer "
+        "nothing.<br><br>"
+        "<b>Yaesu, Kenwood, Elecraft</b> use readable text ending in a "
+        "semicolon: <code>IF;</code> reports the whole state of the radio, "
+        "<code>FA;</code> the frequency of VFO A, <code>FA014074000;</code> sets "
+        "it to 14.074 MHz, <code>MD0;</code> reports the mode.<br>"
+        "<b>Icom</b> use binary frames, which cannot be typed here.<br><br>"
+        "<b>Careful.</b> A wrong command is at best ignored, at worst it changes "
+        "a setting you did not intend. Nothing checks what you send, and the "
+        "band-edge guard does not apply: a frequency written this way can put "
+        "the radio out of band."));
+    how->setWordWrap(true);
+    how->setTextFormat(Qt::RichText);
+    v->addWidget(how);
+
+    auto *row = new QHBoxLayout;
+    m_catText = new QLineEdit;
+    m_catText->setPlaceholderText(tr("IF;"));
+    auto *sendBtn = new QPushButton(tr("Send"));
+    auto send = [this] {
+        const QString cmd = m_catText->text().trimmed();
+        if (cmd.isEmpty() || !m_connected) return;
+        m_catLog->appendPlainText(QStringLiteral("> %1").arg(cmd));
+        QMetaObject::invokeMethod(m_core, "sendCatString", Qt::QueuedConnection,
+                                  Q_ARG(QString, cmd));
+        m_catText->clear();
+    };
+    connect(m_catText, &QLineEdit::returnPressed, this, send);
+    connect(sendBtn, &QPushButton::clicked, this, send);
+    row->addWidget(m_catText, 1);
+    row->addWidget(sendBtn);
+    v->addLayout(row);
+    m_catWidgets << sendBtn;
+
+    // Journal propre a l'onglet : les echanges CAT se lisent mieux ensemble
+    // qu'eparpilles dans le journal general.
+    m_catLog = new QPlainTextEdit;
+    m_catLog->setReadOnly(true);
+    m_catLog->setMaximumBlockCount(200);
+    m_catLog->setStyleSheet(QStringLiteral("font-family:monospace;"));
+    v->addWidget(m_catLog, 1);
+
+    auto *clear = new QPushButton(tr("Clear"));
+    connect(clear, &QPushButton::clicked, m_catLog, &QPlainTextEdit::clear);
+    auto *bottom = new QHBoxLayout;
+    bottom->addStretch();
+    bottom->addWidget(clear);
+    v->addLayout(bottom);
+
+    return page;
+}
+
 QWidget *ClientWindow::buildDataPage()
 {
     auto *w = new QWidget;
@@ -598,8 +669,7 @@ QWidget *ClientWindow::buildDataPage()
         "address 127.0.0.1:4532, PTT \"CAT\".\n\n"
         "For audio, pick the virtual cable in the Audio tab (VB-Audio Cable on Windows, "
         "a PulseAudio or PipeWire null-sink module on Linux), and point the data-mode "
-        "software at the other end of that same cable.\n\n"
-        "VARA works the same way: its PTT goes through rigctld, its audio through the cable."));
+        "software at the other end of that same cable."));
     hint->setWordWrap(true);
     f->addRow(hint);
 

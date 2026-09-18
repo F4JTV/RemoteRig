@@ -1,5 +1,5 @@
 // Serveur compatible rigctld, ecoute en local (127.0.0.1:4532).
-// WSJT-X, fldigi, JS8Call ou VARA s'y connectent en "Hamlib NET rigctl"
+// WSJT-X, fldigi ou JS8Call s'y connectent en "Hamlib NET rigctl"
 // et pilotent le poste distant : frequence, mode et PTT.
 #pragma once
 

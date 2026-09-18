@@ -152,16 +152,30 @@ only</em> for plain RTS/DTR, <em>None</em> to share audio alone.</td></tr>
 knows.</td></tr>
 <tr><td>CAT port, baud</td><td>The control cable's serial port and its speed.
 Both must match the rig's own setting.</td></tr>
-<tr><td>PTT port, RTS or DTR</td><td>Used in <em>Serial PTT only</em> mode. Some
-interfaces want DTR held permanently; a checkbox does that.</td></tr>
-<tr><td>Poll interval</td><td>How often the rig's state is read, 200 ms by
-default. Lengthen it to relieve a slow CAT cable.</td></tr>
+<tr><td>PTT type</td><td><em>CAT</em> by command, <em>RTS</em> or <em>DTR</em> on
+a serial line, <em>CM108</em> through a sound chip's GPIO3 line, or
+<em>NONE</em>.</td></tr>
+<tr><td>PTT port</td><td>Used for RTS or DTR. Some interfaces want DTR held
+permanently; a checkbox does that.</td></tr>
+<tr><td>CM108 device</td><td>Appears for the CM108 type. Leave it empty and
+Hamlib finds the card itself; otherwise give a path, <code>/dev/hidraw0</code>
+on Linux. The GPIO number stays on 3 unless your interface wires another
+line.</td></tr>
+<tr><td>CW keyer</td><td>See <a href="#morse">Morse</a>: the server can generate
+the elements itself and key a serial line.</td></tr>
 </table>
 
 <h3>Audio tab</h3>
 <p>Pick the input — what the rig receives — and the output — what goes out on
 transmit. <em>Rescan audio devices</em> picks up a card plugged in after
 launch.</p>
+<p><strong>The PTT tone</strong> suits interfaces that key the radio when they
+detect audio on the right channel — Digirig among them. The output is then
+opened in stereo: the modulation stays on the left, the tone goes out on the
+right, and it starts before the first useful sample. The frequency is
+adjustable, 2200 Hz by default. Check that the radio is fed from the left
+channel only, otherwise the tone would be transmitted.</p>
+
 <p>Frame size trades latency against robustness. 480 samples, that is 10 ms,
 suits most cases; go down to 240 on a fast local network, up to 960 if the
 audio breaks up.</p>
@@ -217,7 +231,23 @@ to gain latency.</td></tr>
 300 Hz, lifts presence around 2 kHz, cuts above 3.2 kHz and compresses at 3:1.
 The transmit meter shows the gain reduction applied.</p>
 <p>Set the mic level so the <strong>peak mark</strong> reaches the amber zone
-without lighting the clip indicator to the right of the meter.</p>
+without lighting the clip indicator to the right of the meter. The meter's three
+zones — green to 55 %, amber to 80 %, red beyond — are fixed: their place on the
+scale means something absolute, and the peak holds for a second and a half
+before falling back.</p>
+
+<h3>Raw CAT command</h3>
+<p>A field sends a sequence to the rig untouched, for the settings no driver
+covers. The terminator is added when missing, nothing else is interpreted, and
+the answer comes back in the log. It has its own <strong>CAT</strong> tab in the desktop
+client, with a short guide to the command syntax and its own log; on the phone
+it sits in the drawer.</p>
+
+<aside>
+Every frequency, mode and VFO change is <strong>read back</strong> after being
+written. Rigs round to their VFO step or refuse silently; when what they report
+differs from what was asked, the log says both.
+</aside>
 
 <h2 id="operating">5. Operating</h2>
 
@@ -233,6 +263,12 @@ running, keyer sending, or frequency out of band.</p>
 transceiver shows its own. Clicking the frequency display opens an entry that
 accepts <code>14.074</code>, <code>14074</code> or <code>14074000</code>.</p>
 
+<h3>Modes and filter width</h3>
+<p>The mode list comes from the rig, so each shows its own. Beside it, the three
+filter widths Hamlib normalises for the current mode — wide, normal, narrow — in
+kilohertz. Picking one applies the width without changing mode; the rig answers
+with what it actually kept, and the list follows it.</p>
+
 <h3>Antenna tuner</h3>
 <p>The <em>Tune</em> button appears only when the rig accepts the command and is
 answering on CAT. During the cycle the indicator reads <em>TUNE</em> and the PTT
@@ -244,12 +280,41 @@ measurable while transmitting; the last reading is held after unkeying, long
 enough to read, and cleared on the next transmission. Past 2:1 the figure turns
 red.</p>
 
-<h3>Morse</h3>
-<p>The rig keys itself: the text goes out over CAT and its electronic keyer
-generates the elements. The dot-and-dash button opens the panel — speed, six
-memories, a free-text field, and a stop kept within reach.</p>
-<p>Memories use <code>%c</code> for your callsign, entered once in the settings.
-<code>CQ CQ DE %c %c K</code> therefore becomes your own call.</p>
+<h3 id="morse">Morse</h3>
+
+<p>Two routes, depending on what the rig accepts.</p>
+
+<p><strong>The rig keys itself.</strong> The text goes out over CAT and the rig's
+own electronic keyer generates the elements. The simplest route when it
+works.</p>
+
+<p>It does not work everywhere. On Yaesu HF sets, the keyer command only replays
+the rig's internal memories: sending <code>AGN?</code> plays memory 1 whatever
+the text. Five buttons therefore call those memories directly, numbered 1 to 5.
+They are recorded on the rig itself — menus 04-07 to 04-11 on an FT-891 — and
+hold up to 50 characters each.</p>
+
+<p><strong>The server generates the elements.</strong> Tick <em>Generate CW here
+and key a serial line</em> on the Rig tab, choose the port and the line, DTR or
+RTS, wired to the KEY jack. The network never takes part in the spacing: only
+the text travels, and the rhythm is produced next to the radio.</p>
+
+<aside>
+The keying port must be free: a serial port cannot be opened twice, so it cannot
+be the one the rig control already holds. Transceivers that expose two USB
+serial ports, and interfaces such as the SCU-17, leave you one for this.
+</aside>
+
+<p><strong>Correction</strong> shortens every keyed element, never the silences,
+to make up for the time the rig takes to raise its carrier. Start at zero and
+raise it only if your correspondents report clipped dots. The line can be
+inverted, and the PTT held for the whole message on rigs that do not key
+themselves.</p>
+
+<p>The panel opens from the dot-and-dash button in the top bar: speed, six
+software memories, the rig's own five, a free-text field, and a stop kept within
+reach. Software memories use <code>%c</code> for your callsign, entered once in
+the settings.</p>
 
 <h3>Band-edge guard</h3>
 <p>The server judges the <strong>emitted spectrum</strong>, not the carrier. In
@@ -260,8 +325,8 @@ transmission is blocked, the client shows the computed limits.</p>
 <h2 id="data">6. Data modes</h2>
 
 <p>The client publishes a <strong>rigctld</strong> interface on
-<code>127.0.0.1:4532</code>. WSJT-X, fldigi or VARA then drive the remote rig as
-if it were local.</p>
+<code>127.0.0.1:4532</code>. WSJT-X, fldigi or JS8Call then drive the remote rig
+as if it were local.</p>
 
 <ol>
   <li>Switch the codec to <strong>16-bit PCM</strong>: Opus is made for voice
@@ -295,6 +360,13 @@ tunnel — VPN or WireGuard — to port forwarding. If you forward anyway, requi
 encryption and choose a long password.
 </aside>
 
+<h3>Client watchdog</h3>
+<p>A client that vanishes without closing its connection — a phone switched off,
+a Wi-Fi link that drops — would otherwise leave the rig transmitting: TCP does
+not notice for tens of minutes. The server therefore times everything it hears.
+Two seconds of silence with the PTT down stops the transmission; fifteen seconds
+releases the station for another client.</p>
+
 <h2 id="trouble">8. Troubleshooting</h2>
 
 <table>
@@ -317,6 +389,18 @@ lists the detected capabilities right after connecting.</td></tr>
 <td>If the log shows <code>cannot get host "ttyUSB3"</code>, Hamlib took the
 port name for a network address. Fixed since 1.0.0: the server now passes
 <code>/dev/ttyUSB3</code>. On an older build, type the full path.</td></tr>
+
+<tr><td>CW sends something other than the text</td>
+<td>The rig is replaying one of its internal memories instead of keying the
+text. Use the five memory buttons, or turn on the server's own keyer.</td></tr>
+
+<tr><td>CM108 PTT does not work on Linux</td>
+<td>Permissions on <code>/dev/hidraw*</code>. Install the udev rule shipped with
+the project, then unplug and replug the interface.</td></tr>
+
+<tr><td>CM108 PTT does not work on Windows</td>
+<td>Hamlib implements it for Linux only: it opens <code>/dev/hidraw</code>,
+which has no Windows equivalent. Use the PTT tone instead.</td></tr>
 
 <tr><td>The audio breaks up</td>
 <td>Raise the jitter buffer, then the frame size. On a busy network, switch to

@@ -357,6 +357,15 @@ void ClientBridge::sendCw(const QString &text)
     appendLog(tr("CW: %1").arg(payload));
 }
 
+// Sequence envoyee telle quelle au poste. La reponse arrive dans le journal.
+void ClientBridge::sendCat(const QString &command)
+{
+    const QString cmd = command.trimmed();
+    if (cmd.isEmpty()) return;
+    QMetaObject::invokeMethod(m_core, "sendCatString", Qt::QueuedConnection,
+                              Q_ARG(QString, cmd));
+}
+
 void ClientBridge::stopCw()
 {
     QMetaObject::invokeMethod(m_core, "stopMorse", Qt::QueuedConnection);

@@ -52,6 +52,7 @@ private:
     QWidget *buildAudioPage();
     QWidget *buildDataPage();
     QWidget *buildCwPage();
+    QWidget *buildCatPage();
     void setPtt(bool on);
     void setCatEnabled(bool on);
     void rebuildBands(const QList<rr::Band> &bands);
@@ -108,6 +109,8 @@ private:
     QWidget   *m_cwPage = nullptr;
     QLineEdit *m_myCall = nullptr;
     QLineEdit *m_cwText = nullptr;
+    QLineEdit *m_catText = nullptr;
+    QPlainTextEdit *m_catLog = nullptr;
     QSpinBox  *m_wpm = nullptr;
     QList<QLineEdit *> m_cwMacros;
     QGridLayout *m_bandGrid = nullptr;

@@ -189,6 +189,7 @@ public slots:
     Q_INVOKABLE QString expandMacro(const QString &text) const;
     Q_INVOKABLE void sendCw(const QString &text);
     Q_INVOKABLE void stopCw();
+    Q_INVOKABLE void sendCat(const QString &command);
     Q_INVOKABLE void refreshDevices();
     QStringList bandNames() const;
     double bandFrequency(int index) const;
