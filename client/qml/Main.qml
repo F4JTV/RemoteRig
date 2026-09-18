@@ -391,13 +391,36 @@ ApplicationWindow {
         }
         }
 
-        // Corps : marge laterale, pour que seul le bandeau touche les bords.
-        ColumnLayout {
+        // Corps deroulant.
+        //
+        // Le contenu demande environ 750 unites logiques de hauteur. Sur un
+        // telephone plus court que cela, en mode paysage, ou en ecran partage,
+        // le bas de la page — donc le bouton d'emission — deviendrait
+        // inatteignable. Le contenu defile plutot que d'etre rogne.
+        //
+        // La colonne recoit sa largeur et calcule sa hauteur seule : aucune
+        // dependance circulaire, comme dans le tiroir CW.
+        Flickable {
+            id: bodyFlick
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.leftMargin: win.gap
-            Layout.rightMargin: win.gap
-            Layout.bottomMargin: win.gap
+            contentWidth: width
+            contentHeight: bodyCol.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            flickableDirection: Flickable.VerticalFlick
+            // Pas de marge laterale ici : la colonne se place elle-meme, et
+            // cumuler les deux decalait tout vers la droite — la marge de
+            // gauche comptee deux fois, celle de droite une seule.
+            bottomMargin: win.gap
+
+        ColumnLayout {
+            id: bodyCol
+            // Largeur utile : l'ecran moins une marge de chaque cote, bornee
+            // pour qu'une tablette n'etire pas les boutons sur toute sa
+            // largeur. Le reste est reparti a egalite des deux cotes.
+            width: Math.min(bodyFlick.width - 2 * win.gap, 560)
+            x: (bodyFlick.width - width) / 2
             spacing: win.gap
 
         // Frequence. La marge separe nettement la barre du haut de l'afficheur.
@@ -569,7 +592,9 @@ ApplicationWindow {
         // Bandes
         GridLayout {
             Layout.fillWidth: true
-            columns: 4
+            // Le nombre de colonnes suit la largeur : quatre boutons « 2200 m »
+            // cote a cote deviennent illisibles sur un ecran etroit.
+            columns: Math.max(2, Math.min(6, Math.floor(width / 95)))
             rowSpacing: 8
             columnSpacing: 8
             enabled: Station.connected && Station.hasCat
@@ -694,6 +719,7 @@ ApplicationWindow {
             }
         }
         }
+        }
     }
     }
 
@@ -750,9 +776,8 @@ ApplicationWindow {
         // commandes du telephone, ou l'on appuie par megarde.
         edge: Qt.TopEdge
         width: win.width
-        // La hauteur suit le contenu, plafonnee par l'ecran. Une valeur fixe
-        // rognait le bouton d'arret des qu'on ajoutait une rangee — celle des
-        // memoires du poste, par exemple.
+        // La hauteur suit le contenu, plafonnee par l'ecran. Au-dela, le
+        // contenu defile dans la zone ci-dessous plutot que d'etre rogne.
         height: Math.min(win.height * 0.92, cwLayout.implicitHeight + 2 * win.gap)
         dim: true
         // Ouverture par le bouton seulement : aucun balayage accidentel. En
@@ -766,11 +791,34 @@ ApplicationWindow {
             border.color: Qt.lighter(win.panel, 1.4)
         }
 
-        ColumnLayout {
-            id: cwLayout
+        // Zone deroulante. Deux raisons.
+        //
+        // La disposition ne remplit plus le tiroir : sa hauteur ne doit dependre
+        // que de son contenu. Ancrée par anchors.fill, elle tenait sa hauteur du
+        // tiroir, dont la hauteur venait de la hauteur implicite de la
+        // disposition — une boucle que QML rompt en silence, et dont le resultat
+        // depend de l'ordre d'evaluation. D'ou un panneau juste sur un appareil
+        // et rogne sur un autre.
+        //
+        // Et sur un ecran trop court pour tout afficher, le contenu defile au
+        // lieu d'etre coupe : le bouton d'arret reste atteignable quelle que
+        // soit la taille de l'ecran, et quelles que soient les rangees ajoutees
+        // plus tard.
+        Flickable {
+            id: cwFlick
             anchors.fill: parent
             anchors.margins: win.gap
-            spacing: win.gap
+            contentWidth: width
+            contentHeight: cwLayout.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+            flickableDirection: Flickable.VerticalFlick
+
+            ColumnLayout {
+                id: cwLayout
+                // Largeur imposee, hauteur libre : aucune dependance circulaire.
+                width: cwFlick.width
+                spacing: win.gap
 
             RowLayout {
                 Layout.fillWidth: true
@@ -883,6 +931,7 @@ ApplicationWindow {
                 baseColor: Station.cwBusy ? win.redTx : win.panel
                 active: Station.connected
                 onClicked: Station.stopCw()
+            }
             }
         }
     }
