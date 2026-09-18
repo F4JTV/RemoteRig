@@ -4,6 +4,7 @@
 
 #include "../common/audioengine.h"
 #include "../common/i18n.h"
+#include "cwkeyer.h"
 #include "serverdaemon.h"
 #include "serverwindow.h"
 
@@ -62,6 +63,7 @@ int main(int argc, char *argv[])
     qRegisterMetaType<rr::RigConfig>("rr::RigConfig");
     qRegisterMetaType<rr::ServerConfig>("rr::ServerConfig");
     qRegisterMetaType<rr::RigCaps>("rr::RigCaps");
+    qRegisterMetaType<rr::CwKeyerConfig>("rr::CwKeyerConfig");
 
     // Diagnostic audio avant toute interface : utile quand un peripherique
     // n'apparait pas dans les listes.

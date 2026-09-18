@@ -15,6 +15,8 @@
 #    ./make_deb.sh              server, desktop client, touch client if present
 #    ./make_deb.sh --no-qml     skip the Qt Quick client
 #    ./make_deb.sh --check      run lintian on the result
+#    ./make_deb.sh --deps       install the build dependencies first (needs sudo)
+#    ./make_deb.sh --no-deps    never check them, and do not ask
 #    ./make_deb.sh --help
 # ============================================================================
 set -uo pipefail
@@ -23,6 +25,7 @@ SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="$SRC_DIR/build-deb"
 WITH_QML=ON
 DO_CHECK=0
+DO_DEPS=ask          # ask | yes | no
 
 say()  { printf '  %s\n' "$*"; }
 step() { printf '\n== %s\n' "$*"; }
@@ -30,8 +33,10 @@ die()  { printf '\n[X] %s\n' "$*" >&2; exit 1; }
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --no-qml) WITH_QML=OFF ;;
-        --check)  DO_CHECK=1 ;;
+        --no-qml)  WITH_QML=OFF ;;
+        --check)   DO_CHECK=1 ;;
+        --deps)    DO_DEPS=yes ;;
+        --no-deps) DO_DEPS=no ;;
         -h|--help)
             sed -n '2,20p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
             exit 0 ;;
@@ -42,6 +47,15 @@ done
 
 step "Checking prerequisites"
 [ -f "$SRC_DIR/CMakeLists.txt" ] || die "Run this from the project directory."
+# ------------------------------------------------------------- dependances
+# Liste et logique partagees avec install.sh : un seul endroit a tenir a jour.
+# shellcheck source=packaging/build-deps.sh
+. "$SRC_DIR/packaging/build-deps.sh"
+
+RR_DEPS_MODE="$DO_DEPS"
+RR_EXTRA_DEPS="dpkg-dev"     # dpkg-shlibdeps, pour calculer les dependances
+rr_install_deps || true
+
 command -v cmake >/dev/null 2>&1 || die "cmake missing: sudo apt install cmake"
 command -v cpack >/dev/null 2>&1 || die "cpack missing: it ships with cmake"
 command -v dpkg-shlibdeps >/dev/null 2>&1 || \
@@ -60,7 +74,7 @@ cmake -S "$SRC_DIR" -B "$BUILD_DIR" \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=/usr \
       -DWITH_QML_CLIENT="$WITH_QML" >/dev/null || die "Configuration failed."
-cmake --build "$BUILD_DIR" -j"$(nproc)" || die "Compilation failed."
+cmake --build "$BUILD_DIR" -j"$(rr_build_jobs)" || die "Compilation failed."
 
 step "Packaging"
 # cpack est lance depuis le dossier de build : shlibdeps y cherche les binaires.
@@ -77,7 +91,16 @@ dpkg-deb -f "$DEB" Depends | tr ',' '\n' | sed 's/^ */    /'
 
 if [ "$DO_CHECK" -eq 1 ]; then
     step "lintian"
-    command -v lintian >/dev/null 2>&1 || die "lintian missing: sudo apt install lintian"
+    if ! command -v lintian >/dev/null 2>&1; then
+        if [ "$DO_DEPS" != "no" ] && command -v apt-get >/dev/null 2>&1; then
+            say "Installing lintian..."
+            { [ "$(id -u)" -eq 0 ] && apt-get install -y lintian; } \
+                || sudo apt-get install -y lintian \
+                || die "lintian missing: sudo apt install lintian"
+        else
+            die "lintian missing: sudo apt install lintian"
+        fi
+    fi
     lintian --no-tag-display-limit "$DEB" || true
 fi
 

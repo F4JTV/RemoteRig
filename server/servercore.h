@@ -56,6 +56,7 @@ public:
 
 public slots:
     void onRigCaps(const rr::RigCaps &caps);
+    void onCatReply(const QString &reply);
 
 private slots:
     void checkClientAlive();
@@ -79,6 +80,7 @@ signals:
     void requestMorse(const QString &text);
     void requestMorseStop();
     void requestKeySpeed(int wpm);
+    void requestCatString(const QString &command);
 
 private slots:
     void onNewConnection();

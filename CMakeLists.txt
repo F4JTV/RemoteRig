@@ -185,6 +185,7 @@ add_executable(remoterig-server WIN32
     server/servercore.cpp
     server/rigcontroller.cpp
     server/serverdaemon.cpp
+    server/cwkeyer.cpp
     common/i18n.cpp
     common/i18n_menu.cpp
     common/about.cpp

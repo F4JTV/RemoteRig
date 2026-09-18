@@ -18,5 +18,9 @@ python3 test/protocol_probe.py    # authentication, framing, UDP forgery, second
 python3 test/deadman_probe.py     # client that vanishes silently while transmitting
 ```
 
+```bash
+python3 test/command_probe.py     # a burst of commands, and state still flowing
+```
+
 `protocol_probe.py` exits non-zero if any check fails, so it can go in a CI job.
 `deadman_probe.py` takes about twenty seconds: it waits for the watchdog to fire.

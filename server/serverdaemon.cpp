@@ -29,9 +29,40 @@ ServerDaemon::ServerDaemon(QObject *parent) : QObject(parent)
     connect(m_core, &ServerCore::requestMode,      m_rig,  &RigController::setMode);
     connect(m_core, &ServerCore::requestVfo,       m_rig,  &RigController::setVfo);
     connect(m_core, &ServerCore::requestTune,      m_rig,  &RigController::startTune);
-    connect(m_core, &ServerCore::requestMorse,     m_rig,  &RigController::sendMorse);
-    connect(m_core, &ServerCore::requestMorseStop, m_rig,  &RigController::stopMorse);
-    connect(m_core, &ServerCore::requestKeySpeed,  m_rig,  &RigController::setKeySpeed);
+    // Les six commandes d'operateur posent un jeton des leur emission, en
+    // connexion directe : la scrutation le voit avant meme que la commande
+    // n'atteigne le fil du poste, et lui cede le bus.
+    const auto note = [this] { m_rig->noteUserCommand(); };
+    connect(m_core, &ServerCore::requestPtt,       this, note, Qt::DirectConnection);
+    connect(m_core, &ServerCore::requestFrequency, this, note, Qt::DirectConnection);
+    connect(m_core, &ServerCore::requestMode,      this, note, Qt::DirectConnection);
+    connect(m_core, &ServerCore::requestVfo,       this, note, Qt::DirectConnection);
+    connect(m_core, &ServerCore::requestTune,      this, note, Qt::DirectConnection);
+    connect(m_core, &ServerCore::requestCatString, this, note, Qt::DirectConnection);
+
+    connect(m_core, &ServerCore::requestCatString,  m_rig, &RigController::sendCatString);
+    connect(m_rig,  &RigController::catReply,       m_core, &ServerCore::onCatReply);
+    // Manipulateur telegraphique dans son propre fil, comme dans l'interface.
+    m_keyer = new CwKeyer;
+    m_keyer->moveToThread(&m_keyerThread);
+    m_keyerThread.start(QThread::TimeCriticalPriority);
+    connect(m_keyer, &CwKeyer::logMessage,   this,  &ServerDaemon::onLog);
+    connect(m_keyer, &CwKeyer::pttRequested, m_rig, &RigController::setPtt);
+
+    connect(m_core, &ServerCore::requestMorse, this, [this](const QString &text) {
+        QMetaObject::invokeMethod(m_cwLocal ? static_cast<QObject *>(m_keyer)
+                                            : static_cast<QObject *>(m_rig),
+                                  m_cwLocal ? "send" : "sendMorse",
+                                  Qt::QueuedConnection, Q_ARG(QString, text));
+    });
+    connect(m_core, &ServerCore::requestMorseStop, this, [this] {
+        QMetaObject::invokeMethod(m_keyer, "stop", Qt::QueuedConnection);
+        QMetaObject::invokeMethod(m_rig, "stopMorse", Qt::QueuedConnection);
+    });
+    connect(m_core, &ServerCore::requestKeySpeed, this, [this](int wpm) {
+        QMetaObject::invokeMethod(m_keyer, "setWpm", Qt::QueuedConnection, Q_ARG(int, wpm));
+        QMetaObject::invokeMethod(m_rig, "setKeySpeed", Qt::QueuedConnection, Q_ARG(int, wpm));
+    });
     connect(m_rig,  &RigController::stateChanged,  m_core, &ServerCore::onRigState);
     connect(m_rig,  &RigController::capsChanged,   m_core, &ServerCore::onRigCaps);
 
@@ -49,6 +80,12 @@ ServerDaemon::ServerDaemon(QObject *parent) : QObject(parent)
 ServerDaemon::~ServerDaemon()
 {
     stop();
+    if (m_keyer) {
+        QMetaObject::invokeMethod(m_keyer, "close", Qt::BlockingQueuedConnection);
+        m_keyerThread.quit(); m_keyerThread.wait(2000);
+        delete m_keyer;
+        m_keyer = nullptr;
+    }
     m_netThread.quit(); m_netThread.wait(2000);
     m_rigThread.quit(); m_rigThread.wait(2000);
     delete m_core;
@@ -212,6 +249,17 @@ bool ServerDaemon::start(const QString &configPath, bool verbose)
     sc.enforceBandEdges = settings->value(QStringLiteral("bandEdges"), true).toBool();
     sc.pttTone     = settings->value(QStringLiteral("pttTone"), false).toBool();
     sc.pttToneHz   = settings->value(QStringLiteral("pttToneHz"), 2200).toInt();
+
+    CwKeyerConfig cw;
+    cw.enabled      = settings->value(QStringLiteral("cwEnable"), false).toBool();
+    cw.port         = portNameOf(settings->value(QStringLiteral("cwPort")).toString());
+    cw.line         = settings->value(QStringLiteral("cwLine"), "DTR").toString();
+    cw.inverted     = settings->value(QStringLiteral("cwInvert"), false).toBool();
+    cw.correctionMs = settings->value(QStringLiteral("cwCorr"), 0).toInt();
+    cw.holdPtt      = settings->value(QStringLiteral("cwHoldPtt"), false).toBool();
+    m_cwLocal = cw.enabled;
+    QMetaObject::invokeMethod(m_keyer, "open", Qt::QueuedConnection,
+                              Q_ARG(rr::CwKeyerConfig, cw));
 
     static const int kFrames[] = {120, 240, 480, 960};
     const int framesIdx = qBound(0, settings->value(QStringLiteral("framesIdx"), 2).toInt(), 3);

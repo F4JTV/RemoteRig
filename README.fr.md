@@ -1,10 +1,14 @@
 # RemoteRig
 
+<p align="center">
+  <img src="icons/remoterig-512.png" alt="RemoteRig" width="160">
+</p>
+
 Station radio déportée : un serveur tourne à côté du poste, un client tourne
 là où vous êtes. Audio bidirectionnel, PTT, et pilotage CAT complet quand le
 poste le permet.
 
-C++17 / Qt6 Widgets / PortAudio / Opus / Hamlib. Windows et Linux, même code.
+C++17 / Qt6 / PortAudio / Opus / Hamlib. Windows, Linux et Android, même code.
 
 *English version: [README.md](README.md)*
 
@@ -19,7 +23,7 @@ C++17 / Qt6 Widgets / PortAudio / Opus / Hamlib. Windows et Linux, même code.
   │ virtuel          │                        │                    │
   │                  │◀─── UDP audio RX ──────│ entrée carte son   │◀── AF du poste
   │ rigctld :4532    │                        │                    │
-  │  ↑ WSJT-X, VARA  │◀─── TCP contrôle ─────▶│ Hamlib / RTS / DTR │──▶ CAT + PTT
+  │  ↑ WSJT-X, fldigi│◀─── TCP contrôle ─────▶│ Hamlib / RTS / DTR │──▶ CAT + PTT
   └──────────────────┘   (JSON encadré)       └────────────────────┘
 ```
 
@@ -209,28 +213,42 @@ L'interrupteur est actif par défaut, à côté des réglages de connexion.
 
 ## Envoi du CW
 
-C'est le poste qui manipule. Le texte part par le CAT — `rig_send_morse` — et
-c'est son manipulateur électronique qui génère les éléments. Envoyer du CW en
-basculant le PTT réseau serait inutilisable : la gigue détruirait l'espacement.
+Deux voies, selon ce que le poste accepte.
 
-Le manipulateur n'apparaît que si le poste le gère. Hamlib n'expose aucun
+**Le poste manipule lui-même.** Le texte part par le CAT — `rig_send_morse` — et
+son manipulateur électronique génère les éléments. C'est la voie la plus simple
+quand elle fonctionne.
+
+Elle ne fonctionne pas partout. Sur les Yaesu HF, la commande de manipulateur ne
+sait que rejouer les mémoires internes du poste : envoyer `AGN?` déclenche la
+mémoire 1, quel que soit le texte. Cinq boutons appellent donc ces mémoires
+directement, numérotées de 1 à 5, dans le panneau CW et dans l'onglet du client
+bureau.
+
+**Le serveur génère les éléments.** Pour ces postes-là, le serveur produit
+lui-même les points et les traits et bascule une ligne série câblée sur la prise
+KEY. Voir *CW généré par le serveur* plus bas. Le réseau n'intervient jamais
+dans l'espacement : seul le texte voyage.
+
+Le manipulateur du poste n'apparaît que s'il le gère. Hamlib n'expose aucun
 drapeau de capacité pour le morse : le serveur vérifie donc si le backend
 fournit une fonction `send_morse`. Sur un poste qui n'en a pas, rien ne
 s'affiche, plutôt qu'une commande qui échouerait en silence.
 
 Sur téléphone, un bouton point-trait siège dans le bandeau et ouvre un panneau
-par le bas : vitesse, six mémoires, un champ libre, et un bouton d'arrêt
-toujours à portée — une mémoire lancée par erreur doit pouvoir être coupée sans
-chercher. Sur le bureau, les mêmes fonctions occupent un onglet **CW**.
+par le haut : vitesse, six mémoires logicielles, les cinq mémoires du poste, un
+champ libre, et un bouton d'arrêt toujours à portée — une mémoire lancée par
+erreur doit pouvoir être coupée sans chercher. Sur le bureau, les mêmes
+fonctions occupent un onglet **CW**.
 
-Les mémoires utilisent `%c` pour l'indicatif de l'opérateur, ce qui les garde
-valables quel que soit celui qui utilise l'application. La vitesse passe par
-`RIG_LEVEL_KEYSPD` et s'applique immédiatement au poste.
+Les mémoires logicielles utilisent `%c` pour l'indicatif de l'opérateur, ce qui
+les garde valables quel que soit celui qui utilise l'application. La vitesse
+passe par `RIG_LEVEL_KEYSPD`, et sert aussi à cadencer le manipulateur du
+serveur.
 
 Pendant la manipulation, l'indicateur affiche CW et le bouton d'émission est
 verrouillé, comme pendant un cycle d'accord : le poste émet déjà, et lui
 superposer le PTT réseau le ferait osciller entre les deux.
-
 
 ## ROS
 
@@ -339,6 +357,71 @@ réglable — part à droite exactement le temps de l'émission, en commençant 
 instant avant le premier échantillon utile. Vérifiez que le poste n'est alimenté
 que par le canal gauche, sans quoi la tonalité serait elle aussi transmise.
 
+
+### CW généré par le serveur
+
+Certains postes n'acceptent pas de texte libre par le CAT : leur commande de
+manipulateur ne sait que rejouer leurs propres mémoires. Les Yaesu HF sont dans
+ce cas — envoyer `AGN?` déclenche la mémoire 1, quel que soit le texte. Pour
+ceux-là, le serveur peut produire les éléments lui-même et manipuler une ligne
+série câblée sur la prise KEY du poste.
+
+Cochez **Générer le CW ici et manipuler une ligne série**, choisissez le port et
+la ligne, DTR ou RTS. Elle peut être inversée pour les interfaces qui la
+présentent à l'envers, et le PTT peut être maintenu pendant tout le message sur
+les postes qui ne commutent pas seuls.
+
+La **correction** raccourcit chaque élément manipulé, jamais les silences, pour
+compenser le temps que met le poste à établir sa porteuse. Commencez à zéro, et
+ne l'augmentez que si vos correspondants signalent des points écourtés.
+
+Le réseau n'intervient jamais dans l'espacement : seul le texte voyage, la
+cadence est produite à côté du poste. Le manipulateur tourne dans son propre fil
+— la scrutation du poste fait des lectures série qui peuvent durer des dizaines
+de millisecondes et décaleraient les éléments — et l'échéance de chaque élément
+est comptée depuis un instant de référence unique, si bien qu'un minuteur en
+retard ne se reporte pas sur la suite. Mesuré sur un port virtuel : « PARIS
+PARIS » à 20 mots par minute a duré 5581 ms pour 5580 attendues.
+
+Le port de manipulation doit être différent de celui que tient déjà le pilotage
+du poste : un port série ne s'ouvre pas deux fois. Les postes qui exposent deux
+ports USB, et les interfaces comme la SCU-17, vous en laissent un pour cela.
+
+
+### Écrire puis relire, et CAT brute
+
+Chaque changement de fréquence, de mode et de VFO est **relu** après avoir été
+écrit. Les postes arrondissent au pas de leur VFO, refusent en silence hors de
+leurs plages, ou retombent sur un mode voisin ; sans relecture, l'opérateur
+croirait la commande passée. Quand ce que le poste annonce diffère, le journal
+dit les deux : ce qui a été demandé, et ce qui est revenu.
+
+Un champ de **CAT brute** envoie une séquence telle quelle au poste, pour les
+réglages qu'aucun pilote ne couvre — un menu propre à un modèle, une fonction
+rare. Le terminateur est ajouté s'il manque, rien d'autre n'est interprété, et
+la réponse du poste revient dans le journal. Il dispose de son propre onglet **CAT**
+dans le client bureau, avec un mode d'emploi de la syntaxe et son journal
+propre, et se trouve dans le tiroir sur téléphone.
+
+
+### Les commandes de l'opérateur passent d'abord
+
+Le cycle de scrutation fait jusqu'à six allers-retours vers le poste :
+fréquence, mode, VFO, PTT, S-mètre, ROS. Sans précaution, un bouton de bande
+pressé en milieu de cycle attend les six avant que sa commande ne parte. Sur un
+poste au délai CAT généreux, cela se sent.
+
+Chaque commande d'opérateur pose donc un jeton dès son émission, depuis le fil
+qui l'émet, et la scrutation consulte ce jeton entre deux lectures. Elle
+abandonne le reste de son cycle et laisse passer la commande. L'état reste
+cohérent parce que le cycle part d'une copie de l'état courant : un champ non
+relu conserve simplement sa valeur.
+
+Un garde-fou en borne l'effet. Si un jeton restait en l'air — commande émise
+mais jamais délivrée — l'affichage se figerait ; au-delà de cinq cycles sautés,
+le compteur est remis à zéro et tout est relu. L'idée vient d'OmniRig, dont la
+file insère les écritures de l'opérateur devant les commandes d'état.
+
 ## Bandes et coupleur d'antenne
 
 Les boutons de bande ne sont pas une liste figée. À la connexion, le serveur lit
@@ -436,7 +519,6 @@ Le client publie une interface **rigctld** sur 127.0.0.1:4532.
    PTT « CAT ». Audio : l'autre extrémité du câble virtuel.
 4. Passez le codec sur PCM 16 bits.
 
-VARA se configure pareil : PTT par rigctld, audio par le câble.
 
 ---
 
@@ -503,6 +585,21 @@ Les deux exécutables sortent dans `build/` :
 
 ### Paquet Debian
 
+Le script installe d'abord les dépendances manquantes, puis compile et fabrique
+le paquet :
+
+```bash
+./make_deb.sh            # demande avant d'installer ce qui manque
+./make_deb.sh --deps     # installe sans demander
+./make_deb.sh --no-deps  # ne vérifie rien
+```
+
+Il limite aussi le nombre de tâches de compilation d'après la mémoire
+disponible, et non d'après le seul nombre de cœurs : compiler du Qt demande
+environ 700 Mio par tâche, et un Raspberry Pi 4 à 2 Gio qui en lancerait quatre
+se ferait tuer par le noyau en cours de route. Sur un Pi à 2 Gio il en lance
+deux, sur un Pi à 1 Gio une seule.
+
 `make_deb.sh` produit un `.deb` pour la machine sur laquelle il tourne :
 
 ```bash
@@ -535,6 +632,20 @@ tailles, les pages de manuel, et rafraîchit les caches du bureau à
 l'installation. `lintian` ne signale rien.
 
 ### 3. Installation
+
+`install.sh` et `make_deb.sh` installent tous deux les dépendances manquantes
+avant de compiler, depuis la même liste — `packaging/build-deps.sh` — pour
+qu'elles ne divergent pas :
+
+```bash
+./install.sh            # demande avant d'installer ce qui manque
+./install.sh --deps     # installe sans demander
+./install.sh --no-deps  # ne vérifie rien
+```
+
+Ils bornent aussi le nombre de tâches de compilation par la mémoire disponible,
+et non par le seul nombre de cœurs.
+
 
 `install.sh` compile si besoin, puis pose les programmes, leurs icônes et leurs
 raccourcis là où le bureau les attend.
@@ -943,23 +1054,38 @@ RemoteRig/
 ## État du code
 
 Compile et se lie sans le moindre avertissement, `-Wall -Wextra` compris, sous
-Ubuntu 24.04 avec Qt 6.4.2, Hamlib 4.5.5, PortAudio 19 et Opus. Les deux exécutables démarrent et tiennent
+Ubuntu 24.04 avec Qt 6.4.2, Hamlib 4.5.5, PortAudio 19 et Opus. Les trois exécutables démarrent et tiennent
 leur boucle événementielle en locale française comme anglaise.
 `server/rigcontroller.cpp` compile également sans erreur contre les en-têtes de
 Hamlib 4.7.2, et les 21 symboles Hamlib utilisés sont tous exportés par le
 fichier `.def` MSVC du paquet Windows officiel.
 
 Le rééchantillonneur est vérifié isolément : comptes d'échantillons exacts, gain
-unité, et un ton à 10 kHz décimé vers 16 kHz ressort à -53 dB. Les 147 chaînes
+unité, et un ton à 10 kHz décimé vers 16 kHz ressort à -53 dB. Les 416 chaînes
 traduisibles sont toutes traduites et vérifiées à l'exécution.
 
-Rien n'a encore été compilé sous Windows, ni testé sur du matériel radio réel.
-Trois points à vérifier lors du premier essai :
+Le protocole est éprouvé par deux sondes qui le parlent à la main, sans passer
+par le client : mots de passe faux, signatures forgées, trames malformées,
+longueurs aberrantes, paquets de PTT contrefaits, second client, et disparition
+silencieuse d'un client en pleine émission. Voir `test/`.
 
-- La compilation Windows a été menée par un utilisateur sous Visual Studio Build
-  Tools 2022 (MSVC 14.44) avec Qt 6.11.2. Deux problèmes sont apparus et sont
-  corrigés : `M_PI`, que MSVC ne définit pas sans `_USE_MATH_DEFINES` préalable,
-  et le `<pthread.h>` manquant qu'entraînent les en-têtes de Hamlib.
+Les trois systèmes ont été compilés et éprouvés sur du matériel réel : un Yaesu
+FT-891 piloté en CAT, un FT-8800 en PTT série seul, la modulation jugée sur
+l'air par des correspondants et la latence mesurée en 4G depuis un téléphone.
+
+Quelques notes retenues de ce travail :
+
+- La compilation Windows demande Visual Studio Build Tools 2022 (MSVC 14.44)
+  avec Qt 6.11.2. Deux problèmes sont apparus et sont corrigés : `M_PI`, que
+  MSVC ne définit pas sans `_USE_MATH_DEFINES` en tête, et le `<pthread.h>`
+  manquant qu'entraînent les en-têtes de Hamlib.
+- Les ressources sont compressées en **zlib**, et non en zstd par défaut. `rcc`
+  pose sinon une garde sur un symbole que QtCore n'exporte que s'il a été
+  compilé avec zstd, et un binaire lié à un Qt qui l'a refuse de démarrer avec
+  un Qt qui ne l'a pas.
+- Sous Linux, le chemin de port série transmis à Hamlib est le **chemin
+  système**, `/dev/ttyUSB0`, et non le nom nu que rend Qt : Hamlib prend pour
+  une adresse réseau tout ce qui ne ressemble pas à un fichier de périphérique.
 
 - La réponse `\dump_state` de l'interface rigctld est volontairement générique.
   Elle couvre 30 kHz – 470 MHz et tous les modes ; certaines versions de Hamlib
@@ -973,10 +1099,11 @@ Trois points à vérifier lors du premier essai :
 
 ---
 
-# Portage Android, en cours
+# Portage Android
 
-Le client fait tourner le même C++ sur Android. La couche audio est faite,
-l'interface tactile ne l'est pas.
+Le client fait tourner le même C++ sur Android, avec une interface Qt Quick
+pensée pour le pouce. Audio, PTT, CAT, manipulateur et thèmes sont tous en
+place.
 
 ## Ce qui est en place
 

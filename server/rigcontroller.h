@@ -4,6 +4,8 @@
 // jamais bloquer le chemin audio.
 #pragma once
 
+#include <atomic>
+
 #include <QObject>
 #include <QMutex>
 #include <QString>
@@ -53,6 +55,12 @@ public:
     RigState state() const;
     RigCaps caps() const;
 
+public:
+    // Signale qu'une commande d'operateur vient d'etre emise, avant meme
+    // qu'elle n'atteigne ce fil. Appelable depuis n'importe quel fil : la
+    // scrutation la consulte entre deux lectures pour lui ceder la place.
+    void noteUserCommand() { m_userPending.fetch_add(1); }
+
 public slots:
     // Le type doit etre qualifie : moc enregistre la signature telle qu'elle
     // est ecrite, et invokeMethod par nom compare ces chaines sur Qt 6.4.
@@ -63,6 +71,10 @@ public slots:
     void setFrequency(quint64 hz);
     void setMode(const QString &mode, int passband);
     void setVfo(const QString &vfo);
+    // Envoi direct d'une sequence au poste, pour ce qu'aucun pilote ne
+    // couvre. Le terminateur est ajoute si besoin ; la reponse revient par
+    // catReply.
+    void sendCatString(const QString &command);
     void poll();
 
 public slots:
@@ -74,6 +86,7 @@ public slots:
 signals:
     void stateChanged(const rr::RigState &st);
     void capsChanged(const rr::RigCaps &caps);
+    void catReply(const QString &reply);
     void logMessage(const QString &msg);
     void opened(bool ok, const QString &message);
 
@@ -92,6 +105,12 @@ private:
 
     int          m_wpm = 20;   // memorisee pour information
     int          m_readFailures = 0;  // lectures consecutives en echec
+
+    // Commandes d'operateur en attente, et garde-fou contre un compteur qui
+    // resterait en l'air : au-dela de quelques cycles sautes, on force une
+    // scrutation complete plutot que de laisser l'affichage se figer.
+    std::atomic<int> m_userPending{0};
+    int          m_skippedPolls = 0;
     QSerialPort *m_serial = nullptr;
     void        *m_rig    = nullptr;   // RIG* de Hamlib
     bool         m_pttWanted = false;

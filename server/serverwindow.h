@@ -3,6 +3,7 @@
 #include <QMainWindow>
 #include <QThread>
 #include "servercore.h"
+#include "cwkeyer.h"
 #include "rigcontroller.h"
 
 class QComboBox;
@@ -86,6 +87,16 @@ private:
     QLabel    *m_catPortLabel = nullptr;
     QLineEdit *m_cm108Path = nullptr;
     QSpinBox  *m_cm108Gpio = nullptr;
+    // Manipulateur telegraphique genere par le serveur.
+    CwKeyer   *m_keyer = nullptr;
+    QThread    m_keyerThread;
+    QCheckBox *m_cwEnable = nullptr;
+    QComboBox *m_cwPort = nullptr;
+    QComboBox *m_cwLine = nullptr;
+    QCheckBox *m_cwInvert = nullptr;
+    QSpinBox  *m_cwCorr = nullptr;
+    QCheckBox *m_cwHoldPtt = nullptr;
+
     QCheckBox *m_pttTone = nullptr;
     QSpinBox  *m_pttToneHz = nullptr;
     QLabel    *m_addrLabel = nullptr;

@@ -14,6 +14,8 @@
 #    --no-build        use the binaries already in build/
 #    --client-only     install the operator client alone
 #    --server-only     install the station server alone
+#    --deps            install the build dependencies without asking
+#    --no-deps         never check them, and do not ask
 #    --udev            also install the CM108 udev rule (needs sudo)
 #    --no-udev         never install it, and do not ask
 #    --uninstall       remove what was installed
@@ -30,6 +32,8 @@ PREFIX="$HOME/.local"
 DO_BUILD=1
 DO_UNINSTALL=0
 DO_UDEV=ask          # ask | yes | no
+DO_DEPS=ask          # ask | yes | no
+WITH_QML=OFF         # le client tactile n'est pas installe par ce script
 WANT_SERVER=1
 WANT_CLIENT=1
 PREFIX_SET=0
@@ -38,7 +42,7 @@ say()  { printf '  %s\n' "$*"; }
 head_() { printf '\n== %s\n' "$*"; }
 die()  { printf '\n[X] %s\n' "$*" >&2; exit 1; }
 
-usage() { sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0; }
+usage() { sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0; }
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -48,6 +52,8 @@ while [ $# -gt 0 ]; do
         --no-build)    DO_BUILD=0 ;;
         --client-only) WANT_SERVER=0 ;;
         --server-only) WANT_CLIENT=0 ;;
+        --deps)        DO_DEPS=yes ;;
+        --no-deps)     DO_DEPS=no ;;
         --udev)        DO_UDEV=yes ;;
         --no-udev)     DO_UDEV=no ;;
         --uninstall)   DO_UNINSTALL=1 ;;
@@ -135,12 +141,23 @@ fi
 # ---------------------------------------------------------------------- build
 if [ "$DO_BUILD" -eq 1 ]; then
     head_ "Building"
+
+    # Dependances : meme liste et meme logique que make_deb.sh.
+    # shellcheck source=packaging/build-deps.sh
+    if [ -f "$SRC_DIR/packaging/build-deps.sh" ]; then
+        . "$SRC_DIR/packaging/build-deps.sh"
+        RR_DEPS_MODE="$DO_DEPS"
+        rr_install_deps || true
+    fi
+
     command -v cmake >/dev/null 2>&1 || die "cmake not found. Install: sudo apt install build-essential cmake"
     targets=()
     if [ "$WANT_SERVER" -eq 1 ]; then targets+=(remoterig-server); fi
     if [ "$WANT_CLIENT" -eq 1 ]; then targets+=(remoterig-client); fi
     cmake -S "$SRC_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Release >/dev/null
-    cmake --build "$BUILD_DIR" -j"$(nproc)" --target "${targets[@]}"
+    jobs=4
+    if command -v rr_build_jobs >/dev/null 2>&1; then jobs="$(rr_build_jobs)"; fi
+    cmake --build "$BUILD_DIR" -j"$jobs" --target "${targets[@]}"
 fi
 
 # Attention : sous set -e, une construction "[ cond ] && action" fait sortir

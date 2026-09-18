@@ -58,9 +58,46 @@ ServerWindow::ServerWindow(QWidget *parent) : QMainWindow(parent)
     connect(m_core, &ServerCore::requestMode,      m_rig, &RigController::setMode);
     connect(m_core, &ServerCore::requestVfo,       m_rig, &RigController::setVfo);
     connect(m_core, &ServerCore::requestTune,      m_rig, &RigController::startTune);
-    connect(m_core, &ServerCore::requestMorse,     m_rig, &RigController::sendMorse);
-    connect(m_core, &ServerCore::requestMorseStop, m_rig, &RigController::stopMorse);
-    connect(m_core, &ServerCore::requestKeySpeed,  m_rig, &RigController::setKeySpeed);
+    // Les six commandes d'operateur posent un jeton des leur emission, en
+    // connexion directe : la scrutation le voit avant meme que la commande
+    // n'atteigne le fil du poste, et lui cede le bus.
+    const auto note = [this] { m_rig->noteUserCommand(); };
+    connect(m_core, &ServerCore::requestPtt,       this, note, Qt::DirectConnection);
+    connect(m_core, &ServerCore::requestFrequency, this, note, Qt::DirectConnection);
+    connect(m_core, &ServerCore::requestMode,      this, note, Qt::DirectConnection);
+    connect(m_core, &ServerCore::requestVfo,       this, note, Qt::DirectConnection);
+    connect(m_core, &ServerCore::requestTune,      this, note, Qt::DirectConnection);
+    connect(m_core, &ServerCore::requestCatString, this, note, Qt::DirectConnection);
+
+    connect(m_core, &ServerCore::requestCatString, m_rig, &RigController::sendCatString);
+    connect(m_rig,  &RigController::catReply,      m_core, &ServerCore::onCatReply);
+    // Le manipulateur vit dans son propre fil : la scrutation du poste fait des
+    // lectures serie qui peuvent durer des dizaines de millisecondes, et elles
+    // decaleraient les elements.
+    m_keyer = new CwKeyer;
+    m_keyer->moveToThread(&m_keyerThread);
+    m_keyerThread.start(QThread::TimeCriticalPriority);
+    connect(m_keyer, &CwKeyer::logMessage, this, &ServerWindow::appendLog);
+    connect(m_keyer, &CwKeyer::pttRequested, m_rig, &RigController::setPtt);
+
+    // Aiguillage : le manipulateur local s'il est actif, sinon la commande du
+    // poste. L'operateur ne voit qu'un texte a envoyer, dans les deux cas.
+    connect(m_core, &ServerCore::requestMorse, this, [this](const QString &text) {
+        if (m_cwEnable && m_cwEnable->isChecked())
+            QMetaObject::invokeMethod(m_keyer, "send", Qt::QueuedConnection,
+                                      Q_ARG(QString, text));
+        else
+            QMetaObject::invokeMethod(m_rig, "sendMorse", Qt::QueuedConnection,
+                                      Q_ARG(QString, text));
+    });
+    connect(m_core, &ServerCore::requestMorseStop, this, [this] {
+        QMetaObject::invokeMethod(m_keyer, "stop", Qt::QueuedConnection);
+        QMetaObject::invokeMethod(m_rig, "stopMorse", Qt::QueuedConnection);
+    });
+    connect(m_core, &ServerCore::requestKeySpeed, this, [this](int wpm) {
+        QMetaObject::invokeMethod(m_keyer, "setWpm", Qt::QueuedConnection, Q_ARG(int, wpm));
+        QMetaObject::invokeMethod(m_rig, "setKeySpeed", Qt::QueuedConnection, Q_ARG(int, wpm));
+    });
     connect(m_rig,  &RigController::stateChanged,  m_core, &ServerCore::onRigState);
     connect(m_rig,  &RigController::capsChanged,   m_core, &ServerCore::onRigCaps);
 
@@ -121,6 +158,15 @@ ServerWindow::ServerWindow(QWidget *parent) : QMainWindow(parent)
 
 ServerWindow::~ServerWindow()
 {
+    // Le manipulateur d'abord : il peut tenir la ligne serie enfoncee.
+    if (m_keyer) {
+        QMetaObject::invokeMethod(m_keyer, "close", Qt::BlockingQueuedConnection);
+        m_keyerThread.quit();
+        m_keyerThread.wait(2000);
+        delete m_keyer;
+        m_keyer = nullptr;
+    }
+
     QMetaObject::invokeMethod(m_core, "stop", Qt::BlockingQueuedConnection);
     QMetaObject::invokeMethod(m_rig,  "close", Qt::BlockingQueuedConnection);
     m_netThread.quit(); m_netThread.wait(2000);
@@ -247,13 +293,60 @@ QWidget *ServerWindow::buildRigPage()
     m_pttPort->addItems(RigController::serialPorts());
     f->addRow(tr("Separate PTT port"), m_pttPort);
 
+    // ---- manipulateur telegraphique genere par le serveur
+    m_cwEnable = new QCheckBox(tr("Generate CW here and key a serial line"));
+    m_cwEnable->setToolTip(tr("For rigs whose CAT keyer can only replay their own "
+                              "memories — Yaesu HF sets among them. The elements are "
+                              "produced next to the radio, so the network never takes "
+                              "part in the spacing."));
+    f->addRow("", m_cwEnable);
+
+    m_cwPort = new QComboBox;
+    m_cwPort->setEditable(true);
+    m_cwPort->addItems(RigController::serialPorts());
+    m_cwLine = new QComboBox;
+    m_cwLine->addItems({"DTR", "RTS"});
+    auto *cwRow = new QHBoxLayout;
+    cwRow->setContentsMargins(0, 0, 0, 0);
+    cwRow->addWidget(m_cwPort, 1);
+    cwRow->addWidget(m_cwLine);
+    auto *cwWidget = new QWidget;
+    cwWidget->setLayout(cwRow);
+    f->addRow(tr("Key port"), cwWidget);
+
+    m_cwInvert = new QCheckBox(tr("Invert the line"));
+    m_cwHoldPtt = new QCheckBox(tr("Hold PTT during the message"));
+    m_cwCorr = new QSpinBox;
+    m_cwCorr->setRange(0, 30);
+    m_cwCorr->setSuffix(tr(" ms"));
+    m_cwCorr->setToolTip(tr("Shortens every keyed element, never the silences, to "
+                            "make up for the time the rig takes to raise its carrier."));
+    auto *cwRow2 = new QHBoxLayout;
+    cwRow2->setContentsMargins(0, 0, 0, 0);
+    cwRow2->addWidget(m_cwInvert);
+    cwRow2->addWidget(m_cwHoldPtt);
+    cwRow2->addWidget(new QLabel(tr("Correction")));
+    cwRow2->addWidget(m_cwCorr);
+    cwRow2->addStretch();
+    auto *cwWidget2 = new QWidget;
+    cwWidget2->setLayout(cwRow2);
+    f->addRow("", cwWidget2);
+
+    // Les reglages ne servent que si le manipulateur est actif.
+    auto cwToggle = [cwWidget, cwWidget2](bool on) {
+        cwWidget->setEnabled(on);
+        cwWidget2->setEnabled(on);
+    };
+    connect(m_cwEnable, &QCheckBox::toggled, this, cwToggle);
+    cwToggle(false);
+
     m_pollMs = new QSpinBox;
     m_pollMs->setRange(50, 2000);
     m_pollMs->setValue(200);
     m_pollMs->setSuffix(" ms");
     f->addRow(tr("CAT polling"), m_pollMs);
 
-    m_dtrAlways = new QCheckBox(tr("Keep DTR asserted (powers Digirig-style interfaces)"));
+    m_dtrAlways = new QCheckBox(tr("Keep DTR asserted"));
     f->addRow("", m_dtrAlways);
 
     return w;
@@ -585,6 +678,18 @@ void ServerWindow::onStartStop()
     sc.txGain = float(m_txGain->value());
     sc.pttTailMs = m_tailMs->value();
     sc.pttTone   = m_pttTone->isChecked();
+
+    // Manipulateur telegraphique : son port est ouvert au demarrage du serveur.
+    CwKeyerConfig cw;
+    cw.enabled      = m_cwEnable->isChecked();
+    cw.port         = portNameOf(m_cwPort->currentText());
+    cw.line         = m_cwLine->currentText();
+    cw.inverted     = m_cwInvert->isChecked();
+    cw.wpm          = 20;
+    cw.correctionMs = m_cwCorr->value();
+    cw.holdPtt      = m_cwHoldPtt->isChecked();
+    QMetaObject::invokeMethod(m_keyer, "open", Qt::QueuedConnection,
+                              Q_ARG(rr::CwKeyerConfig, cw));
     sc.pttToneHz = m_pttToneHz->value();
     sc.enforceBandEdges = m_bandEdges->isChecked();
     QMetaObject::invokeMethod(m_core, "start", Qt::QueuedConnection, Q_ARG(rr::ServerConfig, sc));
@@ -664,6 +769,12 @@ void ServerWindow::loadSettings()
     m_txGain->setValue(s.value("txGain", 1.0).toDouble());
     m_tailMs->setValue(s.value("tailMs", 120).toInt());
     m_pttTone->setChecked(s.value("pttTone", false).toBool());
+    m_cwEnable->setChecked(s.value("cwEnable", false).toBool());
+    m_cwPort->setCurrentText(s.value("cwPort").toString());
+    m_cwLine->setCurrentText(s.value("cwLine", "DTR").toString());
+    m_cwInvert->setChecked(s.value("cwInvert", false).toBool());
+    m_cwCorr->setValue(s.value("cwCorr", 0).toInt());
+    m_cwHoldPtt->setChecked(s.value("cwHoldPtt", false).toBool());
     m_pttToneHz->setValue(s.value("pttToneHz", 2200).toInt());
     m_cm108Path->setText(s.value("cm108Path").toString());
     m_cm108Gpio->setValue(s.value("cm108Gpio", 3).toInt());
@@ -695,6 +806,12 @@ void ServerWindow::saveSettings()
     s.setValue("txGain", m_txGain->value());
     s.setValue("tailMs", m_tailMs->value());
     s.setValue("pttTone", m_pttTone->isChecked());
+    s.setValue("cwEnable", m_cwEnable->isChecked());
+    s.setValue("cwPort", m_cwPort->currentText());
+    s.setValue("cwLine", m_cwLine->currentText());
+    s.setValue("cwInvert", m_cwInvert->isChecked());
+    s.setValue("cwCorr", m_cwCorr->value());
+    s.setValue("cwHoldPtt", m_cwHoldPtt->isChecked());
     s.setValue("pttToneHz", m_pttToneHz->value());
     s.setValue("cm108Path", m_cm108Path->text());
     s.setValue("cm108Gpio", m_cm108Gpio->value());

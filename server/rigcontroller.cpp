@@ -202,6 +202,41 @@ void RigController::stopMorse()
 #endif
 }
 
+// Sequence envoyee telle quelle au poste.
+//
+// Les pilotes ne couvrent pas tout : un menu propre a un modele, un reglage
+// rare. Hamlib expose rig_send_raw, qui ecrit sur le port du poste et rend la
+// reponse. Rien n'est interprete ici — c'est a l'operateur de savoir ce qu'il
+// envoie, et c'est bien l'interet de la chose.
+void RigController::sendCatString(const QString &command)
+{
+    // Jeton pose par noteUserCommand a l'emission : la commande est arrivee.
+    if (m_userPending.load() > 0) m_userPending.fetch_sub(1);
+#ifdef RR_HAVE_HAMLIB
+    if (!m_rig || command.isEmpty()) return;
+
+    QByteArray out = command.toLatin1();
+    unsigned char reply[256] = {0};
+    // Le terminateur des Yaesu, Icom et Kenwood est le point-virgule : on
+    // l'ajoute si l'operateur l'a oublie, mais on ne touche a rien d'autre.
+    if (!out.endsWith(';') && !out.endsWith('\r')) out.append(';');
+
+    const int n = rig_send_raw(RIGP(m_rig),
+                               reinterpret_cast<const unsigned char *>(out.constData()),
+                               out.size(), reply, sizeof(reply) - 1, nullptr);
+    if (n < 0) {
+        emit logMessage(tr("CAT command refused: %1").arg(hamlibError(n)));
+        return;
+    }
+    const QString answer = QString::fromLatin1(reinterpret_cast<char *>(reply), n).trimmed();
+    emit logMessage(answer.isEmpty() ? tr("CAT %1 sent, no answer").arg(QString(out))
+                                     : tr("CAT %1 → %2").arg(QString(out), answer));
+    emit catReply(answer);
+#else
+    Q_UNUSED(command)
+#endif
+}
+
 void RigController::setKeySpeed(int wpm)
 {
     // Memorisee meme sans poste : elle sert a cadencer la file d'envoi.
@@ -221,6 +256,8 @@ void RigController::setKeySpeed(int wpm)
 // verrouille le PTT pendant ce temps ; ici on se contente de lancer.
 void RigController::startTune()
 {
+    // Jeton pose par noteUserCommand a l'emission : la commande est arrivee.
+    if (m_userPending.load() > 0) m_userPending.fetch_sub(1);
 #ifdef RR_HAVE_HAMLIB
     if (!m_rig) return;
     const int r = rig_vfo_op(RIGP(m_rig), RIG_VFO_CURR, RIG_OP_TUNE);
@@ -526,6 +563,8 @@ void RigController::applySerialPtt(bool on)
 
 void RigController::setPtt(bool on)
 {
+    // Jeton pose par noteUserCommand a l'emission : la commande est arrivee.
+    if (m_userPending.load() > 0) m_userPending.fetch_sub(1);
     if (m_pttWanted == on) return;
     m_pttWanted = on;
 
@@ -549,10 +588,23 @@ void RigController::setPtt(bool on)
 // ------------------------------------------------------------------- commandes
 void RigController::setFrequency(quint64 hz)
 {
+    // Jeton pose par noteUserCommand a l'emission : la commande est arrivee.
+    if (m_userPending.load() > 0) m_userPending.fetch_sub(1);
 #ifdef RR_HAVE_HAMLIB
     if (!m_rig) return;
     const int r = rig_set_freq(RIGP(m_rig), RIG_VFO_CURR, freq_t(hz));
     if (r != RIG_OK) { emit logMessage(tr("Frequency refused: %1").arg(hamlibError(r))); return; }
+
+    // On relit ce que le poste a retenu. Certains arrondissent au pas de leur
+    // VFO, d'autres refusent en silence hors de leurs plages : sans relecture,
+    // l'operateur croirait la commande passee.
+    freq_t got = 0;
+    if (rig_get_freq(RIGP(m_rig), RIG_VFO_CURR, &got) == RIG_OK) {
+        const qint64 delta = qAbs(qint64(got) - qint64(hz));
+        if (delta > 10)
+            emit logMessage(tr("Frequency set to %1 Hz, rig reports %2")
+                                .arg(hz).arg(quint64(got)));
+    }
     { QMutexLocker lock(&m_mutex);
       if (m_state.vfo == "B") m_state.freqB = hz; else m_state.freqA = hz; }
     emitState();
@@ -563,6 +615,8 @@ void RigController::setFrequency(quint64 hz)
 
 void RigController::setMode(const QString &mode, int passband)
 {
+    // Jeton pose par noteUserCommand a l'emission : la commande est arrivee.
+    if (m_userPending.load() > 0) m_userPending.fetch_sub(1);
 #ifdef RR_HAVE_HAMLIB
     if (!m_rig) return;
     const rmode_t m = modeFromName(mode);
@@ -570,6 +624,12 @@ void RigController::setMode(const QString &mode, int passband)
     const int r = rig_set_mode(RIGP(m_rig), RIG_VFO_CURR, m,
                                passband > 0 ? pbwidth_t(passband) : RIG_PASSBAND_NORMAL);
     if (r != RIG_OK) { emit logMessage(tr("Mode refused: %1").arg(hamlibError(r))); return; }
+
+    rmode_t gotMode = RIG_MODE_NONE;
+    pbwidth_t gotWidth = 0;
+    if (rig_get_mode(RIGP(m_rig), RIG_VFO_CURR, &gotMode, &gotWidth) == RIG_OK
+        && gotMode != m)
+        emit logMessage(tr("Mode set to %1, rig reports %2").arg(mode, modeName(gotMode)));
     { QMutexLocker lock(&m_mutex); m_state.mode = mode; m_state.passband = passband; }
     emitState();
 #else
@@ -579,10 +639,20 @@ void RigController::setMode(const QString &mode, int passband)
 
 void RigController::setVfo(const QString &vfo)
 {
+    // Jeton pose par noteUserCommand a l'emission : la commande est arrivee.
+    if (m_userPending.load() > 0) m_userPending.fetch_sub(1);
 #ifdef RR_HAVE_HAMLIB
     if (!m_rig) return;
     const vfo_t v = (vfo == "B") ? RIG_VFO_B : RIG_VFO_A;
     const int r = rig_set_vfo(RIGP(m_rig), v);
+    if (r == RIG_OK) {
+        vfo_t got = RIG_VFO_NONE;
+        if (rig_get_vfo(RIGP(m_rig), &got) == RIG_OK) {
+            const QString name = (got == RIG_VFO_B) ? QStringLiteral("B") : QStringLiteral("A");
+            if (name != vfo)
+                emit logMessage(tr("VFO set to %1, rig reports %2").arg(vfo, name));
+        }
+    }
     if (r != RIG_OK) {
         emit logMessage(tr("VFO refused: %1").arg(hamlibError(r)));
         // -11 signifie que le poste ne sait pas changer de VFO par le CAT : on
@@ -620,6 +690,26 @@ void RigController::poll()
     RigState st;
     { QMutexLocker lock(&m_mutex); st = m_state; }
 
+    // Une commande d'operateur attend : on lui laisse le bus plutot que de
+    // l'obliger a patienter derriere six allers-retours. st part d'une copie de
+    // l'etat courant, donc tout champ non relu garde sa valeur : abandonner un
+    // cycle ne publie jamais d'etat incoherent.
+    //
+    // Le garde-fou compte les cycles sautes. Si un compteur restait en l'air —
+    // commande emise mais jamais delivree — l'affichage se figerait ; au-dela
+    // de cinq cycles on remet le compteur a zero et on relit tout.
+    auto userWaiting = [this] {
+        if (m_userPending.load() <= 0) { m_skippedPolls = 0; return false; }
+        if (++m_skippedPolls > 5) {
+            m_userPending.store(0);
+            m_skippedPolls = 0;
+            return false;
+        }
+        return true;
+    };
+
+    if (userWaiting()) return;
+
     if (rig_get_vfo(rig, &v) == RIG_OK)
         st.vfo = (v == RIG_VFO_B) ? "B" : "A";
 
@@ -639,7 +729,9 @@ void RigController::poll()
     } else if (m_readFailures > 3) {
         st.hasCat = false;
     }
-    if (rig_get_mode(rig, RIG_VFO_CURR, &m, &w) == RIG_OK) {
+    // Les lectures qui suivent sont utiles mais non essentielles : on les
+    // abandonne des qu'une commande se presente.
+    if (!userWaiting() && rig_get_mode(rig, RIG_VFO_CURR, &m, &w) == RIG_OK) {
         st.mode = modeName(m);
         st.passband = int(w);
         // Largeurs normalisees du mode courant : elles changent avec lui.
@@ -647,18 +739,20 @@ void RigController::poll()
         st.pbNormal = int(rig_passband_normal(rig, m));
         st.pbNarrow = int(rig_passband_narrow(rig, m));
     }
-    if (rig_get_ptt(rig, RIG_VFO_CURR, &p) == RIG_OK)
+
+    if (!userWaiting() && rig_get_ptt(rig, RIG_VFO_CURR, &p) == RIG_OK)
         st.ptt = (p != RIG_PTT_OFF);
 
     // Le S-mètre n'est lu qu'en réception : certains postes bloquent en TX.
-    if (!st.ptt && rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_STRENGTH, &lvl) == RIG_OK)
+    if (!st.ptt && !userWaiting()
+        && rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_STRENGTH, &lvl) == RIG_OK)
         st.strength = lvl.i;
 
     // Le ROS, lui, ne se mesure qu'en emission : il n'y a pas d'onde reflechie
     // a mesurer en reception. Hors emission, la derniere valeur est conservee,
     // comme le fait l'aiguille d'un ROS-metre, sinon elle disparaitrait au
     // relachement du PTT, juste avant qu'on ait eu le temps de la lire.
-    if (st.ptt && m_caps.hasSwr
+    if (st.ptt && m_caps.hasSwr && !userWaiting()
         && rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_SWR, &lvl) == RIG_OK
         && lvl.f >= 1.0f)
         st.swr = lvl.f;

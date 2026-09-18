@@ -304,6 +304,15 @@ void ServerCore::handleControl(const QJsonObject &o)
             sendJson(QJsonObject{{"t", "state"}, {"s", m_state.toJson()}});
         }
         else if (c == "keyspd") emit requestKeySpeed(o["wpm"].toInt());
+        else if (c == "cat") {
+            // Commande brute. On la journalise avant de l'envoyer : si elle
+            // fait taire le poste, la trace dira laquelle.
+            const QString raw = o["s"].toString().left(80);
+            if (!raw.isEmpty()) {
+                emit logMessage(tr("Raw CAT from client: %1").arg(raw));
+                emit requestCatString(raw);
+            }
+        }
         else if (c == "tune") {
             // Pas d'accord en pleine emission, et pas deux cycles a la fois.
             if (m_tx || m_tuning) return;
@@ -330,6 +339,12 @@ void ServerCore::handleControl(const QJsonObject &o)
         sendJson(QJsonObject{{"t", "pong"}, {"ts", o["ts"]}});
         return;
     }
+}
+
+void ServerCore::onCatReply(const QString &reply)
+{
+    if (m_authenticated)
+        sendJson(QJsonObject{{"t", "catReply"}, {"s", reply}});
 }
 
 void ServerCore::onRigCaps(const RigCaps &caps)

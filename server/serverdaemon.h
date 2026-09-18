@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QThread>
 #include "servercore.h"
+#include "cwkeyer.h"
 #include "rigcontroller.h"
 
 namespace rr {
@@ -42,8 +43,11 @@ private:
 
     QThread        m_netThread;
     QThread        m_rigThread;
+    QThread        m_keyerThread;
     ServerCore    *m_core = nullptr;
     RigController *m_rig  = nullptr;
+    CwKeyer       *m_keyer = nullptr;
+    bool           m_cwLocal = false;
     bool     m_verbose = false;
     bool     m_lastPtt = false;
     QString  m_lastRigLine;
