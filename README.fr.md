@@ -1179,6 +1179,29 @@ Le service déclare `foregroundServiceType="microphone"`, qu'Android 14 exige de
 tout service captant du son. Il est piloté depuis le C++ via `QJniObject`, sans
 colle Java côté application.
 
+
+### Écrans d'autres tailles
+
+Les dimensions du client tactile sont en unités logiques, que Qt multiplie par
+la densité de l'appareil : un bouton fait la même taille physique sur un écran
+1080p et sur un 1440p. Les *dimensions* de l'écran sont une autre affaire, et
+trois mécanismes s'en chargent.
+
+La page principale **défile**. Son contenu demande environ 750 unités logiques ;
+sur un téléphone plus court, en mode paysage ou en écran partagé, le bouton
+d'émission se retrouverait sinon sous le bord, sans aucun moyen de l'atteindre.
+
+La grille des bandes **suit la largeur** : de deux à six colonnes, pour que
+« 2200 m » reste lisible au lieu d'être serré à quatre de front sur un écran
+étroit.
+
+Sur un écran large, le contenu est **borné à 560 unités et centré**. Des boutons
+étirés sur une tablette ne se visent pas mieux, ils se lisent moins bien.
+
+Mesuré sur quatre formats : 320x600 défile avec trois colonnes, 420x820 tient
+exactement comme avant avec quatre, 820x420 en paysage défile avec cinq, et
+800x1280 tient avec cinq et le contenu centré.
+
 ## Thèmes
 
 Le client tactile embarque quatre palettes, chacune pour une situation
@@ -1206,6 +1229,28 @@ L'interrupteur est désactivé par défaut, puisqu'il confisque la touche.
 **L'interface rigctld** se publie sur 127.0.0.1:4532 depuis la même section. Un
 logiciel numérique du téléphone pilote alors le poste distant par Hamlib NET
 rigctl, exactement comme sur le bureau. Désactivée par défaut.
+
+
+## Numérotation des versions
+
+La version vit à un seul endroit — `project(RemoteRig VERSION x.y.z)` dans
+`CMakeLists.txt` — d'où elle se propage à l'écran « À propos », au paquet Debian
+et au code de version Android, calculé comme `majeure * 10000 + mineure * 100 +
+correctif`.
+
+Chaque correction et chaque amélioration la fait avancer, par le script, pour
+que la version CMake, le changelog Debian et les manuels ne divergent pas :
+
+```bash
+./bump_version.sh patch "Ce qui a été corrigé"
+./bump_version.sh minor "Ce qui a été ajouté"
+./bump_version.sh major "Ce qui change de façon incompatible"
+./bump_version.sh --show
+```
+
+**patch** pour une correction sans rien de neuf, **minor** pour une
+fonctionnalité qui ne casse rien pour les installations existantes, **major**
+pour tout ce qui obligerait à modifier une installation en place.
 
 ## Ce qui manque encore
 

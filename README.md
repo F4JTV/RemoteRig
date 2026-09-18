@@ -1123,6 +1123,28 @@ The service declares `foregroundServiceType="microphone"`, which Android 14
 requires of any service that captures sound. It is driven from C++ through
 `QJniObject`, no Java glue on the application side.
 
+
+### Screens of other sizes
+
+Sizes in the touch client are in logical units, which Qt multiplies by the
+device's pixel density: a button is the same physical size on a 1080p phone and
+a 1440p one. Screen *dimensions* are a separate matter, and three things handle
+them.
+
+The main page **scrolls**. Its content needs around 750 logical units; on a
+shorter phone, in landscape, or in split screen, the transmit button would
+otherwise sit below the edge with no way to reach it.
+
+The band grid **follows the width**: two to six columns, so "2200 m" stays
+readable instead of being squeezed four abreast on a narrow screen.
+
+On a wide screen the content is **capped at 560 units and centred**. Buttons
+stretched across a tablet are not easier to hit, only harder to read.
+
+Measured on four shapes: 320x600 scrolls with three columns, 420x820 fits
+exactly as before with four, 820x420 landscape scrolls with five, and 800x1280
+fits with five and the content centred.
+
 ## Themes
 
 The touch client carries four palettes, each for a real operating situation:
@@ -1152,6 +1174,28 @@ through Hamlib NET rigctl, exactly as on the desktop. It is off by default.
 ## What is still missing
 
 - Nothing identified. Report what you find.
+
+
+## Versioning
+
+The version lives in one place — `project(RemoteRig VERSION x.y.z)` in
+`CMakeLists.txt` — and flows from there to the About box, the Debian package and
+the Android version code, which is derived as `major * 10000 + minor * 100 +
+patch`.
+
+Every fix and every improvement moves it, through the script, so the CMake
+version, the Debian changelog and the manuals cannot drift apart:
+
+```bash
+./bump_version.sh patch "What was fixed"
+./bump_version.sh minor "What was added"
+./bump_version.sh major "What changed incompatibly"
+./bump_version.sh --show
+```
+
+**patch** for a bug fix with nothing new, **minor** for a new feature that
+breaks nothing for existing users, **major** for anything an existing setup
+would have to be changed for.
 
 ## Building the APK on Ubuntu 24.04
 
