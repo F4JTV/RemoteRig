@@ -60,6 +60,16 @@ footer { margin-top: 3rem; font-size: .9em; opacity: .75; }
     aside code, aside pre { background: #10151d; color: #e6ebf2; }
 }
 
+
+figure { margin: 1.4em 0; }
+figure img {
+  display: block; max-width: 100%; height: auto;
+  border: 1px solid var(--line); border-radius: 6px;
+}
+figure figcaption {
+  margin-top: .5em; font-size: .9em; color: var(--dim); font-style: italic;
+}
+figure.phone img { max-width: 380px; margin: 0 auto; }
 </style>
 </head>
 <body>
@@ -137,6 +147,11 @@ Déconnectez-vous puis reconnectez-vous pour que ce soit pris en compte.
 dans le pare-feu : acceptez, sinon aucun client ne joindra la station.</p>
 
 <h3>Android</h3>
+<figure class="phone">
+  <img src="remoterig-manual-images/RemoteRig_Client_Android.png" alt="Le client tactile sur Android, station connectée.">
+  <figcaption>Le client tactile sur Android, station connectée.</figcaption>
+</figure>
+
 <p>Installez l'APK signé. Sur un téléphone Samsung, le <em>Bloqueur
 automatique</em> empêche l'installation hors boutique : désactivez-le le temps
 de l'installation, dans <em>Paramètres → Sécurité et confidentialité</em>.</p>
@@ -144,6 +159,11 @@ de l'installation, dans <em>Paramètres → Sécurité et confidentialité</em>.
 <h2 id="serveur">3. Le serveur</h2>
 
 <h3>Onglet Poste</h3>
+<figure>
+  <img src="remoterig-manual-images/RemoteRig_Server_Radio.png" alt="Onglet Poste du serveur : pilotage Hamlib, modèle, port CAT, forme de PTT et manipulateur.">
+  <figcaption>Onglet Poste du serveur : pilotage Hamlib, modèle, port CAT, forme de PTT et manipulateur.</figcaption>
+</figure>
+
 <table>
 <tr><th>Réglage</th><th>Rôle</th></tr>
 <tr><td>Pilotage</td><td><em>Hamlib</em> pour un poste piloté en CAT,
@@ -167,6 +187,11 @@ série.</td></tr>
 </table>
 
 <h3>Onglet Audio</h3>
+<figure>
+  <img src="remoterig-manual-images/RemoteRig_Server_Audio.png" alt="Onglet Audio du serveur : périphériques, tampon, gains, maintien du PTT et tonalité.">
+  <figcaption>Onglet Audio du serveur : périphériques, tampon, gains, maintien du PTT et tonalité.</figcaption>
+</figure>
+
 <p>Choisissez l'entrée — ce que le poste reçoit — et la sortie — ce qui part en
 émission. Le bouton <em>Rechercher les périphériques</em> prend en compte une
 carte branchée après le lancement.</p>
@@ -182,6 +207,11 @@ gauche, sans quoi la tonalité serait transmise.</p>
 réseau local rapide, montez à 960 si le son hache.</p>
 
 <h3>Onglet Réseau</h3>
+<figure>
+  <img src="remoterig-manual-images/RemoteRig_Server_Network.png" alt="Onglet Réseau du serveur : ports, mot de passe, chiffrement exigé et adresses de la machine.">
+  <figcaption>Onglet Réseau du serveur : ports, mot de passe, chiffrement exigé et adresses de la machine.</figcaption>
+</figure>
+
 <p>Les ports TCP et UDP, le mot de passe, et deux garde-fous :</p>
 <ul>
   <li><strong>Refuser les clients qui ne chiffrent pas</strong> — à activer dès
@@ -208,6 +238,11 @@ saisir, et avertit si le mot de passe est vide.</p>
 <h2 id="client">4. Le client</h2>
 
 <h3>Se connecter</h3>
+<figure>
+  <img src="remoterig-manual-images/RemoteRig_Client_Station.png" alt="Onglet Station du client bureau, connecté à un FT-891 : fréquence, mode, largeur, bandes et émission.">
+  <figcaption>Onglet Station du client bureau, connecté à un FT-891 : fréquence, mode, largeur, bandes et émission.</figcaption>
+</figure>
+
 <p>Saisissez l'adresse de la station, le port, le mot de passe, puis
 <em>Connecter</em>. Le champ <strong>UDP</strong> reste sur <em>auto</em> :
 le serveur annonce lui-même son port audio. Ne le forcez que derrière une
@@ -218,6 +253,11 @@ une coupure : première tentative après une seconde, puis le délai double
 jusqu'à trente. Pendant l'attente, le bouton devient <em>Renoncer</em>.</p>
 
 <h3>Audio</h3>
+<figure>
+  <img src="remoterig-manual-images/RemoteRig_Client_Audio.png" alt="Onglet Audio du client : périphériques, tampon de gigue, niveaux et mise en forme du micro.">
+  <figcaption>Onglet Audio du client : périphériques, tampon de gigue, niveaux et mise en forme du micro.</figcaption>
+</figure>
+
 <table>
 <tr><th>Réglage</th><th>Rôle</th></tr>
 <tr><td>Codec</td><td><em>Opus faible latence</em> pour la parole,
@@ -288,6 +328,11 @@ temps de la lire, et remise à zéro à l'émission suivante. Au-delà de 2:1, l
 chiffre passe au rouge.</p>
 
 <h3 id="telegraphie">Télégraphie</h3>
+<figure>
+  <img src="remoterig-manual-images/RemoteRig_Client_CW.png" alt="Onglet CW du client : vitesse, six mémoires logicielles, les cinq mémoires du poste et le champ libre.">
+  <figcaption>Onglet CW du client : vitesse, six mémoires logicielles, les cinq mémoires du poste et le champ libre.</figcaption>
+</figure>
+
 
 <p>Deux voies, selon ce que le poste accepte.</p>
 
@@ -295,11 +340,18 @@ chiffre passe au rouge.</p>
 manipulateur électronique génère les éléments. C'est la voie la plus simple
 quand elle fonctionne.</p>
 
-<p>Elle ne fonctionne pas partout. Sur les Yaesu HF, la commande de manipulateur
-ne sait que rejouer les mémoires internes du poste : envoyer <code>AGN?</code>
-déclenche la mémoire 1, quel que soit le texte. Cinq boutons appellent donc ces
-mémoires directement, numérotées de 1 à 5. Elles s'enregistrent sur le poste,
-dans les menus 04-07 à 04-11 sur un FT-891, et contiennent jusqu'à
+<aside>
+Éprouvé sur un Yaesu FT-891 piloté en CAT à 38400, PTT sur CAT : le poste
+manipule le texte saisi dans le client, sans ligne de manipulation série et sans
+rien à câbler.
+</aside>
+
+<p>Elle ne fonctionne pas sur tous les postes, ni dans toutes les
+configurations. Un poste peut refuser la commande, ou manipuler une de ses
+mémoires internes au lieu du texte — ce qui donne l'impression que l'application
+envoie autre chose que ce qu'on lui a donné. Cinq boutons appellent donc les
+mémoires du poste directement, numérotées de 1 à 5. Elles s'enregistrent sur le
+poste, dans les menus 04-07 à 04-11 sur un FT-891, et contiennent jusqu'à
 50 caractères chacune.</p>
 
 <p><strong>Le serveur génère les éléments.</strong> Cochez <em>Générer le CW ici
@@ -406,8 +458,9 @@ antérieure, saisissez le chemin complet.</td></tr>
 
 <tr><td>Le CW envoie autre chose que le texte</td>
 <td>Le poste rejoue une de ses mémoires internes au lieu de manipuler le texte.
-Utilisez les cinq boutons de mémoires, ou activez le manipulateur du
-serveur.</td></tr>
+Vérifiez d'abord le port CAT et sa vitesse, puis que le poste est bien en CW :
+sur un FT-891 correctement réglé, le texte saisi part tel quel. Sinon, utilisez
+les cinq boutons de mémoires, ou activez le manipulateur du serveur.</td></tr>
 
 <tr><td>Le PTT CM108 ne fonctionne pas sous Linux</td>
 <td>Droits sur <code>/dev/hidraw*</code>. Installez la règle udev livrée avec le

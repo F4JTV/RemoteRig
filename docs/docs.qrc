@@ -2,5 +2,12 @@
     <qresource prefix="/docs">
         <file>manual-fr.html</file>
         <file>manual-en.html</file>
+        <file>images/RemoteRig_Client_Android.png</file>
+        <file>images/RemoteRig_Client_Audio.png</file>
+        <file>images/RemoteRig_Client_CW.png</file>
+        <file>images/RemoteRig_Client_Station.png</file>
+        <file>images/RemoteRig_Server_Audio.png</file>
+        <file>images/RemoteRig_Server_Network.png</file>
+        <file>images/RemoteRig_Server_Radio.png</file>
     </qresource>
 </RCC>

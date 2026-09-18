@@ -134,6 +134,22 @@ void openUserManual(QWidget *parent)
     }
     out.close();
 
+    // Les captures accompagnent le manuel. Elles sont stockees une seule fois
+    // dans les ressources et partagees par les deux langues : les inscrire en
+    // clair dans chaque page aurait double leur poids dans chaque executable.
+    // On les depose a cote du fichier extrait, dans le sous-dossier auquel
+    // renvoie le manuel.
+    const QDir imgDir(QDir(dir).filePath(QStringLiteral("remoterig-manual-images")));
+    QDir().mkpath(imgDir.absolutePath());
+    const QStringList shots = QDir(QStringLiteral(":/docs/images")).entryList(QDir::Files);
+    for (const QString &name : shots) {
+        const QString dest = imgDir.filePath(name);
+        // Reecrite a chaque ouverture : une version precedente pourrait trainer.
+        QFile::remove(dest);
+        QFile::copy(QStringLiteral(":/docs/images/%1").arg(name), dest);
+        QFile::setPermissions(dest, QFile::ReadOwner | QFile::WriteOwner);
+    }
+
     if (!QDesktopServices::openUrl(QUrl::fromLocalFile(path))) {
         QMessageBox::information(parent,
             QCoreApplication::translate("About", "User manual"),

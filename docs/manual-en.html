@@ -60,6 +60,16 @@ footer { margin-top: 3rem; font-size: .9em; opacity: .75; }
     aside code, aside pre { background: #10151d; color: #e6ebf2; }
 }
 
+
+figure { margin: 1.4em 0; }
+figure img {
+  display: block; max-width: 100%; height: auto;
+  border: 1px solid var(--line); border-radius: 6px;
+}
+figure figcaption {
+  margin-top: .5em; font-size: .9em; color: var(--dim); font-style: italic;
+}
+figure.phone img { max-width: 380px; margin: 0 auto; }
 </style>
 </head>
 <body>
@@ -137,6 +147,11 @@ Log out and back in for it to take effect.
 ports: accept, or no client will reach the station.</p>
 
 <h3>Android</h3>
+<figure class="phone">
+  <img src="remoterig-manual-images/RemoteRig_Client_Android.png" alt="The touch client on Android, station connected.">
+  <figcaption>The touch client on Android, station connected.</figcaption>
+</figure>
+
 <p>Install the signed APK. On a Samsung phone, <em>Auto Blocker</em> prevents
 installation from outside the store: turn it off for the installation, under
 <em>Settings → Security and privacy</em>.</p>
@@ -144,6 +159,11 @@ installation from outside the store: turn it off for the installation, under
 <h2 id="server">3. The server</h2>
 
 <h3>Rig tab</h3>
+<figure>
+  <img src="remoterig-manual-images/RemoteRig_Server_Radio.png" alt="The server's Rig tab: Hamlib control, model, CAT port, PTT type and keyer.">
+  <figcaption>The server's Rig tab: Hamlib control, model, CAT port, PTT type and keyer.</figcaption>
+</figure>
+
 <table>
 <tr><th>Setting</th><th>What it does</th></tr>
 <tr><td>Control</td><td><em>Hamlib</em> for a CAT-controlled rig, <em>Serial PTT
@@ -166,6 +186,11 @@ the elements itself and key a serial line.</td></tr>
 </table>
 
 <h3>Audio tab</h3>
+<figure>
+  <img src="remoterig-manual-images/RemoteRig_Server_Audio.png" alt="The server's Audio tab: devices, buffer, gains, PTT hold and tone.">
+  <figcaption>The server's Audio tab: devices, buffer, gains, PTT hold and tone.</figcaption>
+</figure>
+
 <p>Pick the input — what the rig receives — and the output — what goes out on
 transmit. <em>Rescan audio devices</em> picks up a card plugged in after
 launch.</p>
@@ -181,6 +206,11 @@ suits most cases; go down to 240 on a fast local network, up to 960 if the
 audio breaks up.</p>
 
 <h3>Network tab</h3>
+<figure>
+  <img src="remoterig-manual-images/RemoteRig_Server_Network.png" alt="The server's Network tab: ports, password, required encryption and the machine's addresses.">
+  <figcaption>The server's Network tab: ports, password, required encryption and the machine's addresses.</figcaption>
+</figure>
+
 <p>The TCP and UDP ports, the password, and two guards:</p>
 <ul>
   <li><strong>Reject clients that do not encrypt</strong> — turn this on as soon
@@ -207,6 +237,11 @@ and warns when the password is empty.</p>
 <h2 id="client">4. The client</h2>
 
 <h3>Connecting</h3>
+<figure>
+  <img src="remoterig-manual-images/RemoteRig_Client_Station.png" alt="The desktop client's Station tab, connected to an FT-891: frequency, mode, width, bands and transmit.">
+  <figcaption>The desktop client's Station tab, connected to an FT-891: frequency, mode, width, bands and transmit.</figcaption>
+</figure>
+
 <p>Enter the station's address, port and password, then <em>Connect</em>. Leave
 the <strong>UDP</strong> field on <em>auto</em>: the server announces its own
 audio port. Force it only behind a NAT rule that remaps the number.</p>
@@ -216,6 +251,11 @@ first attempt after one second, then the delay doubles up to thirty. During the
 wait the button becomes <em>Cancel</em>.</p>
 
 <h3>Audio</h3>
+<figure>
+  <img src="remoterig-manual-images/RemoteRig_Client_Audio.png" alt="The client's Audio tab: devices, jitter buffer, levels and microphone shaping.">
+  <figcaption>The client's Audio tab: devices, jitter buffer, levels and microphone shaping.</figcaption>
+</figure>
+
 <table>
 <tr><th>Setting</th><th>What it does</th></tr>
 <tr><td>Codec</td><td><em>Opus low latency</em> for speech, <em>16-bit PCM</em>
@@ -281,6 +321,11 @@ enough to read, and cleared on the next transmission. Past 2:1 the figure turns
 red.</p>
 
 <h3 id="morse">Morse</h3>
+<figure>
+  <img src="remoterig-manual-images/RemoteRig_Client_CW.png" alt="The client's CW tab: speed, six software memories, the rig's own five and the free-text field.">
+  <figcaption>The client's CW tab: speed, six software memories, the rig's own five and the free-text field.</figcaption>
+</figure>
+
 
 <p>Two routes, depending on what the rig accepts.</p>
 
@@ -288,11 +333,18 @@ red.</p>
 own electronic keyer generates the elements. The simplest route when it
 works.</p>
 
-<p>It does not work everywhere. On Yaesu HF sets, the keyer command only replays
-the rig's internal memories: sending <code>AGN?</code> plays memory 1 whatever
-the text. Five buttons therefore call those memories directly, numbered 1 to 5.
-They are recorded on the rig itself — menus 04-07 to 04-11 on an FT-891 — and
-hold up to 50 characters each.</p>
+<aside>
+Known to work on a Yaesu FT-891 over CAT at 38400 with the PTT set to CAT: the
+rig keys the text typed in the client, with no serial keying line and nothing to
+wire.
+</aside>
+
+<p>It does not work on every rig, nor in every configuration. A rig may reject
+the command outright, or key one of its own stored memories instead of the text
+— which looks like the application sending something it was never given. Five
+buttons therefore call the rig's own memories directly, numbered 1 to 5. They
+are recorded on the rig itself — menus 04-07 to 04-11 on an FT-891 — and hold up
+to 50 characters each.</p>
 
 <p><strong>The server generates the elements.</strong> Tick <em>Generate CW here
 and key a serial line</em> on the Rig tab, choose the port and the line, DTR or
@@ -392,7 +444,9 @@ port name for a network address. Fixed since 1.0.0: the server now passes
 
 <tr><td>CW sends something other than the text</td>
 <td>The rig is replaying one of its internal memories instead of keying the
-text. Use the five memory buttons, or turn on the server's own keyer.</td></tr>
+text. Check the CAT port and its speed first, then that the rig is in CW: on a
+correctly set up FT-891 the typed text goes out as written. Failing that, use
+the five memory buttons, or turn on the server's own keyer.</td></tr>
 
 <tr><td>CM108 PTT does not work on Linux</td>
 <td>Permissions on <code>/dev/hidraw*</code>. Install the udev rule shipped with
