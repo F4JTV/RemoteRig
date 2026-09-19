@@ -85,6 +85,9 @@ private:
     // laissait un pointeur mort dans la liste, et le premier changement
     // d'etat de connexion le dereferençait.
     QList<QPointer<QWidget>> m_catWidgets;
+    // Boutons qui declenchent un envoi CW : grises pendant la manipulation.
+    // Le bouton d'arret n'en fait pas partie, il doit rester utilisable.
+    QList<QPointer<QPushButton>> m_cwButtons;
 
     // connexion
     QLineEdit *m_host = nullptr;

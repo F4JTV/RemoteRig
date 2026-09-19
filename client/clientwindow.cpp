@@ -518,6 +518,7 @@ QWidget *ClientWindow::buildCwPage()
         grid->addWidget(send, i / 2, (i % 2) * 2 + 1);
         m_cwMacros << edit;
         m_catWidgets << send;
+        m_cwButtons  << send;
     }
     v->addLayout(grid);
 
@@ -535,6 +536,7 @@ QWidget *ClientWindow::buildCwPage()
         });
         memRow->addWidget(b);
         m_catWidgets << b;
+        m_cwButtons  << b;
     }
     memRow->addStretch();
     v->addLayout(memRow);
@@ -560,6 +562,7 @@ QWidget *ClientWindow::buildCwPage()
     row->addWidget(stopBtn);
     v->addLayout(row);
     m_catWidgets << sendBtn << stopBtn;
+    m_cwButtons  << sendBtn;
 
     v->addStretch();
     return page;
@@ -1071,6 +1074,10 @@ void ClientWindow::onStateChanged(const RigState &st)
 
     // Pendant l'accord le poste emet deja : le PTT reste inaccessible.
     m_pttBtn->setEnabled(m_connected && !st.tuning && !st.cw && st.txAllowed);
+    // Les commandes CW se grisent aussi pendant la manipulation : envoyer
+    // par-dessus fait repondre « ? » au poste, et Hamlib reessaie trois fois.
+    for (const QPointer<QPushButton> &b : std::as_const(m_cwButtons))
+        if (b) b->setEnabled(m_connected && !st.cw);
     if (st.txAllowed) {
         m_pttBtn->setText(tr("Transmit  (hold, or press space)"));
     } else {

@@ -338,6 +338,12 @@ void ClientCore::handleControl(const QJsonObject &o)
         return;
     }
 
+    if (t == "notice") {
+        // Avis du serveur, destine a l'operateur : il s'affiche tel quel.
+        emit logMessage(o["s"].toString());
+        return;
+    }
+
     if (t == "catReply") {
         const QString answer = o["s"].toString();
         emit catReply(answer);

@@ -883,7 +883,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 48
                         text: Station.expandMacro(modelData)
-                        active: Station.connected && Station.hasMorse
+                        active: Station.connected && Station.hasMorse && !Station.cwBusy
                         onClicked: Station.sendCw(modelData)
                     }
                 }
@@ -909,7 +909,7 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
                         text: String(index + 1)
-                        active: Station.connected && Station.hasMorse
+                        active: Station.connected && Station.hasMorse && !Station.cwBusy
                         onClicked: Station.sendCw(String(index + 1))
                     }
                 }
