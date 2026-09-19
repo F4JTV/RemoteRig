@@ -232,7 +232,27 @@ void RigController::sendMorse(const QString &text)
         return;
     }
 
+    // Aucune reprise pendant le morse.
+    //
+    // Le pilote Yaesu attend une reponse pendant deux secondes, puis recommence
+    // jusqu'a trois fois. Pour une lecture c'est sain ; pour un envoi morse
+    // c'est desastreux, car chaque reprise fait rejouer le message : quatre
+    // emissions sur l'air, espacees de deux secondes. Une machine lente — un
+    // Raspberry Pi sur sa liaison serie — depasse ce delai la ou un PC repond a
+    // temps, d'ou un defaut qui n'apparait que sur certaines installations.
+    //
+    // Un envoi morse manque est sans consequence, un envoi repete en a. On
+    // coupe donc les reprises pour cet appel seulement, et on les retablit
+    // ensuite a la valeur que declare le pilote du poste.
+    auto setRetry = [this](int n) {
+        rig_set_conf(RIGP(m_rig), rig_token_lookup(RIGP(m_rig), "retry"),
+                     QByteArray::number(n).constData());
+    };
+    const int rigRetry = RIGP(m_rig)->caps ? RIGP(m_rig)->caps->retry : 3;
+    setRetry(0);
     const int r = rig_send_morse(RIGP(m_rig), RIG_VFO_CURR, latin.constData());
+    setRetry(rigRetry);
+
     if (r != RIG_OK) {
         emit logMessage(tr("Morse refused: %1").arg(hamlibError(r)));
     } else {

@@ -1,3 +1,15 @@
+remoterig (1.1.5) stable; urgency=medium
+
+  * CW retries switched off during a Morse send: the Yaesu driver replayed the message on each retry, four times two seconds apart on a slow serial link
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sat, 19 Sep 2026 15:41:51 +0000
+
+remoterig (1.1.4) stable; urgency=medium
+
+  * CW sent while the rig was still keying made it answer ?, which Hamlib retried three times; the request is now refused and the controls grey out
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sat, 19 Sep 2026 14:38:18 +0000
+
 remoterig (1.1.3) stable; urgency=medium
 
   * The Android manifest is generated from a template, so the APK carries the project version instead of a hardcoded 1.0.0

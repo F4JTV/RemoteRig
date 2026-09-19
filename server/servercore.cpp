@@ -291,6 +291,16 @@ void ServerCore::handleControl(const QJsonObject &o)
         else if (c == "cw") {
             const QString text = o["text"].toString().left(240);
             if (m_tx || text.isEmpty()) return;
+            // Un envoi pendant que le poste manipule encore le fait repondre
+            // « ? ». Hamlib prend ce refus pour un poste occupe et reessaie
+            // trois fois : le message part alors quatre fois, espace des
+            // temporisations. On refuse plutot que de declencher cela.
+            if (m_cw) {
+                emit logMessage(tr("Still sending — request ignored"));
+                sendJson(QJsonObject{{"t", "notice"},
+                                     {"s", tr("Still sending — request ignored")}});
+                return;
+            }
             m_cw = true;
             m_cwClock.start();
             m_state.cw = true;
