@@ -1,3 +1,62 @@
+remoterig (1.1.3) stable; urgency=medium
+
+  * The Android manifest is generated from a template, so the APK carries the project version instead of a hardcoded 1.0.0
+  * Fixed the Windows build: the Hamlib version is read through rig_version()
+    rather than the exported hamlib_version variable, which needs dllimport
+    and left an unresolved symbol at link time
+  * The Windows installer takes its version from CMakeLists.txt instead of a
+    hardcoded 1.0.0
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sat, 19 Sep 2026 11:22:04 +0000
+
+remoterig (1.1.2) stable; urgency=medium
+
+  * Raw CAT replies now reach the client log on both clients, and the desktop CAT tab scrolls instead of growing the window
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sat, 19 Sep 2026 11:10:53 +0000
+
+remoterig (1.1.1) stable; urgency=medium
+
+  * Fixed a crash when deleting a CAT macro, and spaced out the macro rows on the touch client
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sat, 19 Sep 2026 09:07:42 +0000
+
+remoterig (1.1.0) stable; urgency=medium
+
+  * Raw CAT macros on both clients: add, edit, delete, saved as you type
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sat, 19 Sep 2026 08:38:56 +0000
+
+remoterig (1.0.5) stable; urgency=medium
+
+  * Fixed a server crash on raw CAT: Hamlib reads into a 200-byte buffer using the length we announce, and we announced 255
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sat, 19 Sep 2026 08:07:18 +0000
+
+remoterig (1.0.4) stable; urgency=medium
+
+  * The state published after a write is the rig's answer, not the request; both clients now follow it
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sat, 19 Sep 2026 07:29:23 +0000
+
+remoterig (1.0.3) stable; urgency=medium
+
+  * make_deb.sh now reports which Hamlib the package was built against and which one the target machine will load
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sat, 19 Sep 2026 06:57:49 +0000
+
+remoterig (1.0.2) stable; urgency=medium
+
+  * Added build_hamlib.sh, which builds Hamlib 4.7.2 on Linux so both systems run the same version
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sat, 19 Sep 2026 06:31:38 +0000
+
+remoterig (1.0.1) stable; urgency=medium
+
+  * CW: detect Hamlib older than 4.6, whose Yaesu driver sent only the first character of the message
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sat, 19 Sep 2026 06:18:02 +0000
+
 remoterig (1.0.0) stable; urgency=medium
 
   * First release.

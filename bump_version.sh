@@ -87,8 +87,10 @@ for MANUAL in "$SRC_DIR/docs/manual-fr.html" "$SRC_DIR/docs/manual-en.html"; do
     say "$(basename "$MANUAL")  updated"
 done
 
-# --- le code de version Android en decoule, on le montre pour controle
+# --- le code de version Android en decoule. Le manifeste est engendre a la
+#     compilation a partir de android/AndroidManifest.xml.in : rien a modifier
+#     ici, mais on montre la valeur pour controle.
 CODE=$(( MAJ * 10000 + MIN * 100 + PAT ))
-say "Android version code will be $CODE"
+say "Android versionName $NEW, versionCode $CODE"
 say ""
 say "Rebuild so the About box and the packages carry $NEW."

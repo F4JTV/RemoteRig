@@ -378,14 +378,24 @@ que par le canal gauche, sans quoi la tonalité serait elle aussi transmise.
 
 ### CW généré par le serveur
 
-Certains postes n'acceptent pas de texte libre par le CAT : la commande est
-refusée, ou le poste manipule une de ses mémoires internes au lieu du texte.
-Pour ceux-là, le serveur peut produire les éléments lui-même et manipuler une
-ligne série câblée sur la prise KEY du poste.
+**Le texte libre demande Hamlib 4.6 ou plus récent.** Avant cette version, le
+pilote Yaesu n'envoyait que le *premier caractère* du message, interprété comme
+un numéro de mémoire : tout texte déclenchait une des mémoires du poste au lieu
+d'être manipulé. À partir de la 4.6, le pilote enregistre le texte dans la
+mémoire 1 par `KM1`, puis la joue — le texte part donc tel qu'il a été écrit.
 
-Essayez d'abord le manipulateur du poste : il ne demande aucun câblage, et sur
-un FT-891 piloté en CAT il transmet bien le texte. Ce qui suit est le recours
-lorsqu'il ne fonctionne pas.
+Ubuntu 24.04 livre Hamlib 4.5.5, d'où une même station qui fonctionne sous
+Windows et pas sous Linux, à configuration identique. Le serveur vérifie la
+version qu'il a devant lui et le dit, plutôt que de laisser le poste manipuler
+quelque chose que vous n'avez jamais saisi. Compilez Hamlib 4.6 ou plus récent,
+ou employez le manipulateur du serveur.
+
+Une conséquence à connaître : envoyer du texte libre **écrase la mémoire 1 du
+manipulateur du poste**, et le texte est tronqué à 50 caractères.
+
+Pour les postes qui refusent le texte libre, ou les systèmes dont la version de
+Hamlib ne le permet pas, le serveur peut produire les éléments lui-même et
+manipuler une ligne série câblée sur la prise KEY du poste.
 
 Cochez **Générer le CW ici et manipuler une ligne série**, choisissez le port et
 la ligne, DTR ou RTS. Elle peut être inversée pour les interfaces qui la
@@ -425,6 +435,17 @@ dans le client bureau, avec un mode d'emploi de la syntaxe et son journal
 propre, et se trouve dans le tiroir sur téléphone.
 
 
+**Les macros.** Les commandes que vous employez souvent peuvent être conservées :
+donnez à chacune un nom et la séquence qu'elle envoie. Ajoutez-les par **Ajouter
+une macro**, modifiez l'un ou l'autre champ sur place, retirez-en une par sa
+croix. Elles sont enregistrées au fil de la frappe, dans les réglages du client,
+et partagées par le client bureau et le client tactile d'une même machine.
+
+Les points-virgules sont gérés : Qt met les valeurs entre guillemets à
+l'écriture, si bien que `FT1;` survit à un aller-retour par le fichier de
+réglages, alors même qu'un point-virgule y ouvre un commentaire.
+
+
 ### Les commandes de l'opérateur passent d'abord
 
 Le cycle de scrutation fait jusqu'à six allers-retours vers le poste :
@@ -442,6 +463,22 @@ Un garde-fou en borne l'effet. Si un jeton restait en l'air — commande émise
 mais jamais délivrée — l'affichage se figerait ; au-delà de cinq cycles sautés,
 le compteur est remis à zéro et tout est relu. L'idée vient d'OmniRig, dont la
 file insère les écritures de l'opérateur devant les commandes d'état.
+
+### La réponse du poste, jamais la demande
+
+Un poste ne prend pas toujours ce qu'on lui donne. Sous 10 MHz, le choix
+automatique de bande latérale transforme une demande d'USB en LSB ; une
+fréquence est arrondie au pas du VFO ; un mode peut retomber sur un voisin.
+Chaque changement de fréquence, de mode et de VFO est donc relu, et **ce que le
+serveur publie est ce que le poste annonce**, non ce qui a été demandé. Le
+journal dit les deux lorsqu'ils diffèrent.
+
+Les deux clients suivent. La liste du bureau cessait de se mettre à jour dès que
+l'opérateur y avait touché, et celle du client tactile détruisait sa propre
+liaison au moment du choix — dans les deux cas l'écran restait sur la demande
+pendant que le poste était ailleurs. `test/mode_probe.py` le vérifie contre le
+poste factice de Hamlib, qui ignore les changements de mode : chaque demande
+doit revenir avec le mode du poste.
 
 ## Bandes et coupleur d'antenne
 
@@ -606,6 +643,16 @@ Les deux exécutables sortent dans `build/` :
 
 ### Paquet Debian
 
+Le paquet est compilé contre la Hamlib que trouve le compilateur, et
+`make_deb.sh` indique à la fois les en-têtes employés et la bibliothèque qui
+sera réellement chargée — les deux peuvent différer, puisque les deux versions
+portent le même nom et que c'est l'ordre des répertoires qui tranche. La
+dépendance reste celle du paquet de la distribution dans tous les cas, si bien
+que le `.deb` s'installe partout ; une machine qui n'a que la 4.5.5 chargera
+celle-là, et le CW en texte libre n'y fonctionnera pas. Lancez `build_hamlib.sh`
+sur cette machine aussi si elle en a besoin.
+
+
 Le script installe d'abord les dépendances manquantes, puis compile et fabrique
 le paquet :
 
@@ -653,6 +700,31 @@ tailles, les pages de manuel, et rafraîchit les caches du bureau à
 l'installation. `lintian` ne signale rien.
 
 ### 3. Installation
+
+### Hamlib 4.6 ou plus récent, des deux côtés
+
+Ubuntu 24.04 et Debian 12 livrent Hamlib 4.5.5, dont le pilote Yaesu n'envoie
+que le premier caractère d'un message CW, interprété comme un numéro de mémoire :
+le texte libre déclenche une des mémoires du poste au lieu d'être transmis. La
+4.6 l'a corrigé. Une même station se comporte donc différemment sous Windows,
+qui livre une Hamlib récente, et sous Linux avec celle de la distribution.
+
+`build_hamlib.sh` installe la même version des deux côtés :
+
+```bash
+./build_hamlib.sh            # 4.7.2 dans /usr/local
+./build_hamlib.sh --check    # dire quelles versions sont en place
+rm -rf build && ./install.sh # recompiler RemoteRig contre elle
+```
+
+Il installe dans `/usr/local` et laisse le paquet de la distribution en place.
+Les deux portent le même nom de bibliothèque : celle de `/usr/local` ne l'emporte
+que tant qu'elle vient en premier dans le chemin du lieur — vérifiez avec
+`ldd $(command -v remoterig-server) | grep hamlib`. Le serveur lit la version
+qu'il a réellement devant lui et le signale dans son journal si elle est
+antérieure à la 4.6, plutôt que de laisser le poste manipuler ce que personne
+n'a saisi.
+
 
 `install.sh` et `make_deb.sh` installent tous deux les dépendances manquantes
 avant de compiler, depuis la même liste — `packaging/build-deps.sh` — pour
@@ -1272,6 +1344,20 @@ que la version CMake, le changelog Debian et les manuels ne divergent pas :
 **patch** pour une correction sans rien de neuf, **minor** pour une
 fonctionnalité qui ne casse rien pour les installations existantes, **major**
 pour tout ce qui obligerait à modifier une installation en place.
+
+Le manifeste Android ne porte pas de version propre : `android/AndroidManifest.xml.in`
+est un modèle, et le manifeste est engendré à la compilation dans le répertoire
+de build, avec la version du projet et un code de version qui en découle
+(1.1.2 donne 10102). Rien à modifier à la main, et rien d'écrit dans les
+sources.
+
+L'installateur Windows prend la même version : `build_all.bat` la lit dans
+`CMakeLists.txt` et la passe à Inno Setup par `/DAppVersion=`, si bien que le
+fichier produit s'appelle `RemoteRig-1.1.3-setup.exe` et annonce la bonne
+version dans la liste des programmes installés. Compiler `installer/RemoteRig.iss`
+à la main sans cette option retombe volontairement sur 0.0.0, pour que l'erreur
+saute aux yeux.
+
 
 ## Ce qui manque encore
 

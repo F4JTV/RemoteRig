@@ -224,15 +224,28 @@ Two routes, depending on what the rig accepts.
 rig's own electronic keyer generates the elements. The simplest route when it
 works.
 
-This route is known to work on a Yaesu FT-891 driven over CAT at 38400 with the
-PTT set to CAT, sending the text typed in the client.
+This route works on a Yaesu FT-891 driven over CAT at 38400 with the PTT set to
+CAT, sending the text typed in the client.
 
-It does not work on every rig, and not in every configuration. A rig may reject
-the command outright, or key one of its own stored memories instead of the text
-— which looks like the application sending something it was never given. Five
-buttons therefore call the rig's own memories directly, numbered 1 to 5, in the
-CW panel and in the desktop client's tab; on an FT-891 they are recorded in
-menus 04-07 to 04-11 and hold up to 50 characters each.
+**Free text needs Hamlib 4.6 or later.** Before that, the Yaesu driver sent only
+the *first character* of the message, read as a memory number: any text played
+one of the rig's stored memories instead of being keyed. From 4.6 the driver
+stores the text in keyer memory 1 with `KM1`, then plays it — so the text goes
+out as written.
+
+Ubuntu 24.04 ships Hamlib 4.5.5, which is why the same station can work on
+Windows and not on Linux with an identical configuration. The server checks the
+version it is running against and says so rather than letting the rig key
+something you never typed. Build Hamlib 4.6 or later, or use the server's own
+keyer.
+
+One consequence worth knowing: sending free text **overwrites the rig's keyer
+memory 1**, and the text is truncated at 50 characters.
+
+Five buttons call the rig's own memories directly, numbered 1 to 5, in the CW
+panel and in the desktop client's tab; on an FT-891 they are recorded in menus
+04-07 to 04-11 and hold up to 50 characters each. Those work on any Hamlib
+version.
 
 **The server generates the elements.** For those rigs, the server produces the
 dots and dashes itself and keys a serial line wired to the KEY jack. See *CW
@@ -409,6 +422,16 @@ in the log. It has its own **CAT** tab in the desktop client, with a short guide
 command syntax and its own log, and sits in the drawer on the phone.
 
 
+**Macros.** Commands you use often can be kept: give each one a name and the
+sequence it sends. Add them with **Add a macro**, edit either field in place,
+remove one with its cross. They are saved as you type, in the client's own
+settings, and shared by the desktop and touch clients on the same machine.
+
+Semicolons are handled: Qt quotes the values when it writes them, so `FT1;`
+survives a round trip through the settings file even though a semicolon starts
+a comment in that format.
+
+
 ### Operator commands come first
 
 The polling cycle makes up to six round trips to the rig — frequency, mode, VFO,
@@ -425,6 +448,20 @@ A safety net bounds the effect. If a token were ever left in the air — a comma
 emitted but never delivered — the display would freeze; after five skipped
 cycles the count is cleared and everything is read again. The idea comes from
 OmniRig, whose queue inserts operator writes ahead of the status commands.
+
+### The rig's answer, never the request
+
+A rig does not always take what it is given. Below 10 MHz, automatic sideband
+selection turns a request for USB into LSB; a frequency is rounded to the VFO
+step; a mode may fall back to a neighbouring one. Every frequency, mode and VFO
+change is therefore read back, and **what the server publishes is what the rig
+reports**, not what was asked for. The log says both when they differ.
+
+Both clients follow that. The desktop list used to stop updating once the
+operator had touched it, and the touch client's list broke its own binding on
+selection — in either case the screen stayed on the request while the rig was
+elsewhere. `test/mode_probe.py` checks this against Hamlib's dummy rig, which
+ignores mode changes: every request must come back as the rig's own mode.
 
 ## Bands and antenna tuner
 
@@ -581,6 +618,15 @@ Two executables land in `build/`:
 
 ### Debian package
 
+The package is built against whichever Hamlib the compiler finds, and
+`make_deb.sh` reports both the headers it used and the library that will
+actually be loaded — the two can differ, since both versions carry the same
+library name and the directory order decides. The dependency comes out as the
+distribution's package either way, so the `.deb` installs anywhere; a machine
+that only has Hamlib 4.5.5 will load that one, and free-text CW will not work
+there. Run `build_hamlib.sh` on that machine too if it needs it.
+
+
 The script installs the missing dependencies first, then builds and packages:
 
 ```bash
@@ -624,6 +670,30 @@ sizes, man pages, and refreshes the desktop caches on install. `lintian` reports
 nothing.
 
 ### 3. Installing
+
+### Hamlib 4.6 or later, on both systems
+
+Ubuntu 24.04 and Debian 12 ship Hamlib 4.5.5, whose Yaesu driver sends only the
+first character of a CW message, read as a memory number: free text keys one of
+the rig's stored memories instead of being sent. Hamlib 4.6 fixed it. The same
+station therefore behaves differently on Windows, which ships a recent Hamlib,
+and on Linux with the distribution's own.
+
+`build_hamlib.sh` builds the same version on both:
+
+```bash
+./build_hamlib.sh            # 4.7.2 into /usr/local
+./build_hamlib.sh --check    # report the versions in place
+rm -rf build && ./install.sh # rebuild RemoteRig against it
+```
+
+It installs into `/usr/local` and leaves the distribution package alone. Both
+carry the same library name, so the one in `/usr/local` wins only while it comes
+first in the linker's path — check with
+`ldd $(command -v remoterig-server) | grep hamlib`. The server reads the version
+it is actually running against and says so in its log when it is older than 4.6,
+rather than letting the rig key something that was never typed.
+
 
 Both `install.sh` and `make_deb.sh` install the missing dependencies before
 building, from the same list — `packaging/build-deps.sh` — so the two cannot
@@ -1222,6 +1292,19 @@ version, the Debian changelog and the manuals cannot drift apart:
 **patch** for a bug fix with nothing new, **minor** for a new feature that
 breaks nothing for existing users, **major** for anything an existing setup
 would have to be changed for.
+
+The Android manifest carries no version of its own: `android/AndroidManifest.xml.in`
+is a template, and the manifest is generated at build time into the build
+directory with the project's version and a version code derived from it
+(1.1.2 gives 10102). Nothing to edit by hand, and nothing written into the
+source tree.
+
+The Windows installer takes the same version: `build_all.bat` reads it from
+`CMakeLists.txt` and passes it to Inno Setup with `/DAppVersion=`, so the setup
+file comes out as `RemoteRig-1.1.3-setup.exe` and shows the right version in
+Add/Remove Programs. Compiling `installer/RemoteRig.iss` by hand without that
+switch falls back to 0.0.0 on purpose, to make the mistake obvious.
+
 
 ## Building the APK on Ubuntu 24.04
 

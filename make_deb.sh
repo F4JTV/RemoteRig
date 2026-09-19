@@ -89,6 +89,47 @@ say "Size          $(du -h "$DEB" | cut -f1)"
 say "Dependencies:"
 dpkg-deb -f "$DEB" Depends | tr ',' '\n' | sed 's/^ */    /'
 
+# ------------------------------------------------------------------- hamlib
+# Deux choses distinctes, et les confondre trompe.
+#
+# Les en-tetes decident de ce contre quoi on a compile. Le chemin que rend ldd
+# decide de ce qui sera reellement charge sur cette machine : les deux versions
+# portent le meme nom de bibliotheque, donc c'est l'ordre des repertoires qui
+# tranche, pas l'edition de liens.
+#
+# Consequence pour le paquet : dpkg-shlibdeps rend la dependance du paquet de la
+# distribution dans les deux cas, si bien que le paquet s'installe partout. Sur
+# une machine restee en 4.5.5, c'est cette version qui sera chargee, et le CW en
+# texte libre n'y fonctionnera pas.
+step "Hamlib"
+HAMLIB_HEADERS="$(sed -n 's/^HAMLIB_INCLUDE_DIR:PATH=//p' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null)"
+HAMLIB_VER="$(pkg-config --modversion hamlib 2>/dev/null || echo unknown)"
+HAMLIB_SO="$(ldd "$BUILD_DIR/remoterig-server" 2>/dev/null \
+             | awk '/libhamlib/ {print $3; exit}')"
+
+[ -n "$HAMLIB_HEADERS" ] && say "Headers:  $HAMLIB_HEADERS  (pkg-config reports $HAMLIB_VER)"
+[ -n "$HAMLIB_SO" ]      && say "Loaded here: $HAMLIB_SO"
+
+case "$HAMLIB_SO" in
+    /usr/lib/*|/lib/*)
+        say "That is the distribution's own."
+        ;;
+    "")
+        ;;
+    *)
+        say ""
+        say "That is not the distribution's library. The package still depends on the"
+        say "distribution package, because both carry the same library name, so it"
+        say "installs anywhere — but a machine that only has the distribution's Hamlib"
+        say "will load that one instead."
+        say ""
+        say "Free CW text needs 4.6 or later. If the target machine needs it, run"
+        say "build_hamlib.sh there too. The server reports the version it is running"
+        say "against in its log."
+        ;;
+esac
+
+
 if [ "$DO_CHECK" -eq 1 ]; then
     step "lintian"
     if ! command -v lintian >/dev/null 2>&1; then

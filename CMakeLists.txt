@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(RemoteRig VERSION 1.0.0 LANGUAGES CXX)
+project(RemoteRig VERSION 1.1.3 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -249,8 +249,21 @@ if(WITH_QML_CLIENT)
     if(ANDROID)
         qt_add_executable(remoterig-client ${RR_QML_SOURCES})
         set(RR_QML_TARGET remoterig-client)
+        # Le manifeste portait sa version en dur, et rien ne la remplacait :
+        # l'APK restait en 1.0.0 quoi qu'on fasse. Il est desormais engendre a
+        # partir d'un modele, dans une copie du dossier Android placee sous le
+        # repertoire de compilation — on ne fabrique rien dans les sources.
+        math(EXPR RR_ANDROID_VERSION_CODE
+             "${PROJECT_VERSION_MAJOR} * 10000 + ${PROJECT_VERSION_MINOR} * 100 + ${PROJECT_VERSION_PATCH}")
+        set(RR_ANDROID_PACKAGE_DIR ${CMAKE_BINARY_DIR}/android-package)
+        file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/android/
+             DESTINATION ${RR_ANDROID_PACKAGE_DIR}
+             PATTERN "AndroidManifest.xml.in" EXCLUDE)
+        configure_file(${CMAKE_CURRENT_SOURCE_DIR}/android/AndroidManifest.xml.in
+                       ${RR_ANDROID_PACKAGE_DIR}/AndroidManifest.xml @ONLY)
+
         set_property(TARGET remoterig-client PROPERTY
-            QT_ANDROID_PACKAGE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/android)
+            QT_ANDROID_PACKAGE_SOURCE_DIR ${RR_ANDROID_PACKAGE_DIR})
         # Le plugin Gradle d'Android 9 tire androidx.core 1.17, qui exige de
         # compiler contre l'API 36 ou plus recente. Il faut donc que
         # "platforms;android-36" soit installe dans le SDK.
@@ -264,12 +277,8 @@ if(WITH_QML_CLIENT)
             QT_ANDROID_PACKAGE_NAME "org.remoterig.client")
         set_property(TARGET remoterig-client PROPERTY
             QT_ANDROID_VERSION_NAME "${PROJECT_VERSION}")
-        # Android exige un entier croissant. On le derive de la version pour
-        # n'avoir qu'un seul endroit a mettre a jour : 1.0.0 donne 10000,
-        # 1.2.3 donne 10203. Un versionCode fige a 1 interdirait toute mise a
-        # jour ulterieure.
-        math(EXPR RR_ANDROID_VERSION_CODE
-             "${PROJECT_VERSION_MAJOR} * 10000 + ${PROJECT_VERSION_MINOR} * 100 + ${PROJECT_VERSION_PATCH}")
+        # Android exige un entier croissant, derive de la version plus haut :
+        # 1.0.0 donne 10000, 1.2.3 donne 10203.
         set_property(TARGET remoterig-client PROPERTY
             QT_ANDROID_VERSION_CODE ${RR_ANDROID_VERSION_CODE})
         message(STATUS "Android version ${PROJECT_VERSION} (code ${RR_ANDROID_VERSION_CODE})")

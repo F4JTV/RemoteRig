@@ -92,6 +92,10 @@ step "Checking prerequisites"
 
 [ -f "$SRC_DIR/CMakeLists.txt" ] || die "Run this from the project directory."
 say "Version       $VERSION"
+# Le code de version est derive de la version, comme dans le CMakeLists : c'est
+# lui que le Play Store compare d'une livraison a l'autre.
+VERSION_CODE="$(echo "$VERSION" | awk -F. '{printf "%d", $1 * 10000 + $2 * 100 + $3}')"
+say "Version code  $VERSION_CODE"
 
 command -v cmake >/dev/null 2>&1 || die "cmake not found: sudo apt install cmake"
 command -v java  >/dev/null 2>&1 || die "No JDK: sudo apt install openjdk-21-jdk"

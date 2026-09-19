@@ -19,6 +19,10 @@ python3 test/deadman_probe.py     # client that vanishes silently while transmit
 ```
 
 ```bash
+python3 test/mode_probe.py        # the rig's answer wins over the request
+```
+
+```bash
 python3 test/command_probe.py     # a burst of commands, and state still flowing
 ```
 

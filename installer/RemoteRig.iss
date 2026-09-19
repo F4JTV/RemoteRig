@@ -10,7 +10,12 @@
 ; ============================================================================
 
 #define AppName        "RemoteRig"
-#define AppVersion     "1.0.0"
+; La version est passee par build_all.bat (/DAppVersion=x.y.z), qui la lit dans
+; CMakeLists.txt. La valeur ci-dessous ne sert que si l'on compile ce fichier a
+; la main, et elle sera alors fausse : mieux vaut passer par build_all.bat.
+#ifndef AppVersion
+  #define AppVersion   "0.0.0"
+#endif
 #define AppPublisher   "RemoteRig Project"
 #define AppURL         "https://github.com/"
 #define ServerExe      "remoterig-server.exe"

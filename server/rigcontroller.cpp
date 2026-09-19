@@ -2,6 +2,7 @@
 
 #include <QCoreApplication>
 #include <QMutexLocker>
+#include <QRegularExpression>
 #include <QSerialPort>
 #include <QSerialPortInfo>
 #include <QTimer>
@@ -24,6 +25,43 @@ static rmode_t modeFromName(const QString &s)
 // Hamlib renvoie desormais toute sa pile de deboguage dans rigerror : illisible
 // dans un journal. On traduit le code en une phrase, et on ne retombe sur le
 // texte d'origine que pour les cas non prevus.
+// Version de Hamlib effectivement chargee, sous la forme 40702 pour 4.7.2.
+// Elle est lue a l'execution : la bibliotheque du systeme n'est pas forcement
+// celle contre laquelle on a compile.
+// Version de Hamlib sous sa forme courte, « 4.7.2 ». rig_version() rend une
+// ligne complete, date et empreinte de commit comprises : illisible dans un
+// message destine a l'operateur.
+static QString hamlibVersionText()
+{
+    static const QString t = [] {
+        const QString raw = QString::fromLatin1(rig_version() ? rig_version() : "");
+        const QRegularExpression re(QStringLiteral("(\\d+\\.\\d+(?:\\.\\d+)?)"));
+        const auto m = re.match(raw);
+        return m.hasMatch() ? m.captured(1) : raw;
+    }();
+    return t;
+}
+
+static int hamlibVersionNumber()
+{
+    static const int v = [] {
+        // rig_version() plutot que la variable hamlib_version.
+        //
+        // Importer une variable d'une DLL exige dllimport sous Windows ; sans
+        // lui, l'editeur de liens cherche un symbole nu que la bibliotheque
+        // n'expose pas, et la compilation echoue sur « symbole externe non
+        // resolu ». Les fonctions n'ont pas ce probleme. Les deux versions de
+        // Hamlib qui nous interessent la declarent.
+        const QString s = hamlibVersionText();
+        const QRegularExpression re(QStringLiteral("(\\d+)\\.(\\d+)(?:\\.(\\d+))?"));
+        const auto m = re.match(s);
+        if (!m.hasMatch()) return 0;
+        return m.captured(1).toInt() * 10000 + m.captured(2).toInt() * 100
+               + m.captured(3).toInt();
+    }();
+    return v;
+}
+
 static QString hamlibError(int code)
 {
     switch (-code) {
@@ -182,6 +220,18 @@ void RigController::sendMorse(const QString &text)
 #ifdef RR_HAVE_HAMLIB
     if (!m_rig || text.isEmpty()) return;
     const QByteArray latin = text.toLatin1();
+    // Avant Hamlib 4.6, le pilote Yaesu ne transmettait que le premier
+    // caractere du message, interprete comme un numero de memoire : tout texte
+    // libre y declenchait une memoire du poste au lieu d'etre manipule.
+    // Ubuntu 24.04 livre la 4.5.5, d'ou une station qui fonctionne sous Windows
+    // et pas sous Linux, a configuration identique.
+    if (text.size() > 1 && hamlibVersionNumber() && hamlibVersionNumber() < 40600) {
+        emit logMessage(tr("Free CW text needs Hamlib 4.6 or later; this system has %1. "
+                           "Use the rig's keyer memories, or the server's own keyer.")
+                            .arg(hamlibVersionText()));
+        return;
+    }
+
     const int r = rig_send_morse(RIGP(m_rig), RIG_VFO_CURR, latin.constData());
     if (r != RIG_OK) {
         emit logMessage(tr("Morse refused: %1").arg(hamlibError(r)));
@@ -216,19 +266,33 @@ void RigController::sendCatString(const QString &command)
     if (!m_rig || command.isEmpty()) return;
 
     QByteArray out = command.toLatin1();
-    unsigned char reply[256] = {0};
-    // Le terminateur des Yaesu, Icom et Kenwood est le point-virgule : on
+    // Le terminateur des Yaesu et des Kenwood est le point-virgule : on
     // l'ajoute si l'operateur l'a oublie, mais on ne touche a rien d'autre.
     if (!out.endsWith(';') && !out.endsWith('\r')) out.append(';');
 
+    // Le tampon reste sous 200 octets, et ce n'est pas un choix esthetique.
+    // rig_send_raw lit dans un tableau local de 200 octets, mais lui donne
+    // comme taille la longueur que NOUS annoncons : au-dela, il ecrase sa
+    // pile et le serveur meurt. On annonce donc moins que sa limite.
+    unsigned char reply[160] = {0};
+
+    // Terminateur transmis plutot que nul. Sans lui, Hamlib attend de lire
+    // exactement le nombre d'octets annonce, donc jusqu'a expiration du delai ;
+    // avec lui, il s'arrete a la fin de la reponse, et emprunte le chemin qui
+    // borne correctement son tampon.
+    unsigned char term = ';';
+    unsigned char *termPtr = out.endsWith(';') ? &term : nullptr;
+
     const int n = rig_send_raw(RIGP(m_rig),
                                reinterpret_cast<const unsigned char *>(out.constData()),
-                               out.size(), reply, sizeof(reply) - 1, nullptr);
+                               out.size(), reply, int(sizeof(reply)) - 1, termPtr);
     if (n < 0) {
         emit logMessage(tr("CAT command refused: %1").arg(hamlibError(n)));
         return;
     }
-    const QString answer = QString::fromLatin1(reinterpret_cast<char *>(reply), n).trimmed();
+    // Reponse bornee au tampon, quoi qu'en dise Hamlib.
+    const int len = qBound(0, n, int(sizeof(reply)) - 1);
+    const QString answer = QString::fromLatin1(reinterpret_cast<char *>(reply), len).trimmed();
     emit logMessage(answer.isEmpty() ? tr("CAT %1 sent, no answer").arg(QString(out))
                                      : tr("CAT %1 → %2").arg(QString(out), answer));
     emit catReply(answer);
@@ -599,14 +663,15 @@ void RigController::setFrequency(quint64 hz)
     // VFO, d'autres refusent en silence hors de leurs plages : sans relecture,
     // l'operateur croirait la commande passee.
     freq_t got = 0;
-    if (rig_get_freq(RIGP(m_rig), RIG_VFO_CURR, &got) == RIG_OK) {
-        const qint64 delta = qAbs(qint64(got) - qint64(hz));
-        if (delta > 10)
-            emit logMessage(tr("Frequency set to %1 Hz, rig reports %2")
-                                .arg(hz).arg(quint64(got)));
+    const bool readBack = rig_get_freq(RIGP(m_rig), RIG_VFO_CURR, &got) == RIG_OK;
+    if (readBack && qAbs(qint64(got) - qint64(hz)) > 10)
+        emit logMessage(tr("Frequency set to %1 Hz, rig reports %2")
+                            .arg(hz).arg(quint64(got)));
+    {
+        QMutexLocker lock(&m_mutex);
+        const quint64 shown = readBack ? quint64(got) : hz;
+        if (m_state.vfo == "B") m_state.freqB = shown; else m_state.freqA = shown;
     }
-    { QMutexLocker lock(&m_mutex);
-      if (m_state.vfo == "B") m_state.freqB = hz; else m_state.freqA = hz; }
     emitState();
 #else
     Q_UNUSED(hz)
@@ -625,12 +690,21 @@ void RigController::setMode(const QString &mode, int passband)
                                passband > 0 ? pbwidth_t(passband) : RIG_PASSBAND_NORMAL);
     if (r != RIG_OK) { emit logMessage(tr("Mode refused: %1").arg(hamlibError(r))); return; }
 
+    // On publie ce que le poste repond, jamais ce qu'on lui a demande.
+    //
+    // Un poste peut imposer autre chose : sous 10 MHz, le choix automatique de
+    // bande latérale d'un transceiver rend LSB meme si l'on a demande USB.
+    // Afficher la demande donnerait un client sur de lui et faux.
     rmode_t gotMode = RIG_MODE_NONE;
     pbwidth_t gotWidth = 0;
-    if (rig_get_mode(RIGP(m_rig), RIG_VFO_CURR, &gotMode, &gotWidth) == RIG_OK
-        && gotMode != m)
+    const bool readBack = rig_get_mode(RIGP(m_rig), RIG_VFO_CURR, &gotMode, &gotWidth) == RIG_OK;
+    if (readBack && gotMode != m)
         emit logMessage(tr("Mode set to %1, rig reports %2").arg(mode, modeName(gotMode)));
-    { QMutexLocker lock(&m_mutex); m_state.mode = mode; m_state.passband = passband; }
+    {
+        QMutexLocker lock(&m_mutex);
+        m_state.mode     = readBack ? modeName(gotMode) : mode;
+        m_state.passband = readBack ? int(gotWidth) : passband;
+    }
     emitState();
 #else
     Q_UNUSED(mode) Q_UNUSED(passband)
@@ -645,14 +719,6 @@ void RigController::setVfo(const QString &vfo)
     if (!m_rig) return;
     const vfo_t v = (vfo == "B") ? RIG_VFO_B : RIG_VFO_A;
     const int r = rig_set_vfo(RIGP(m_rig), v);
-    if (r == RIG_OK) {
-        vfo_t got = RIG_VFO_NONE;
-        if (rig_get_vfo(RIGP(m_rig), &got) == RIG_OK) {
-            const QString name = (got == RIG_VFO_B) ? QStringLiteral("B") : QStringLiteral("A");
-            if (name != vfo)
-                emit logMessage(tr("VFO set to %1, rig reports %2").arg(vfo, name));
-        }
-    }
     if (r != RIG_OK) {
         emit logMessage(tr("VFO refused: %1").arg(hamlibError(r)));
         // -11 signifie que le poste ne sait pas changer de VFO par le CAT : on
@@ -667,7 +733,14 @@ void RigController::setVfo(const QString &vfo)
         }
         return;
     }
-    { QMutexLocker lock(&m_mutex); m_state.vfo = (vfo == "B") ? "B" : "A"; }
+    vfo_t gotVfo = RIG_VFO_NONE;
+    const bool readBack = rig_get_vfo(RIGP(m_rig), &gotVfo) == RIG_OK;
+    {
+        QMutexLocker lock(&m_mutex);
+        m_state.vfo = readBack ? ((gotVfo == RIG_VFO_B) ? QStringLiteral("B")
+                                                        : QStringLiteral("A"))
+                               : ((vfo == "B") ? QStringLiteral("B") : QStringLiteral("A"));
+    }
     emitState();
 #else
     Q_UNUSED(vfo)

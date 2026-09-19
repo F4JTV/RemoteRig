@@ -104,6 +104,13 @@ if "%HAVE_HAMLIB%"=="1" (
     )
 )
 
+rem Version de l'application, lue dans CMakeLists.txt : le script Inno Setup
+rem portait la sienne en dur, et l'installateur restait en 1.0.0 quoi qu'on
+rem fasse. Cette ligne reste au niveau superieur : la chaine cherchee contient
+rem une parenthese, qui casserait un bloc parenthese, comme plus bas pour ISCC.
+set "APPVER="
+for /f "tokens=3 delims= " %%V in ('findstr /b /c:"project(RemoteRig VERSION" CMakeLists.txt') do set "APPVER=%%V"
+
 rem Inno Setup, looked up in the usual places then in PATH.
 rem Careful: the ProgramFiles x86 variable carries parentheses, which break
 rem a parenthesised block. These lines stay at top level on purpose.
@@ -115,6 +122,8 @@ if not defined ISCC if exist "%ProgramFiles%\Inno Setup 6\ISCC.exe" set "ISCC=%P
 if not defined ISCC if exist "%PF86%\Inno Setup 7\ISCC.exe" set "ISCC=%PF86%\Inno Setup 7\ISCC.exe"
 if not defined ISCC if exist "%ProgramFiles%\Inno Setup 7\ISCC.exe" set "ISCC=%ProgramFiles%\Inno Setup 7\ISCC.exe"
 if not defined ISCC for /f "delims=" %%P in ('where ISCC 2^>nul') do if not defined ISCC set "ISCC=%%P"
+
+if defined APPVER echo [ok] Version     !APPVER!
 
 if "%DO_INSTALLER%"=="1" (
     if defined ISCC (
@@ -214,7 +223,13 @@ rem -------------------------------------------------------------- installer
 if "%DO_INSTALLER%"=="1" (
     echo.
     echo === Building the installer ===
-    "%ISCC%" /Q "installer\RemoteRig.iss"
+    if not defined APPVER (
+        echo [--] Version not found in CMakeLists.txt, the installer keeps its default.
+        "%ISCC%" /Q "installer\RemoteRig.iss"
+    ) else (
+        echo [ok] Installer version !APPVER!
+        "%ISCC%" /Q "/DAppVersion=!APPVER!" "installer\RemoteRig.iss"
+    )
     if errorlevel 1 (
         echo [X] Inno Setup failed.
         goto fail
