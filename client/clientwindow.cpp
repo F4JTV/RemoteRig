@@ -16,10 +16,12 @@
 #include <utility>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QFrame>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSettings>
 #include <QSignalBlocker>
 #include <QSpinBox>
@@ -67,6 +69,15 @@ ClientWindow::ClientWindow(QWidget *parent) : QMainWindow(parent)
     connect(m_core, &ClientCore::statsUpdated,      this, &ClientWindow::onStats);
     connect(m_core, &ClientCore::retryCountdown,    this, &ClientWindow::onRetryCountdown);
     connect(m_core, &ClientCore::logMessage,        this, &ClientWindow::appendLog);
+    // Reponse a une commande CAT brute. Elle s'ecrit dans le journal de
+    // l'onglet CAT, ou les echanges se lisent ensemble, et dans le journal
+    // general, que l'operateur garde sous les yeux.
+    connect(m_core, &ClientCore::catReply, this, [this](const QString &answer) {
+        const QString line = answer.isEmpty() ? tr("CAT: no answer")
+                                              : tr("CAT: %1").arg(answer);
+        if (m_catLog) m_catLog->appendPlainText(answer.isEmpty() ? tr("(no answer)") : answer);
+        appendLog(line);
+    });
     connect(m_core, &ClientCore::receiveOnly,       this, &ClientWindow::onReceiveOnly);
 
     // Les applications numériques locales pilotent la station distante.
@@ -573,6 +584,14 @@ void ClientWindow::sendMorseText(const QString &text)
 // c'est un outil de mise au point, a tenir a l'ecart des commandes de trafic.
 QWidget *ClientWindow::buildCatPage()
 {
+    // Zone deroulante. Chaque macro ajoutee agrandissait la page, donc
+    // l'onglet, donc la fenetre, qui finissait par depasser l'ecran en hauteur
+    // sans qu'on puisse la reduire. Le contenu defile desormais a l'interieur.
+    auto *scroll = new QScrollArea;
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
     auto *page = new QWidget;
     auto *v = new QVBoxLayout(page);
 
@@ -601,6 +620,29 @@ QWidget *ClientWindow::buildCatPage()
     how->setWordWrap(true);
     how->setTextFormat(Qt::RichText);
     v->addWidget(how);
+
+    // ---- macros enregistrees
+    auto *macroTitle = new QLabel(tr("<b>Macros.</b> Give each one a name and the "
+                                     "command it sends. They are saved as you type."));
+    macroTitle->setTextFormat(Qt::RichText);
+    macroTitle->setWordWrap(true);
+    v->addWidget(macroTitle);
+
+    m_catMacroBox = new QVBoxLayout;
+    m_catMacroBox->setContentsMargins(0, 0, 0, 0);
+    v->addLayout(m_catMacroBox);
+
+    auto *addBtn = new QPushButton(tr("Add a macro"));
+    connect(addBtn, &QPushButton::clicked, this, [this] { addCatMacroRow(); });
+    auto *addRow = new QHBoxLayout;
+    addRow->addWidget(addBtn);
+    addRow->addStretch();
+    v->addLayout(addRow);
+
+    auto *sep = new QFrame;
+    sep->setFrameShape(QFrame::HLine);
+    sep->setFrameShadow(QFrame::Sunken);
+    v->addWidget(sep);
 
     auto *row = new QHBoxLayout;
     m_catText = new QLineEdit;
@@ -636,7 +678,80 @@ QWidget *ClientWindow::buildCatPage()
     bottom->addWidget(clear);
     v->addLayout(bottom);
 
-    return page;
+    scroll->setWidget(page);
+    return scroll;
+}
+
+// Une ligne de macro : nom, commande, envoi, suppression.
+//
+// Les champs enregistrent a la frappe plutot qu'a la validation : sur un
+// formulaire sans bouton « appliquer », l'operateur ferme la fenetre sans
+// penser a valider, et perdrait son travail.
+void ClientWindow::addCatMacroRow(const QString &label, const QString &command)
+{
+    CatMacro m;
+    m.row = new QWidget;
+    auto *h = new QHBoxLayout(m.row);
+    h->setContentsMargins(0, 0, 0, 0);
+
+    m.label = new QLineEdit(label);
+    m.label->setPlaceholderText(tr("name"));
+    m.label->setMaximumWidth(160);
+    m.command = new QLineEdit(command);
+    m.command->setPlaceholderText(tr("for example FA014074000;"));
+
+    auto *send = new QPushButton(tr("Send"));
+    auto *del  = new QPushButton(QStringLiteral("\u2715"));
+    del->setMaximumWidth(32);
+    del->setToolTip(tr("Delete this macro"));
+
+    h->addWidget(m.label);
+    h->addWidget(m.command, 1);
+    h->addWidget(send);
+    h->addWidget(del);
+
+    QLineEdit *cmdField = m.command;
+    connect(send, &QPushButton::clicked, this, [this, cmdField] {
+        const QString cmd = cmdField->text().trimmed();
+        if (cmd.isEmpty() || !m_connected) return;
+        m_catLog->appendPlainText(QStringLiteral("> %1").arg(cmd));
+        QMetaObject::invokeMethod(m_core, "sendCatString", Qt::QueuedConnection,
+                                  Q_ARG(QString, cmd));
+    });
+    connect(m.label,   &QLineEdit::textChanged, this, [this] { saveCatMacros(); });
+    connect(m.command, &QLineEdit::textChanged, this, [this] { saveCatMacros(); });
+
+    QWidget *rowWidget = m.row;
+    connect(del, &QPushButton::clicked, this, [this, rowWidget] {
+        for (int i = 0; i < m_catMacros.size(); ++i) {
+            if (m_catMacros.at(i).row != rowWidget) continue;
+            // Le bouton d'envoi part avec la ligne : le laisser dans la liste
+            // des commandes CAT y laisserait un pointeur mort.
+            m_catWidgets.removeAll(m_catMacros.at(i).send);
+            m_catMacros.removeAt(i);
+            break;
+        }
+        m_catMacroBox->removeWidget(rowWidget);
+        rowWidget->deleteLater();
+        saveCatMacros();
+    });
+
+    m.send = send;
+    m_catMacroBox->addWidget(m.row);
+    m_catMacros.append(m);
+    m_catWidgets << send;
+}
+
+void ClientWindow::saveCatMacros()
+{
+    QStringList labels, commands;
+    for (const CatMacro &m : m_catMacros) {
+        labels   << m.label->text();
+        commands << m.command->text();
+    }
+    QSettings s("F4JTV", "RemoteRigClient");
+    s.setValue("catLabels", labels);
+    s.setValue("catCommands", commands);
 }
 
 QWidget *ClientWindow::buildDataPage()
@@ -889,8 +1004,15 @@ void ClientWindow::onStateChanged(const RigState &st)
         for (int i = s.size() - 3; i > 0; i -= 3) s.insert(i, '.');
         m_freqLabel->setText(s);
         m_modeLabel->setText(tr("%1 · VFO %2 · %3").arg(st.mode, st.vfo, st.rigName));
+        // On recale meme si la liste a le focus. Le garde precedent empechait
+        // toute correction apres un choix de l'operateur — or c'est justement
+        // le moment ou le poste peut imposer autre chose, la bande laterale
+        // automatique sous 10 MHz par exemple.
         const int i = m_mode->findText(st.mode);
-        if (i >= 0 && !m_mode->hasFocus()) m_mode->setCurrentIndex(i);
+        if (i >= 0 && i != m_mode->currentIndex()) {
+            QSignalBlocker block(m_mode);
+            m_mode->setCurrentIndex(i);
+        }
         const QString activeVfo = "font-weight:bold;color:#f0c674;";
         m_vfoA->setStyleSheet(st.vfo == "A" ? activeVfo : QString());
         m_vfoB->setStyleSheet(st.vfo == "B" ? activeVfo : QString());
@@ -1052,8 +1174,8 @@ void ClientWindow::onCapsChanged(const rr::RigCaps &caps)
 
 void ClientWindow::setCatEnabled(bool on)
 {
-    for (QWidget *w : std::as_const(m_catWidgets))
-        w->setEnabled(on);
+    for (const QPointer<QWidget> &w : std::as_const(m_catWidgets))
+        if (w) w->setEnabled(on);
     m_sMeter->setEnabled(on);
     m_sLabel->setEnabled(on);
     m_freqLabel->setStyleSheet(on ? "color:#f0c674;padding:8px;"
@@ -1155,6 +1277,14 @@ void ClientWindow::loadSettings()
     }
     m_rigctldOn->setChecked(s.value("rigctldOn", false).toBool());
     updateRateLabel();
+    // Macros CAT enregistrees. Les deux listes vont de pair ; en cas de
+    // divergence on s'arrete a la plus courte.
+    const QStringList catLabels   = s.value("catLabels").toStringList();
+    const QStringList catCommands = s.value("catCommands").toStringList();
+    const int macroCount = qMin(catLabels.size(), catCommands.size());
+    for (int i = 0; i < macroCount; ++i)
+        addCatMacroRow(catLabels.at(i), catCommands.at(i));
+
 }
 
 void ClientWindow::saveSettings()

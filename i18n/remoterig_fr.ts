@@ -400,6 +400,18 @@ Redémarrer maintenant ?</translation>
         <source>Log</source>
         <translation>Journal</translation>
     </message>
+    <message>
+        <source>name</source>
+        <translation>nom</translation>
+    </message>
+    <message>
+        <source>for example FA014074000;</source>
+        <translation>par exemple FA014074000;</translation>
+    </message>
+    <message>
+        <source>Add a macro</source>
+        <translation>Ajouter une macro</translation>
+    </message>
 </context>
 <context>
     <name>RigController</name>
@@ -481,6 +493,14 @@ Redémarrer maintenant ?</translation>
     <message>
         <source>%1: %2 – %3 kHz</source>
         <translation>%1 : %2 – %3 kHz</translation>
+    </message>
+    <message>
+        <source>CAT: no answer</source>
+        <translation>CAT : pas de réponse</translation>
+    </message>
+    <message>
+        <source>CAT: %1</source>
+        <translation>CAT : %1</translation>
     </message>
 </context>
 <context>
@@ -1026,6 +1046,38 @@ For audio, pick the virtual cable in the Audio tab (VB-Audio Cable on Windows, a
 
 Pour l&apos;audio, choisissez le câble virtuel dans l&apos;onglet Audio (VB-Audio Cable sous Windows, un module null-sink PulseAudio ou PipeWire sous Linux), et pointez le logiciel de modes numériques sur l&apos;autre extrémité de ce même câble.</translation>
     </message>
+    <message>
+        <source>&lt;b&gt;Macros.&lt;/b&gt; Give each one a name and the command it sends. They are saved as you type.</source>
+        <translation>&lt;b&gt;Macros.&lt;/b&gt; Donnez à chacune un nom et la commande qu&apos;elle envoie. Elles sont enregistrées au fil de la frappe.</translation>
+    </message>
+    <message>
+        <source>Add a macro</source>
+        <translation>Ajouter une macro</translation>
+    </message>
+    <message>
+        <source>name</source>
+        <translation>nom</translation>
+    </message>
+    <message>
+        <source>for example FA014074000;</source>
+        <translation>par exemple FA014074000;</translation>
+    </message>
+    <message>
+        <source>Delete this macro</source>
+        <translation>Supprimer cette macro</translation>
+    </message>
+    <message>
+        <source>CAT: no answer</source>
+        <translation>CAT : pas de réponse</translation>
+    </message>
+    <message>
+        <source>CAT: %1</source>
+        <translation>CAT : %1</translation>
+    </message>
+    <message>
+        <source>(no answer)</source>
+        <translation>(pas de réponse)</translation>
+    </message>
 </context>
 <context>
     <name>rr::CwKeyer</name>
@@ -1189,8 +1241,8 @@ Pour l&apos;audio, choisissez le câble virtuel dans l&apos;onglet Audio (VB-Aud
         <translation>Mode réglé sur %1, le poste annonce %2</translation>
     </message>
     <message>
-        <source>VFO set to %1, rig reports %2</source>
-        <translation>VFO réglé sur %1, le poste annonce %2</translation>
+        <source>Free CW text needs Hamlib 4.6 or later; this system has %1. Use the rig&apos;s keyer memories, or the server&apos;s own keyer.</source>
+        <translation>Le texte CW libre demande Hamlib 4.6 ou plus récent ; ce système a %1. Utilisez les mémoires du manipulateur du poste, ou le manipulateur du serveur.</translation>
     </message>
 </context>
 <context>

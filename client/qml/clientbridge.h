@@ -41,6 +41,10 @@ class ClientBridge : public QObject, public VolumePttSink {
     Q_PROPERTY(int  wpm           READ wpm    WRITE setWpm    NOTIFY cwChanged)
     Q_PROPERTY(QString myCall     READ myCall WRITE setMyCall NOTIFY cwChanged)
     Q_PROPERTY(QStringList cwMacros READ cwMacros    NOTIFY cwChanged)
+    // Macros CAT : deux listes paralleles, le libelle et la sequence. Un
+    // libelle parce qu'une sequence brute ne se lit pas dans un bouton.
+    Q_PROPERTY(QStringList catLabels   READ catLabels   NOTIFY catMacrosChanged)
+    Q_PROPERTY(QStringList catCommands READ catCommands NOTIFY catMacrosChanged)
     Q_PROPERTY(QStringList bands  READ bandNames     NOTIFY capsChanged)
     Q_PROPERTY(QStringList modes  READ modeNames     NOTIFY capsChanged)
     Q_PROPERTY(QStringList filters READ filterNames  NOTIFY stateChanged)
@@ -190,6 +194,14 @@ public slots:
     Q_INVOKABLE void sendCw(const QString &text);
     Q_INVOKABLE void stopCw();
     Q_INVOKABLE void sendCat(const QString &command);
+
+    QStringList catLabels() const   { return m_catLabels; }
+    QStringList catCommands() const { return m_catCommands; }
+    Q_INVOKABLE void addCatMacro();
+    Q_INVOKABLE void setCatLabel(int index, const QString &text);
+    Q_INVOKABLE void setCatCommand(int index, const QString &text);
+    Q_INVOKABLE void removeCatMacro(int index);
+    Q_INVOKABLE void sendCatMacro(int index);
     Q_INVOKABLE void refreshDevices();
     QStringList bandNames() const;
     double bandFrequency(int index) const;
@@ -215,6 +227,7 @@ signals:
     void devicesChanged();
     void capsChanged();
     void cwChanged();
+    void catMacrosChanged();
     void retryChanged();
 
 private:
@@ -240,6 +253,8 @@ private:
     int  m_wpm = 20;
     QString m_myCall;
     QStringList m_cwMacros;
+    QStringList m_catLabels;
+    QStringList m_catCommands;
     int  m_retrySeconds = 0;
     int  m_retryAttempt = 0;
     bool m_pttOnVolumeKey = false;

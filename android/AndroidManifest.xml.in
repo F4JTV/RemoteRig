@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          package="org.remoterig.client"
+          android:versionCode="@RR_ANDROID_VERSION_CODE@"
+          android:versionName="@PROJECT_VERSION@"
+          android:installLocation="auto">
+
+    <!-- Capture du micro et liaison reseau avec la station. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
+    <!-- Sans service de premier plan, Android suspend l'application des que
+         l'ecran s'eteint et l'audio se coupe en pleine liaison. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- Garde le Wi-Fi actif : sans cela, l'economie d'energie provoque des
+         trous dans le flux audio. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
+
+    <uses-feature android:name="android.hardware.microphone" android:required="true"/>
+    <uses-feature android:name="android.hardware.audio.low_latency" android:required="false"/>
+    <uses-feature android:name="android.hardware.audio.pro" android:required="false"/>
+
+    <supports-screens android:largeScreens="true" android:normalScreens="true"
+                      android:anyDensity="true" android:smallScreens="true"/>
+
+    <application android:name="org.qtproject.qt.android.bindings.QtApplication"
+                 android:label="RemoteRig"
+                 android:icon="@drawable/icon"
+                 android:hardwareAccelerated="true"
+                 android:allowBackup="true">
+
+        <activity android:name="org.remoterig.client.RemoteRigActivity"
+                  android:label="RemoteRig"
+                  android:exported="true"
+                  android:launchMode="singleTop"
+                  android:screenOrientation="portrait"
+                  android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation|mcc|mnc|density"
+                  android:windowSoftInputMode="adjustResize">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+            <meta-data android:name="android.app.lib_name" android:value="-- %%INSERT_APP_LIB_NAME%% --"/>
+            <meta-data android:name="android.app.arguments" android:value="-- %%INSERT_APP_ARGUMENTS%% --"/>
+            <meta-data android:name="android.app.extract_android_style" android:value="minimal"/>
+
+            <!-- Ecran de demarrage, affiche jusqu'a la premiere image de Qt.
+                 « sticky » a false : il s'efface des que l'interface est prete. -->
+            <meta-data android:name="android.app.splash_screen_drawable"
+                       android:resource="@drawable/splash"/>
+            <meta-data android:name="android.app.splash_screen_sticky"
+                       android:value="false"/>
+        </activity>
+
+        <!-- Maintient l'audio quand l'ecran s'eteint, et tient les verrous
+             Wi-Fi et processeur. Declare comme service micro : Android 14
+             l'exige des qu'un service capte le son. -->
+        <service android:name="org.remoterig.client.RemoteRigService"
+                 android:exported="false"
+                 android:stopWithTask="true"
+                 android:foregroundServiceType="microphone"/>
+    </application>
+</manifest>

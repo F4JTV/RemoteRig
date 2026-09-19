@@ -564,7 +564,17 @@ ApplicationWindow {
                 // que le poste repond, et pas seulement au demarrage, ou rien
                 // n'est encore connu. Le poste reste la source de verite.
                 currentIndex: Math.max(0, Station.modes.indexOf(Station.modeText))
-                onActivated: Station.setMode(currentText)
+                // Un ComboBox s'attribue son index au moment du choix, ce qui
+                // detruit la liaison ci-dessus : la liste cessait alors de
+                // suivre le poste. On la retablit apres coup, pour que le mode
+                // reellement retenu — LSB impose sous 10 MHz, par exemple —
+                // revienne a l'ecran.
+                onActivated: {
+                    Station.setMode(textAt(currentIndex))
+                    currentIndex = Qt.binding(function() {
+                        return Math.max(0, Station.modes.indexOf(Station.modeText))
+                    })
+                }
             }
             // Filtre : les trois largeurs que Hamlib normalise pour le mode
             // courant. La ligne disparait si le poste n'en propose aucune.
@@ -576,7 +586,12 @@ ApplicationWindow {
                 model: Station.filters
                 currentIndex: Math.max(0, Station.filterIndex)
                 enabled: Station.connected && Station.hasCat
-                onActivated: Station.setFilter(currentIndex)
+                onActivated: {
+                    Station.setFilter(currentIndex)
+                    currentIndex = Qt.binding(function() {
+                        return Math.max(0, Station.filterIndex)
+                    })
+                }
             }
 
             Button {
@@ -1207,6 +1222,72 @@ ApplicationWindow {
                     color: win.dim
                     font.pixelSize: 11
                     wrapMode: Text.Wrap
+                }
+
+                // Macros enregistrees. Chacune tient sur deux lignes : le
+                // libelle et le bouton d'envoi au-dessus, la sequence en
+                // dessous — un ecran de telephone ne loge pas quatre champs
+                // cote a cote de facon lisible.
+                Repeater {
+                    model: Station.catLabels.length
+                    delegate: ColumnLayout {
+                        required property int index
+                        Layout.fillWidth: true
+                        // Espace franc entre le nom et sa commande, et davantage
+                        // encore entre deux macros : serrees, on ne voit plus
+                        // quelle commande appartient a quel nom.
+                        spacing: 8
+                        Layout.bottomMargin: 10
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 8
+                            TextField {
+                                Layout.fillWidth: true
+                                text: Station.catLabels[index]
+                                placeholderText: qsTr("name")
+                                onEditingFinished: Station.setCatLabel(index, text)
+                            }
+                            ReliefButton {
+                                Layout.preferredWidth: 84
+                                Layout.preferredHeight: 44
+                                text: qsTr("Send")
+                                active: Station.connected && Station.hasCat
+                                        && Station.catCommands[index].length > 0
+                                onClicked: Station.sendCatMacro(index)
+                            }
+                            // Croix dessinee, non ecrite. Le caractere U+2715
+                            // manque a bien des polices Android et s'y affiche
+                            // en carre vide.
+                            ReliefButton {
+                                id: killMacro
+                                Layout.preferredWidth: 44
+                                Layout.preferredHeight: 44
+                                baseColor: win.panel
+                                onClicked: Station.removeCatMacro(index)
+                                CloseGlyph {
+                                    anchors.centerIn: parent
+                                    width: 18
+                                    height: 18
+                                    glyphColor: win.dim
+                                }
+                            }
+                        }
+                        TextField {
+                            Layout.fillWidth: true
+                            text: Station.catCommands[index]
+                            placeholderText: qsTr("for example FA014074000;")
+                            inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText
+                            onEditingFinished: Station.setCatCommand(index, text)
+                        }
+                    }
+                }
+
+                ReliefButton {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 44
+                    text: qsTr("Add a macro")
+                    onClicked: Station.addCatMacro()
                 }
 
                 RowLayout {

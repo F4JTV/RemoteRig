@@ -60,6 +60,11 @@ ClientBridge::ClientBridge(QObject *parent) : QObject(parent)
             });
 
     connect(m_core, &ClientCore::logMessage, this, &ClientBridge::appendLog);
+    // Reponse a une commande CAT brute : sans cela elle ne se lisait que dans
+    // le journal du serveur, hors de portee de l'operateur.
+    connect(m_core, &ClientCore::catReply, this, [this](const QString &answer) {
+        appendLog(answer.isEmpty() ? tr("CAT: no answer") : tr("CAT: %1").arg(answer));
+    });
 
     connect(m_core, &ClientCore::retryCountdown, this, [this](int seconds, int attempt) {
         m_retrySeconds = seconds;
@@ -366,6 +371,50 @@ void ClientBridge::sendCat(const QString &command)
                               Q_ARG(QString, cmd));
 }
 
+// ------------------------------------------------------------- macros CAT
+// Une macro vide est ajoutee puis renseignee sur place : c'est plus direct
+// qu'une boite de dialogue, et cela evite un ecran de plus sur telephone.
+void ClientBridge::addCatMacro()
+{
+    m_catLabels.append(QString());
+    m_catCommands.append(QString());
+    emit catMacrosChanged();
+    saveSettings();
+}
+
+void ClientBridge::setCatLabel(int index, const QString &text)
+{
+    if (index < 0 || index >= m_catLabels.size()) return;
+    if (m_catLabels.at(index) == text) return;
+    m_catLabels[index] = text;
+    emit catMacrosChanged();
+    saveSettings();
+}
+
+void ClientBridge::setCatCommand(int index, const QString &text)
+{
+    if (index < 0 || index >= m_catCommands.size()) return;
+    if (m_catCommands.at(index) == text) return;
+    m_catCommands[index] = text;
+    emit catMacrosChanged();
+    saveSettings();
+}
+
+void ClientBridge::removeCatMacro(int index)
+{
+    if (index < 0 || index >= m_catLabels.size()) return;
+    m_catLabels.removeAt(index);
+    m_catCommands.removeAt(index);
+    emit catMacrosChanged();
+    saveSettings();
+}
+
+void ClientBridge::sendCatMacro(int index)
+{
+    if (index < 0 || index >= m_catCommands.size()) return;
+    sendCat(m_catCommands.at(index));
+}
+
 void ClientBridge::stopCw()
 {
     QMetaObject::invokeMethod(m_core, "stopMorse", Qt::QueuedConnection);
@@ -580,6 +629,13 @@ void ClientBridge::loadSettings()
                          QStringLiteral("TU 73 E E"),
                          QStringLiteral("AGN?"),
                          QStringLiteral("QRZ? DE %c")}).toStringList();
+    m_catLabels    = s.value("catLabels").toStringList();
+    m_catCommands  = s.value("catCommands").toStringList();
+    // Les deux listes vont de pair : si un reglage a ete edite a la main et
+    // qu'elles ont diverge, on les ramene a la plus courte plutot que de
+    // risquer un indice hors limites.
+    while (m_catLabels.size() > m_catCommands.size())   m_catLabels.removeLast();
+    while (m_catCommands.size() > m_catLabels.size())   m_catCommands.removeLast();
     m_cfg.inputDevice   = s.value("inputDevice",  AudioEngine::defaultInput()).toInt();
     m_cfg.outputDevice  = s.value("outputDevice", AudioEngine::defaultOutput()).toInt();
     m_pttOnVolumeKey    = s.value("pttOnVolumeKey", false).toBool();
@@ -607,6 +663,8 @@ void ClientBridge::saveSettings()
     s.setValue("wpm", m_wpm);
     s.setValue("myCall", m_myCall);
     s.setValue("cwMacros", m_cwMacros);
+    s.setValue("catLabels", m_catLabels);
+    s.setValue("catCommands", m_catCommands);
     s.setValue("inputDevice", m_cfg.inputDevice);
     s.setValue("outputDevice", m_cfg.outputDevice);
     s.setValue("pttOnVolumeKey", m_pttOnVolumeKey);

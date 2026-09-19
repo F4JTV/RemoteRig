@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QMainWindow>
+#include <QPointer>
 
 #include "levelmeter.h"
 #include <QThread>
@@ -9,6 +10,7 @@
 
 class QComboBox;
 class QLineEdit;
+class QVBoxLayout;
 class QSpinBox;
 class QDoubleSpinBox;
 class QCheckBox;
@@ -53,6 +55,9 @@ private:
     QWidget *buildDataPage();
     QWidget *buildCwPage();
     QWidget *buildCatPage();
+    void addCatMacroRow(const QString &label = QString(),
+                        const QString &command = QString());
+    void saveCatMacros();
     void setPtt(bool on);
     void setCatEnabled(bool on);
     void rebuildBands(const QList<rr::Band> &bands);
@@ -76,7 +81,10 @@ private:
     bool m_retrying = false;
     bool m_rxOnly = false;
     RigState m_state;
-    QList<QWidget *> m_catWidgets;   // désactivés quand la station n'a pas de CAT
+    // QPointer plutot que QWidget* : un bouton detruit avec sa macro
+    // laissait un pointeur mort dans la liste, et le premier changement
+    // d'etat de connexion le dereferençait.
+    QList<QPointer<QWidget>> m_catWidgets;
 
     // connexion
     QLineEdit *m_host = nullptr;
@@ -111,6 +119,11 @@ private:
     QLineEdit *m_cwText = nullptr;
     QLineEdit *m_catText = nullptr;
     QPlainTextEdit *m_catLog = nullptr;
+    // Macros CAT : une ligne par macro, ajoutee et retiree a la volee.
+    QVBoxLayout *m_catMacroBox = nullptr;
+    struct CatMacro { QLineEdit *label; QLineEdit *command; QWidget *row;
+                      QPushButton *send; };
+    QList<CatMacro> m_catMacros;
     QSpinBox  *m_wpm = nullptr;
     QList<QLineEdit *> m_cwMacros;
     QGridLayout *m_bandGrid = nullptr;
