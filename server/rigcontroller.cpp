@@ -171,8 +171,17 @@ static int modelCallback(const struct rig_caps *caps, rig_ptr_t data)
 static void applyHamlibDebugLevel()
 {
 #ifdef RR_HAVE_HAMLIB
+    // Trois niveaux, parce que le premier ne suffit pas a diagnostiquer :
+    //   1  ce que Hamlib juge notable ;
+    //   2  chaque commande ecrite et lue sur le port, ce qui permet de compter
+    //      les envois reels — le seul moyen de savoir qui repete ;
+    //   3  tout, y compris le cache interne.
     const QByteArray want = qgetenv("RR_HAMLIB_DEBUG");
-    rig_set_debug(want.isEmpty() || want == "0" ? RIG_DEBUG_NONE : RIG_DEBUG_VERBOSE);
+    rig_debug_level_e level = RIG_DEBUG_NONE;
+    if (want == "1")      level = RIG_DEBUG_VERBOSE;
+    else if (want == "2") level = RIG_DEBUG_TRACE;
+    else if (want == "3") level = RIG_DEBUG_CACHE;
+    rig_set_debug(level);
 #endif
 }
 

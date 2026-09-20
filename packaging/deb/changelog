@@ -1,3 +1,15 @@
+remoterig (1.1.7) stable; urgency=medium
+
+  * README: features summary, quick start, table of contents and badges
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sun, 20 Sep 2026 06:43:25 +0000
+
+remoterig (1.1.6) stable; urgency=medium
+
+  * Hamlib tracing gains a level that logs every serial exchange, needed to tell who repeats a Morse message
+
+ -- RemoteRig Project <noreply@remoterig.invalid>  Sat, 19 Sep 2026 18:10:14 +0000
+
 remoterig (1.1.5) stable; urgency=medium
 
   * CW retries switched off during a Morse send: the Yaesu driver replayed the message on each retry, four times two seconds apart on a slow serial link

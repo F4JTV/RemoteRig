@@ -4,6 +4,13 @@
   <img src="icons/remoterig-512.png" alt="RemoteRig" width="160">
 </p>
 
+<p align="center">
+  <img src="https://img.shields.io/badge/licence-MIT-blue.svg" alt="MIT licence">
+  <img src="https://img.shields.io/badge/C%2B%2B-17-00599C.svg" alt="C++17">
+  <img src="https://img.shields.io/badge/Qt-6-41CD52.svg" alt="Qt 6">
+  <img src="https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20Android-lightgrey.svg" alt="Systèmes">
+</p>
+
 Station radio déportée : un serveur tourne à côté du poste, un client tourne
 là où vous êtes. Audio bidirectionnel, PTT, et pilotage CAT complet quand le
 poste le permet.
@@ -32,6 +39,79 @@ d'utilisation, accessible par Aide → Manuel.*
 
 ---
 
+## Ce que fait le logiciel
+
+- **Audio bidirectionnel** à 48 kHz, Opus pour la phonie ou PCM 16 bits pour le
+  numérique, avec un tampon de gigue adaptatif et un aller-retour mesuré à
+  quelques millisecondes sur un réseau local.
+- **PTT** par commande CAT, RTS, DTR, la ligne GPIO3 d'une puce audio CM108, ou
+  une tonalité sur le canal audio droit.
+- **Pilotage CAT complet** par Hamlib : fréquence, bandes, modes, largeurs de
+  filtre, VFO, coupleur, S-mètre et ROS — ce que le poste annonce, jamais ce
+  qu'on lui a demandé.
+- **Télégraphie** par le manipulateur du poste, par ses mémoires, ou générée par
+  le serveur et manipulée sur une ligne série pour les postes qui refusent le
+  texte libre.
+- **Commandes CAT brutes** avec macros enregistrées, pour ce qu'aucun pilote ne
+  couvre.
+- **Modes numériques** par câble audio virtuel et interface rigctld locale : les
+  logiciels comme WSJT-X, fldigi ou JS8Call pilotent le poste déporté comme s'il
+  était sur le bureau.
+- **Trois clients d'un seul code** : un client bureau, un client tactile pour
+  Android, et un serveur sans interface pour Raspberry Pi.
+- **Sûreté** : garde-fou de bord de bande sur le spectre émis, chien de garde
+  qui coupe l'émission deux secondes après le silence d'un client,
+  authentification par défi-réponse et chiffrement facultatif.
+
+## Démarrage rapide
+
+```bash
+./build_hamlib.sh     # Hamlib 4.6 ou plus récent, si votre distribution en livre une plus ancienne
+./install.sh          # compile et installe le serveur et le client bureau
+remoterig-server      # sur la machine placée à côté du poste
+remoterig-client      # là où vous êtes
+```
+
+L'onglet Réseau du serveur affiche l'adresse à indiquer au client. Tout le reste
+se trouve dans le manuel d'utilisation, par Aide → Manuel.
+
+## Sommaire
+
+- [Ce que fait le logiciel](#ce-que-fait-le-logiciel)
+- [Démarrage rapide](#démarrage-rapide)
+- [Architecture](#architecture)
+- [Langue de l'interface](#langue-de-linterface)
+- [Débit d'échantillonnage](#débit-déchantillonnage)
+- [Budget de latence](#budget-de-latence)
+- [Choix du codec](#choix-du-codec)
+- [Mise en forme du micro](#mise-en-forme-du-micro)
+- [Faire tourner le serveur sans bureau](#faire-tourner-le-serveur-sans-bureau)
+- [Reconnexion automatique](#reconnexion-automatique)
+- [Envoi du CW](#envoi-du-cw)
+- [ROS](#ros)
+- [Garde-fou de bord de bande et vumètres](#garde-fou-de-bord-de-bande-et-vumètres)
+- [Modes et largeur de filtre](#modes-et-largeur-de-filtre)
+- [Formes de PTT](#formes-de-ptt)
+- [Bandes et coupleur d'antenne](#bandes-et-coupleur-dantenne)
+- [Manuel d'utilisation](#manuel-dutilisation)
+- [Surveillance du client](#surveillance-du-client)
+- [Sécurité](#sécurité)
+- [Postes sans CAT](#postes-sans-cat)
+- [Modes numériques](#modes-numériques)
+- [Raspberry Pi 4 et 5](#raspberry-pi-4-et-5)
+- [Ports à ouvrir](#ports-à-ouvrir)
+- [Réglages de niveau](#réglages-de-niveau)
+- [Organisation des sources](#organisation-des-sources)
+- [État du code](#état-du-code)
+- [Ce qui est en place](#ce-qui-est-en-place)
+- [L'interface tactile](#linterface-tactile)
+- [Rester en vie écran éteint](#rester-en-vie-écran-éteint)
+- [Thèmes](#thèmes)
+- [Périphérique audio, touche PTT et rigctld](#périphérique-audio-touche-ptt-et-rigctld)
+- [Numérotation des versions](#numérotation-des-versions)
+- [Ce qui manque encore](#ce-qui-manque-encore)
+- [Fabriquer l'APK sous Ubuntu 24.04](#fabriquer-lapk-sous-ubuntu-2404)
+- [Ce qui a été vérifié, et ce qui ne l'a pas été](#ce-qui-a-été-vérifié-et-ce-qui-ne-la-pas-été)
 ## Architecture
 
 ```
